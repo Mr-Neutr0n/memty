@@ -1,21 +1,32 @@
 {
-  "name": "openai-chatbot-server",
-  "version": "1.0.0",
-  "description": "Frontend gateway for the NexorAI application.",
+  "name": "nexorai",
+  "version": "2.0.0",
+  "private": true,
+  "description": "NexorAI multi-model AI workspace.",
   "main": "server.js",
   "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "frontend:dev": "nodemon server.js",
-    "frontend:start": "node server.js"
+    "frontend:dev": "next dev -p 3001",
+    "frontend:start": "node server.js",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@google/generative-ai": "^0.5.0",
-    "cors": "^2.8.5",
     "dotenv": "^16.6.1",
-    "express": "^4.18.2",
-    "http-proxy-middleware": "^3.0.5",
-    "nodemon": "^3.1.10"
+    "next": "^15.5.25",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.20.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "postcss": "^8.5.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
   },
   "type": "module"
 }

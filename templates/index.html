@@ -755,7 +755,7 @@
         <h2>AI Model Marketplace</h2>
         <p style="color:var(--muted); font-size:14px;">Select the intelligence that powers your workspace.</p>
         <div class="pro-note">
-            <strong>Gemini Flash, NVIDIA, and ChatGPT</strong> are available now. Pro unlocks Claude and Meta with more memory, tokens, and chat capacity.
+            <strong>Gemini Flash, NVIDIA, Claude Haiku, ChatGPT, Grok, Kimi, and Llama</strong> are available now. Configure each provider key in <code>.env</code> before using it.
             <button class="pro-upgrade" type="button" onclick="openProPlan()">Upgrade to Pro</button>
         </div>
         <div class="models-grid" id="modelsGrid"></div>
@@ -807,7 +807,7 @@ const MODELS = getAllModels();
 const MODEL_LOGOS = {
     'gemini-flash':  { src: '/static/assets/gemini.png',  invert: false, className: 'gemini-logo' },
     'grok-ai':       { src: '/static/assets/groak.webp',  invert: false, className: 'grok-logo' },
-    'claude-sonnet': { src: '/static/assets/claude.png',  invert: false },
+    'claude-haiku':   { src: '/static/assets/claude.png',  invert: false },
     'nemotron':      { src: '/static/assets/nvdia.jpg',   invert: false, className: 'nvidia-logo' },
     'chatgpt':       { src: '/static/assets/openai.jpg',   invert: false, className: 'openai-logo' },
     'kimi':          { src: '',                            invert: false },

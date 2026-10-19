@@ -10,6 +10,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 dotenv.config({ path: path.join(__dirname, '.env'), override: true });
 
 const userRouter = require('./routes/userRouter');
+const memoryRouter = require('./routes/memoryRouter');
 const globalErrorHandler = require('./controller/errorController');
 
 const app = express();
@@ -58,8 +59,15 @@ const connectDatabase = async () => {
         maxPoolSize: 10,
         bufferCommands: false
     });
+    const memoryDatabase = mongoose.connection.useDb(process.env.MEMORY_DATABASE || 'Memory', { useCache: true });
+    for (const collection of ['user_memories', 'user_conversations', 'model_usage']) {
+        try { await memoryDatabase.createCollection(collection); }
+        catch (error) {
+            if (error.code !== 48) throw error;
+        }
+    }
     databaseReady = true;
-    console.log(`MongoDB connected to ${databaseName} ✅`);
+    console.log(`MongoDB connected: accounts=${databaseName}, memory=${process.env.MEMORY_DATABASE || 'Memory'}`);
 };
 
 const requireDatabase = (req, res, next) => {
@@ -72,6 +80,7 @@ const requireDatabase = (req, res, next) => {
 
 //Router for the user authentication
 app.use('/users', requireDatabase, userRouter);
+app.use('/memory', requireDatabase, memoryRouter);
 
 app.get('/health', (req, res) => {
     res.status(databaseReady ? 200 : 503).json({

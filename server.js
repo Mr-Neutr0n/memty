@@ -1,119 +1,21 @@
-import express from 'express';
-import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { generateResponse, clearConversationHistory } from './gemini-service.js';
-import dotenv from 'dotenv';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+import 'dotenv/config';
 
-dotenv.config();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const app = express();
-app.set('trust proxy', 1);
-const port = process.env.PORT || 3001;
-
-app.disable('x-powered-by');
-app.use(cors({
-    origin: process.env.CORS_ORIGIN
-        ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-        : true
-}));
-app.use('/static', express.static(path.join(__dirname, 'static')));
-app.use((req, res, next) => {
-    if (req.path === '/' || req.path === '/login' || req.path === '/chatbot') {
-        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    }
-    next();
+const require = createRequire(import.meta.url);
+const nextCli = require.resolve('next/dist/bin/next');
+const port = process.env.PORT || '3001';
+const server = spawn(process.execPath, [nextCli, 'start', '-p', port], {
+  stdio: 'inherit',
+  env: process.env,
 });
 
-const proxyTarget = process.env.PROXY_TARGET || 'http://localhost:3002';
-const proxyError = (err, req, res) => {
-    console.error('Proxy error:', err);
-    if (res.headersSent) return;
-    const isConnRefused = err.code === 'ECONNREFUSED';
-    res.status(isConnRefused ? 503 : 500).json({
-        error: isConnRefused ? 'Authentication backend is offline.' : 'Proxy error',
-        message: err.message
-    });
-};
-
-app.use('/backend', createProxyMiddleware({
-    target: proxyTarget,
-    changeOrigin: true,
-    timeout: 5000,
-    proxyTimeout: 5000,
-    pathRewrite: requestPath => requestPath.replace(/^\/backend/, '') || '/',
-    onError: proxyError
-}));
-
-app.use('/users', createProxyMiddleware({
-    target: proxyTarget,
-    changeOrigin: true,
-    timeout: 5000,
-    proxyTimeout: 5000,
-    pathRewrite: requestPath => `/users${requestPath}`,
-    onError: proxyError
-}));
-
-app.use(express.json({ limit: '100kb' }));
-
-const getUserId = (req, res, next) => {
-    req.userId = 'guest';
-    next();
-};
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'templates', 'landing.html'));
+server.on('error', error => {
+  console.error('Unable to start the Next.js server:', error.message);
+  process.exitCode = 1;
 });
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'templates', 'login.html'));
-});
-app.get('/chatbot', (req, res) => {
-    res.sendFile(path.join(__dirname, 'templates', 'index.html'));
-});
+server.on('exit', code => { process.exitCode = code ?? 1; });
 
-app.post('/api/chat', getUserId, async (req, res) => {
-    try {
-        const { message, model } = req.body;
-        if (!message || typeof message !== 'string' || !message.trim()) {
-            return res.status(400).json({ error: 'Message is required' });
-        }
-        const selectedModel = model || 'gemini-flash';
-        if (!['gemini-flash', 'nemotron'].includes(selectedModel)) {
-            return res.status(400).json({ error: 'Selected model is not available.' });
-        }
-        const response = await generateResponse(req.userId, message.trim(), selectedModel);
-        res.json({ reply: response });
-    } catch (error) {
-        console.error('Chat API Error:', error);
-        res.status(502).json({ error: error.message || 'AI provider request failed' });
-    }
-});
-
-app.post('/api/clear-history', getUserId, (req, res) => {
-    try {
-        clearConversationHistory(req.userId);
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Clear history error:', error);
-        res.status(500).json({ error: 'Failed to clear history' });
-    }
-});
-
-app.get('/api/config', (req, res) => {
-    res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null });
-});
-
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
-    res.status(500).json({ error: 'Something went wrong!' });
-});
-
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-});
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => server.kill(signal));
+}

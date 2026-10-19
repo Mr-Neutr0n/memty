@@ -1,16 +1,29 @@
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../model/userModel');
 const catchAsync = require('./catchAsync');
+const { setSessionCookie, clearSessionCookie } = require('../utils/session');
 
 const googleClient = process.env.GOOGLE_CLIENT_ID
     ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
     : null;
 
 const sendAuthResponse = (res, user, status = 200) => {
+    setSessionCookie(res, user._id);
     res.status(status).json({
         status: 'success',
         data: { user: user.toSafeObject() }
     });
+};
+
+exports.me = catchAsync(async (req, res) => {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(401).json({ status: 'fail', message: 'Account not found.' });
+    res.json({ status: 'success', data: { user: user.toSafeObject() } });
+});
+
+exports.logout = (req, res) => {
+    clearSessionCookie(res);
+    res.status(204).end();
 };
 
 exports.signup = catchAsync(async (req, res) => {
