@@ -1,0 +1,3 @@
+# GitHub Linguist should count the Next.js app as TypeScript, including React TSX.
+*.ts linguist-language=TypeScript
+*.tsx linguist-language=TypeScript
