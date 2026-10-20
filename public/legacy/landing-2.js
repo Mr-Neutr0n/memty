@@ -72,10 +72,13 @@
             ctx.save();
             ctx.beginPath();
             ctx.ellipse(cx, cy, p.rx, p.rx * TILT, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(190,198,255,0.30)';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([1, 6]);
+            ctx.strokeStyle = 'rgba(190,198,255,0.62)';
+            ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 7;
+            ctx.shadowColor = 'rgba(130,145,255,0.35)';
+            ctx.setLineDash([4, 5]);
             ctx.stroke();
+            ctx.shadowBlur = 0;
             ctx.setLineDash([]);
             ctx.restore();
         });
@@ -87,7 +90,7 @@
             const sin = Math.sin(p.angle); // -1=back, +1=front
             const depth01 = (sin + 1) / 2;
             const scale = 0.68 + 0.44 * depth01;
-            const alpha = 0.50 + 0.50 * depth01;
+            const alpha = 0.78 + 0.22 * depth01;
             return { ...p, px, py, scale, alpha, sin };
         }).sort((a, b) => a.sin - b.sin); // back first
 
@@ -99,7 +102,7 @@
 
     /* ---------- Draw planet ---------- */
     function drawPlanet(p) {
-        const r  = Math.round(21 * p.scale);
+        const r  = Math.round(25 * p.scale);
         const ri = r - 2; // inner image radius
         const { px, py, alpha, border } = p;
         const img = IMGS[p.key];
@@ -111,8 +114,8 @@
         ctx.beginPath();
         ctx.arc(px, py, r + 2.5, 0, Math.PI * 2);
         ctx.strokeStyle = border;
-        ctx.lineWidth = 1.5 * p.scale;
-        ctx.shadowBlur = 10 * p.scale;
+        ctx.lineWidth = 2 * p.scale;
+        ctx.shadowBlur = 15 * p.scale;
         ctx.shadowColor = border;
         ctx.stroke();
         ctx.shadowBlur = 0;
@@ -141,7 +144,7 @@
         }
 
         /* Label */
-        const fs = Math.round(10.5 * p.scale);
+        const fs = Math.round(12 * p.scale);
         ctx.font = `600 ${fs}px Inter, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
@@ -152,7 +155,7 @@
         ctx.shadowBlur = 0;
 
         /* Badge */
-        const bfs = Math.round(8.5 * p.scale);
+        const bfs = Math.round(9.5 * p.scale);
         ctx.font = `500 ${bfs}px Inter, sans-serif`;
         ctx.fillStyle = p.avail ? '#10A37F' : 'rgba(160,160,160,0.8)';
         ctx.fillText(p.avail ? '● Available' : '◌ Coming Soon', px, py + r + 6 * p.scale + fs + 3 * p.scale);

@@ -137,21 +137,30 @@ window.selectModel = (m) => {
 /* ── History ── */
 let history = [];
 try { history = JSON.parse(localStorage.getItem('nexorHistory') || '[]'); } catch(e) {}
+let savedConversations = [];
+const activeConversationStorageKey = 'nexorActiveConversationId';
 
 function renderHistory() {
     const list = document.getElementById('historyList');
     list.innerHTML = '';
-    const recent = history.map((item, index) => ({ item, index })).slice(-20).reverse();
+    const byId = new Map();
+    for (const item of history) {
+        const key = item.conversationId || `legacy-${history.indexOf(item)}`;
+        if (!byId.has(key)) byId.set(key, item);
+    }
+    const localConversations = [...byId.values()].map(item => ({ conversationId: item.conversationId, title: item.title || item.user || '[Attachment]' }));
+    const conversations = savedConversations.length ? savedConversations : localConversations;
+    const recent = conversations.slice(0, 100);
     if (!recent.length) {
         list.innerHTML = '<div class="hist-item" style="cursor:default; padding:10px;">No chats yet</div>';
         return;
     }
-    recent.forEach(({ item, index }) => {
+    recent.forEach(item => {
         const el = document.createElement('div');
         el.className = 'hist-item';
         const title = document.createElement('span');
         title.className = 'hist-title';
-        title.textContent = (item.user || '[Attachment]').slice(0, 50);
+        title.textContent = (item.title || item.user || '[Attachment]').slice(0, 50);
         const deleteButton = document.createElement('button');
         deleteButton.className = 'hist-delete';
         deleteButton.type = 'button';
@@ -160,11 +169,12 @@ function renderHistory() {
         deleteButton.textContent = '×';
         deleteButton.onclick = event => {
             event.stopPropagation();
-            const conversationId = history[index]?.conversationId;
+            const conversationId = item.conversationId;
             if (conversationId) {
                 history = history.filter(entry => entry.conversationId !== conversationId);
                 fetch(`/backend/memory/conversation/${encodeURIComponent(conversationId)}`, { method: 'DELETE' }).catch(() => {});
-            } else history.splice(index, 1);
+                savedConversations = savedConversations.filter(entry => entry.conversationId !== conversationId);
+            }
             localStorage.setItem('nexorHistory', JSON.stringify(history));
             renderHistory();
         };
@@ -174,6 +184,22 @@ function renderHistory() {
     });
 }
 renderHistory();
+
+async function refreshSavedConversations() {
+    try {
+        const response = await fetch('/backend/memory/conversations', { cache: 'no-store' });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (Array.isArray(result?.data?.conversations)) {
+            savedConversations = result.data.conversations;
+            renderHistory();
+            if (savedConversations.some(item => item.conversationId === activeConversationId)) {
+                openHistoryItem(savedConversations.find(item => item.conversationId === activeConversationId));
+            }
+        }
+    } catch {}
+}
+void refreshSavedConversations();
 
 // Local-first data controls: history lives in this browser profile.
 const dataControls = document.createElement('div');
@@ -190,9 +216,11 @@ exportChatsButton.onclick = () => {
     URL.revokeObjectURL(url);
 };
 deleteChatsButton.onclick = () => {
-    if (!history.length || !window.confirm('Delete all NexorAI chats saved in this browser? This cannot be undone.')) return;
+    if (!history.length && !savedConversations.length || !window.confirm('Delete all saved NexorAI conversations? This cannot be undone.')) return;
     history = [];
+    savedConversations = [];
     localStorage.removeItem('nexorHistory');
+    fetch('/backend/memory/conversations', { method: 'DELETE' }).catch(() => {});
     renderHistory();
 };
 document.querySelector('.sidebar-footer')?.prepend(dataControls);
@@ -200,7 +228,8 @@ document.querySelector('.sidebar-footer')?.prepend(dataControls);
 /* ── Chat ── */
 const chatScroll = document.getElementById('chatScroll');
 let welcomeVisible = true;
-let activeConversationId = crypto.randomUUID();
+let activeConversationId = localStorage.getItem(activeConversationStorageKey) || crypto.randomUUID();
+localStorage.setItem(activeConversationStorageKey, activeConversationId);
 
 function renderWelcomePrompts() {
     const welcome = document.getElementById('welcomeScreen');
@@ -232,19 +261,33 @@ renderWelcomePrompts();
 
 function openHistoryItem(item) {
     activeConversationId = item.conversationId || crypto.randomUUID();
+    localStorage.setItem(activeConversationStorageKey, activeConversationId);
     chatScroll.innerHTML = '';
-    welcomeVisible = false;
-    appendMessage('user', mdToHtml(item.user || '[File attached]'));
-    appendMessage('bot', mdToHtml(item.bot || ''), { model: item.model || currentModel.id, memoryUsed: item.memoryUsed || [] });
+    welcomeVisible = true;
     const requestedConversation = activeConversationId;
     fetch(`/backend/memory/conversation/${encodeURIComponent(requestedConversation)}`, { cache: 'no-store' }).then(response => response.ok ? response.json() : null).then(result => {
-        if (activeConversationId !== requestedConversation || !Array.isArray(result?.data?.conversation?.messages)) return;
+        if (activeConversationId !== requestedConversation) return;
+        if (!Array.isArray(result?.data?.conversation?.messages)) {
+            renderLocalConversation(requestedConversation);
+            return;
+        }
         chatScroll.innerHTML = '';
         welcomeVisible = false;
         for (const message of result.data.conversation.messages) {
             appendMessage(message.role, mdToHtml(message.content), { model: message.model, memoryUsed: message.memoryUsed || [] });
         }
-    }).catch(() => {});
+    }).catch(() => renderLocalConversation(requestedConversation));
+}
+
+function renderLocalConversation(conversationId) {
+    if (activeConversationId !== conversationId) return;
+    const localTurns = history.filter(turn => turn.conversationId === conversationId);
+    chatScroll.innerHTML = '';
+    welcomeVisible = true;
+    for (const turn of localTurns) {
+        appendMessage('user', mdToHtml(turn.user || '[File attached]'));
+        appendMessage('bot', mdToHtml(turn.bot || ''), { model: turn.model || currentModel.id, memoryUsed: turn.memoryUsed || [] });
+    }
 }
 
 function appendMessage(role, htmlContent, details = {}) {
@@ -433,11 +476,13 @@ window.sendMessage = async () => {
         loadRow.remove();
         if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
         activeConversationId = data.conversationId || activeConversationId;
+        localStorage.setItem(activeConversationStorageKey, activeConversationId);
         if (data.comparison) appendModelComparison({ model: data.model, reply: data.reply }, data.comparison, data.memoryUsed || []);
         else appendMessage('bot', mdToHtml(data.reply), { model: data.model, fallback: data.fallback, memoryUsed: data.memoryUsed });
-        history.push({ user: text, bot: data.reply, model: data.model, memoryUsed: data.memoryUsed, conversationId: activeConversationId });
+        history.push({ user: text, bot: data.reply, model: data.model, memoryUsed: data.memoryUsed, conversationId: activeConversationId, title: text || '[Attachment]' });
         localStorage.setItem('nexorHistory', JSON.stringify(history));
         renderHistory();
+        void refreshSavedConversations();
     } catch(err) {
         loadRow.remove();
         appendMessage('bot', `<span style="color:#F87171;">⚠ ${err.message}</span>`);
@@ -450,6 +495,7 @@ window.sendMessage = async () => {
 window.startNewChat = async () => {
     toggleSidebar(false);
     activeConversationId = crypto.randomUUID();
+    localStorage.setItem(activeConversationStorageKey, activeConversationId);
     chatScroll.innerHTML = `<div class="welcome" id="welcomeScreen">
         <img src="/static/assets/NexorSplash.png" alt="NexorAI">
         <h2>How can I help you today?</h2>

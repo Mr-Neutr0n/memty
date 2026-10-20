@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Let capable browsers animate same-origin document navigation. */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: page-transition-out 220ms ease both; }
+::view-transition-new(root) { animation: page-transition-in 520ms cubic-bezier(.2,.75,.25,1) both; }
+@keyframes page-transition-out { to { opacity: 0; filter: blur(5px); transform: scale(.992); } }
+@keyframes page-transition-in { from { opacity: 0; filter: blur(7px); transform: translateY(10px) scale(.994); } to { opacity: 1; filter: blur(0); transform: translateY(0) scale(1); } }
+
 .legal-shell { min-height: 100vh; background: #08090d; color: #f4f4f8; font-family: Inter, sans-serif; }
 .legal-nav, .legal-footer { min-height: 64px; padding: 14px max(24px, calc((100vw - 980px) / 2)); display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .legal-nav a, .legal-footer a { color: #a9a7c7; text-decoration: none; font-size: 14px; }
@@ -162,6 +169,7 @@ html, body { max-width: 100%; overflow-x: clip; }
         }
         html { scroll-behavior: smooth; }
         .legacy-page-landing { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; line-height: 1.6; }
+        .legacy-page-landing { animation: landing-arrive 850ms cubic-bezier(.2,.75,.25,1) both; }
 
         /* ── NAV ── */
         .legacy-page-landing nav {
@@ -193,6 +201,10 @@ html, body { max-width: 100%; overflow-x: clip; }
         }
         #galaxy-canvas { position: absolute; inset: 0; z-index: 1; }
         .hero-content { position: relative; z-index: 2; max-width: 800px; }
+        .hero-badge, .hero-title, .hero-sub, .hero-cta { animation: hero-rise 850ms cubic-bezier(.2,.75,.25,1) both; }
+        .hero-title { animation-delay: 100ms; }
+        .hero-sub { animation-delay: 210ms; }
+        .hero-cta { animation-delay: 320ms; }
         .hero-badge {
             display: inline-flex; align-items: center; gap: 8px;
             padding: 6px 18px; background: rgba(108,99,255,0.1);
@@ -226,6 +238,9 @@ html, body { max-width: 100%; overflow-x: clip; }
             max-width: 940px;
             margin: 0 auto;
         }
+        #solar > .section-label, #solar > .section-title, #solar > .section-sub { animation: hero-rise 800ms cubic-bezier(.2,.75,.25,1) both; }
+        #solar > .section-title { animation-delay: 90ms; }
+        #solar > .section-sub { animation-delay: 170ms; }
         #orrery {
             display: block;
             width: 100%;
@@ -289,6 +304,17 @@ html, body { max-width: 100%; overflow-x: clip; }
             .cta-box { padding: 34px 18px; }
         }
         @media(prefers-reduced-motion:reduce){ #orrery { display:none; } }
+
+        @keyframes landing-arrive { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes hero-rise { from { opacity: 0; transform: translateY(22px); filter: blur(5px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+        .legacy-page-login, .legacy-page-chat { animation: landing-arrive 520ms ease both; }
+
+        @media (prefers-reduced-motion: reduce) {
+            ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+            .legacy-page-landing, .legacy-page-login, .legacy-page-chat,
+            .hero-badge, .hero-title, .hero-sub, .hero-cta,
+            #solar > .section-label, #solar > .section-title, #solar > .section-sub { animation: none; }
+        }
     
 
 /* Original login page design, scoped for the Next.js route. */
