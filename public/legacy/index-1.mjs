@@ -404,8 +404,9 @@ function mdToHtml(text) {
         .replace(/'/g, '&#39;');
     const codeBlocks = [];
     const withPlaceholders = escaped.replace(/```([\w-]*)\n?([\s\S]*?)```/g, (_, language, code) => {
-        const className = language ? ` class="language-${language}"` : '';
-        codeBlocks.push(`<pre><code${className}>${code.trimEnd()}</code></pre>`);
+        const safeLanguage = String(language || '').toLowerCase();
+        const className = safeLanguage ? ` class="language-${safeLanguage}"` : '';
+        codeBlocks.push(`<pre><code${className}>${highlightCode(code.trimEnd(), safeLanguage)}</code></pre>`);
         return `\u0000${codeBlocks.length - 1}\u0000`;
     });
     return withPlaceholders
@@ -417,6 +418,22 @@ function mdToHtml(text) {
         .replace(/\n{2,}/g, '<br><br>')
         .replace(/\n/g, '<br>')
         .replace(/\u0000(\d+)\u0000/g, (_, index) => codeBlocks[Number(index)]);
+}
+
+// Highlight escaped code in place so syntax colors never introduce executable HTML.
+function highlightCode(code, language) {
+    const commentPattern = /^(?:javascript|js|typescript|ts|jsx|tsx|java|c|cpp|c\+\+|csharp|cs|go|rust|swift|kotlin|php|css|scss)$/.test(language)
+        ? /\/\/[^\n]*|\/\*[\s\S]*?\*\//
+        : /^(?:python|py|ruby|bash|sh|shell|yaml|yml|toml|r|julia)$/.test(language)
+            ? /#[^\n]*/
+            : /(?!) /;
+    const tokenPattern = new RegExp(
+        `(${commentPattern.source})|(&quot;&quot;&quot;[\\s\\S]*?&quot;&quot;&quot;|&#39;&#39;&#39;[\\s\\S]*?&#39;&#39;&#39;|&quot;.*?&quot;|&#39;.*?&#39;)|(\\b(?:const|let|var|function|return|if|else|for|while|class|new|this|async|await|import|from|export|default|try|catch|throw|public|private|static|void|int|float|bool|true|false|null|undefined|None|True|False|def|print|in|of|extends|interface|type|enum|switch|case|break|continue|yield|lambda|pass|with|as|finally|elif|super|self)\\b)|(\\b\\d+(?:\\.\\d+)?\\b)|(\\b[A-Za-z_$][\\w$]*(?=\\s*\\())|(\\b[A-Za-z_$][\\w$]*\\b)|(\\s+|.)`, 'g'
+    );
+    return code.replace(tokenPattern, (token, comment, string, keyword, number, callableName, identifier) => {
+        const kind = comment ? 'comment' : string ? 'string' : keyword ? 'keyword' : number ? 'number' : callableName ? 'function' : identifier && /^(?:true|false|null|undefined|None|True|False)$/.test(identifier) ? 'literal' : identifier ? 'identifier' : '';
+        return kind ? `<span class="syntax-${kind}">${token}</span>` : token;
+    });
 }
 
 let pendingAttachments = [];
