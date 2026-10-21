@@ -21,6 +21,51 @@ exports.me = catchAsync(async (req, res) => {
     res.json({ status: 'success', data: { user: user.toSafeObject() } });
 });
 
+exports.updateMe = catchAsync(async (req, res) => {
+    const body = req.body || {};
+    const allowedKeys = ['name', 'DOB', 'avatarData', 'preferredPaymentMethod'];
+    if (!allowedKeys.some(key => Object.prototype.hasOwnProperty.call(body, key))) {
+        return res.status(400).json({ status: 'fail', message: 'No profile changes were provided.' });
+    }
+
+    const updates = {};
+    if (Object.prototype.hasOwnProperty.call(body, 'name')) {
+        if (typeof body.name !== 'string' || body.name.trim().length < 2 || body.name.trim().length > 100) {
+            return res.status(400).json({ status: 'fail', message: 'Name must be between 2 and 100 characters.' });
+        }
+        updates.name = body.name.trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'DOB')) {
+        if (typeof body.DOB !== 'string' || (body.DOB && !/^\d{4}-\d{2}-\d{2}$/.test(body.DOB))) {
+            return res.status(400).json({ status: 'fail', message: 'Date of birth must use YYYY-MM-DD.' });
+        }
+        if (body.DOB) {
+            const date = new Date(`${body.DOB}T00:00:00.000Z`);
+            if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== body.DOB || date > new Date()) {
+                return res.status(400).json({ status: 'fail', message: 'Enter a valid date of birth that is not in the future.' });
+            }
+        }
+        updates.DOB = body.DOB;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'avatarData')) {
+        if (typeof body.avatarData !== 'string' || body.avatarData.length > 80000 ||
+            (body.avatarData && !/^data:image\/(?:webp|jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(body.avatarData))) {
+            return res.status(400).json({ status: 'fail', message: 'Profile image must be a JPEG, PNG, or WebP image under 60 KB.' });
+        }
+        updates.avatarData = body.avatarData;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'preferredPaymentMethod')) {
+        if (!['', 'upi', 'card'].includes(body.preferredPaymentMethod)) {
+            return res.status(400).json({ status: 'fail', message: 'Choose UPI or card as your preferred payment method.' });
+        }
+        updates.preferredPaymentMethod = body.preferredPaymentMethod;
+    }
+
+    const user = await User.findByIdAndUpdate(req.userId, { $set: updates }, { new: true, runValidators: true });
+    if (!user) return res.status(404).json({ status: 'fail', message: 'Account not found.' });
+    res.json({ status: 'success', data: { user: user.toSafeObject() } });
+});
+
 exports.logout = (req, res) => {
     clearSessionCookie(res);
     res.status(204).end();

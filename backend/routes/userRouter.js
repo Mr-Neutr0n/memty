@@ -19,6 +19,7 @@ router.post('/login', authController.login);
 router.post('/signIN', authController.login);
 router.post('/google', requireTrustedOrigin, authController.google);
 router.get('/me', requireSession, authController.me);
+router.patch('/me', requireSession, authController.updateMe);
 router.post('/logout', authController.logout);
 
 module.exports = router;

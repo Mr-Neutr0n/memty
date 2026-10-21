@@ -38,7 +38,7 @@ All account routes are mounted at `/users`; memory routes are mounted at `/memor
 | `POST` | `/users/signup` | Create account and issue session cookie |
 | `POST` | `/users/login` | Authenticate and issue session cookie |
 | `POST` | `/users/google` | Verify Google credential and issue session cookie |
-| `GET` | `/users/me` | Return the authenticated account |
+| `GET` / `PATCH` | `/users/me` | Read the authenticated account or update its name, date of birth, resized avatar, and billing preference |
 | `POST` | `/users/logout` | Clear session cookie |
 | `GET` | `/memory` | List active or archived memories |
 | `POST` | `/memory` | Add a memory |

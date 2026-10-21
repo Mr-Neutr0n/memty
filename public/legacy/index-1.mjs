@@ -1,17 +1,40 @@
 import { getAllModels } from '/static/registry.js';
+import { setupProfile } from './profile.js';
 
 /* ── Auth guard ── */
 const userRaw = localStorage.getItem('nexoraiUser');
 if (!userRaw) { window.location.href = '/login'; }
-let userName = 'User';
+let accountUser = {};
 try {
-    const u = JSON.parse(userRaw);
-    userName = u.name || u.email || 'User';
-    document.getElementById('userNameEl').textContent = userName;
-    document.getElementById('avatarEl').textContent = userName[0].toUpperCase();
+    accountUser = JSON.parse(userRaw) || {};
+    syncSidebarProfile(accountUser);
 } catch(e) {}
 
 window.logout = () => { localStorage.removeItem('nexoraiUser'); fetch('/users/logout', { method: 'POST' }).finally(() => { window.location.href = '/login'; }); };
+setupProfile({
+    getUser: () => accountUser,
+    onUpdated: user => {
+        accountUser = user;
+        localStorage.setItem('nexoraiUser', JSON.stringify(user));
+        syncSidebarProfile(user);
+    }
+});
+
+function syncSidebarProfile(user) {
+    const name = user.name || user.email || 'User';
+    const nameElement = document.getElementById('userNameEl');
+    const avatar = document.getElementById('avatarEl');
+    if (nameElement) nameElement.textContent = name;
+    if (!avatar) return;
+    avatar.replaceChildren();
+    if (user.avatarData) {
+        const image = document.createElement('img');
+        image.src = user.avatarData;
+        image.alt = '';
+        avatar.appendChild(image);
+    } else avatar.textContent = name.trim().charAt(0).toUpperCase() || 'U';
+}
+
 window.toggleSidebar = (open) => {
     document.querySelector('.sidebar').classList.toggle('open', open);
     document.getElementById('sidebarBackdrop').classList.toggle('open', open);
