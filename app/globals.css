@@ -448,6 +448,8 @@ html, body { max-width: 100%; overflow-x: clip; }
         }
         .google-btn:hover { background: #F0F0F0; transform: translateY(-1px); }
         .google-btn svg { flex-shrink: 0; }
+        .google-sign-in-container { padding: 0; overflow: hidden; background: transparent; cursor: default; }
+        .google-sign-in-container:hover { background: transparent; transform: none; }
 
         /* Divider */
         .divider {

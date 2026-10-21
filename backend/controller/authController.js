@@ -51,28 +51,62 @@ exports.google = catchAsync(async (req, res) => {
     if (!googleClient) {
         return res.status(503).json({ status: 'fail', message: 'Google login is not configured' });
     }
-    const { credential } = req.body;
-    if (!credential) return res.status(400).json({ status: 'fail', message: 'Google credential is required' });
+    const { credential } = req.body || {};
+    if (typeof credential !== 'string' || credential.length < 20 || credential.length > 10000) {
+        return res.status(400).json({ status: 'fail', message: 'A valid Google credential is required' });
+    }
 
-    const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
-        audience: process.env.GOOGLE_CLIENT_ID
-    });
+    let ticket;
+    try {
+        ticket = await googleClient.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+    } catch {
+        return res.status(401).json({ status: 'fail', message: 'Google account could not be verified' });
+    }
     const payload = ticket.getPayload();
-    if (!payload || !payload.email || !payload.email_verified) {
+    if (!payload || typeof payload.sub !== 'string' || !payload.sub || !payload.email || payload.email_verified !== true) {
         return res.status(401).json({ status: 'fail', message: 'Google account could not be verified' });
     }
 
-    let user = await User.findOne({ email: payload.email.toLowerCase() });
+    const email = payload.email.toLowerCase().trim();
+    let user = await User.findOne({ googleId: payload.sub }).select('+googleId');
+    if (user) return sendAuthResponse(res, user);
+
+    user = await User.findOne({ email }).select('+googleId +password');
+    const hostedDomain = typeof payload.hd === 'string' ? payload.hd.toLowerCase() : '';
+    const googleControlsEmail = email.endsWith('@gmail.com') || Boolean(hostedDomain && email.endsWith(`@${hostedDomain}`));
+
+    if (user?.googleId && user.googleId !== payload.sub) {
+        return res.status(409).json({ status: 'fail', message: 'This email is linked to another Google account. Sign in with your existing method.' });
+    }
+    if (user && !user.googleId && !googleControlsEmail) {
+        return res.status(409).json({ status: 'fail', message: 'An account already uses this email. Sign in with your password first before linking Google.' });
+    }
+
     if (!user) {
-        user = await User.create({
-            name: payload.name || payload.email.split('@')[0],
-            email: payload.email,
-            googleId: payload.sub
-        });
+        try {
+            const googleName = typeof payload.name === 'string' ? payload.name.trim() : '';
+            user = await User.create({
+                name: googleName.length >= 2 && googleName.length <= 100 ? googleName : email.split('@')[0],
+                email,
+                googleId: payload.sub
+            });
+        } catch (error) {
+            if (error.code !== 11000) throw error;
+            user = await User.findOne({ googleId: payload.sub }).select('+googleId');
+            if (!user) return res.status(409).json({ status: 'fail', message: 'An account with this email already exists. Sign in with your existing method.' });
+        }
     } else if (!user.googleId) {
         user.googleId = payload.sub;
-        await user.save();
+        try {
+            await user.save();
+        } catch (error) {
+            if (error.code !== 11000) throw error;
+            user = await User.findOne({ googleId: payload.sub }).select('+googleId');
+            if (!user) return res.status(409).json({ status: 'fail', message: 'This account was linked to a different Google sign-in. Please try again.' });
+        }
     }
     sendAuthResponse(res, user);
 });
