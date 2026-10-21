@@ -1,3 +1,4 @@
+(() => {
 if (localStorage.getItem('nexoraiUser')) {
     fetch('/users/me', { cache: 'no-store' }).then(response => {
         if (response.ok) window.location.href = '/chatbot';
@@ -157,3 +158,4 @@ if (localStorage.getItem('nexoraiUser')) {
             el.textContent = msg;
             el.className = `status-msg ${type}`;
         }
+})();

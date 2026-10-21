@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 type LegacyPageName = 'landing' | 'login' | 'chat';
 type LegacyPageProps = { page: LegacyPageName; markup: string };
@@ -20,7 +20,14 @@ const pageScripts: Record<LegacyPageName, string[]> = {
 };
 
 export default function LegacyPage({ page, markup }: LegacyPageProps) {
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     const host = document.querySelector<HTMLElement>(`[data-legacy-page="${page}"]`);
     if (!host) return;
     const loaded: HTMLScriptElement[] = [];
@@ -33,7 +40,7 @@ export default function LegacyPage({ page, markup }: LegacyPageProps) {
       loaded.push(script);
     }
     return () => loaded.forEach(script => script.remove());
-  }, [page]);
+  }, [page, mounted]);
 
-  return <div data-legacy-page={page} className={`legacy-page legacy-page-${page} min-h-screen`} dangerouslySetInnerHTML={{ __html: markup }} />;
+  return <div data-legacy-page={page} className={`legacy-page legacy-page-${page} min-h-screen`} dangerouslySetInnerHTML={mounted ? { __html: markup } : undefined} />;
 }
