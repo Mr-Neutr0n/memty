@@ -20,7 +20,19 @@ const userSchema = new mongoose.Schema({
     },
     DOB: {
         type: String,
-        trim: true
+        trim: true,
+        maxlength: 10,
+        default: ''
+    },
+    avatarData: {
+        type: String,
+        maxlength: 80000,
+        default: ''
+    },
+    preferredPaymentMethod: {
+        type: String,
+        enum: ['', 'upi', 'card'],
+        default: ''
     },
     password: {
         type: String,
