@@ -5,7 +5,7 @@ This Python package provides a local model router that learns from model outcome
 ## Quick start
 
 ```python
-from smart_auto import ModelSpec, SmartRouter
+from SmartMemory import ModelSpec, SmartRouter
 
 router = SmartRouter([
     ModelSpec("gemini-flash", "Google", 0.10, 0.40, 0.55, 1_000_000),
@@ -31,7 +31,7 @@ Model capabilities and rates are operator supplied: provider pricing and model I
 ## Portable memory
 
 ```python
-from smart_auto import PortableMemoryStore
+from SmartMemory import PortableMemoryStore
 
 memory = PortableMemoryStore(".smart_auto/memories.json")
 memory.add("The project uses Next.js and MongoDB", kind="semantic", importance=0.8)
@@ -48,7 +48,7 @@ Install the optional driver with `pip install -e ".[mongodb]"`, then create a st
 
 ```python
 import os
-from smart_auto import MongoSyncedMemoryStore
+from SmartMemory import MongoSyncedMemoryStore
 
 memory = MongoSyncedMemoryStore(
     uri=os.environ["MONGO_URI"],
