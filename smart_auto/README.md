@@ -5,7 +5,7 @@ This Python package provides a local model router that learns from model outcome
 ## Quick start
 
 ```python
-from SmartMemory import ModelSpec, SmartRouter
+from smart_auto import ModelSpec, SmartRouter
 
 router = SmartRouter([
     ModelSpec("gemini-flash", "Google", 0.10, 0.40, 0.55, 1_000_000),
@@ -28,33 +28,10 @@ router.update(decision.model_id, "Summarize the key points from our previous pro
 
 Model capabilities and rates are operator supplied: provider pricing and model IDs change. Set `available=False` for a provider without credentials. The router only selects among available models and respects context and capability limits. It applies memory discount only to prompts that appear to use prior context. LinUCB state is saved locally; it contains numeric learning state, not prompts or memory text.
 
-## Routing math intuition
-
-The router builds an eight-value context vector `x` from a bias term, prompt length, code signals, reasoning signals, long-context and structured-output signals, memory relevance, and memory coverage. Each signal is normalized to `[0, 1]`.
-
-First it estimates prompt complexity:
-
-```text
-C = clip(0.08 + 0.28·length + 0.16·code + 0.34·reasoning
-         + 0.14·long_context + 0.05·structured, 0, 1)
-S = clip(C - γ·relevance·coverage, 0, 1)   # only for memory-referencing prompts
-```
-
-Here `γ` is the configurable `memory_discount` (default `0.25`). `S` is the effective complexity score. Models whose configured capability is below `S`, or whose context window is too small, are excluded. This is a routing heuristic, not a measured probability of success; the capability values need to be calibrated against your own tasks.
-
-For each eligible model `a`, LinUCB estimates outcome utility and uncertainty from feedback:
-
-```text
-UCB(a, x) = θₐᵀx + α·√(xᵀAₐ⁻¹x)
-score(a)  = UCB(a, x) - λ·normalized_cost(a) + 0.3·capability(a)·S
-```
-
-`Aₐ` and `bₐ` are updated after feedback, with `θₐ = Aₐ⁻¹bₐ`; `α` controls exploration and `λ` is `cost_weight`. The router chooses the eligible model with the highest score. Cost is normalized from the configured input-plus-output rates, so it is a relative proxy, not an exact per-request bill. In production, tune these weights and validate quality and actual spend on representative traffic before relying on the learned preference.
-
 ## Portable memory
 
 ```python
-from SmartMemory import PortableMemoryStore
+from smart_auto import PortableMemoryStore
 
 memory = PortableMemoryStore(".smart_auto/memories.json")
 memory.add("The project uses Next.js and MongoDB", kind="semantic", importance=0.8)
@@ -71,7 +48,7 @@ Install the optional driver with `pip install -e ".[mongodb]"`, then create a st
 
 ```python
 import os
-from SmartMemory import MongoSyncedMemoryStore
+from smart_auto import MongoSyncedMemoryStore
 
 memory = MongoSyncedMemoryStore(
     uri=os.environ["MONGO_URI"],

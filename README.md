@@ -117,5 +117,5 @@ For semantic vector retrieval, create the Atlas Search vector index on `Memory.u
 - [Backend and MongoDB](backend/README.md)
 - [Portable memory](app/memory/README.md)
 - [Model providers and routing](providers/README.md)
-- [Python Smart Auto router and portable memory](SmartMemory/README.md)
+- [Python Smart Auto router and portable memory](smart_auto/README.md)
 - [Package scripts](package.json) and [backend scripts](backend/package.json)
