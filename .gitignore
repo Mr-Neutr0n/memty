@@ -37,6 +37,7 @@ next-env.d.ts
 
 # Local databases and user-specific development data
 backend/data/user-data.json
+.smart_auto/
 *.sqlite
 *.sqlite3
 *.db

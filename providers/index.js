@@ -17,10 +17,30 @@ const adapters = {
     llama: options => llamaChat(options)
 };
 
-function selectAutoModel(message) {
-    if (message.length > 7000 || /long document|analyze this document|entire document/i.test(message)) return 'kimi';
-    if (/```|\b(code|typescript|javascript|python|debug|stack trace|compile|function|class)\b/i.test(message)) return 'claude-haiku';
-    return 'gemini-flash';
+function selectAutoModel(message, memory = '') {
+    const text = String(message || '');
+    const context = String(memory || '');
+    const deepReasoning = /\b(prove|formal proof|multi[- ]hop|step[- ]by[- ]step|architect|distributed system|security audit|trade[- ]offs|derive)\b/i.test(text);
+    const longDocument = text.length > 7000 || /long document|analyze this document|entire document/i.test(text);
+    const codeTask = /```|\b(code|typescript|javascript|python|debug|stack trace|compile|function|class|refactor|bug)\b/i.test(text);
+    const structuredTask = /\b(json|schema|extract|classify|format as|return only)\b/i.test(text);
+    const memoryRelevant = context.length > 120 && /\b(remember|previous|above|my project|my preference|as discussed)\b/i.test(text);
+
+    // Choose from the providers that are actually configured. Cheap, fast models
+    // handle ordinary and memory-backed synthesis; specialist tasks get a capable
+    // candidate first. The normal fallback chain still applies after this choice.
+    const candidates = (ids) => {
+        const available = ids.filter(id => isConfigured(getModel(id)) && adapters[id]);
+        const priced = available.map((id, order) => ({ id, order, rates: getModelRates(id) }))
+            .filter(item => item.rates)
+            .sort((a, b) => (a.rates.inputUsdPerMillion + a.rates.outputUsdPerMillion) - (b.rates.inputUsdPerMillion + b.rates.outputUsdPerMillion) || a.order - b.order);
+        return priced[0]?.id || available[0];
+    };
+    if (deepReasoning) return candidates(['chatgpt', 'kimi', 'claude-haiku', 'gemini-flash', 'grok-ai']) || 'gemini-flash';
+    if (longDocument) return candidates(['kimi', 'gemini-flash', 'chatgpt', 'claude-haiku']) || 'gemini-flash';
+    if (codeTask) return candidates(['claude-haiku', 'chatgpt', 'gemini-flash', 'kimi']) || 'gemini-flash';
+    if (structuredTask || memoryRelevant) return candidates(['gemini-flash', 'nemotron', 'llama', 'chatgpt', 'claude-haiku']) || 'gemini-flash';
+    return candidates(['gemini-flash', 'nemotron', 'llama', 'claude-haiku', 'chatgpt']) || 'gemini-flash';
 }
 
 function normalizeUsage(usage = {}) {
@@ -41,7 +61,7 @@ function estimateCost(modelId, usage) {
 }
 
 export async function chat({ messages, memory = '', modelId = 'gemini-flash', stream = false, auto = false, allowFallback = true }) {
-    const requestedModel = auto || modelId === 'auto' ? selectAutoModel(messages.at(-1)?.content || '') : modelId;
+    const requestedModel = auto || modelId === 'auto' ? selectAutoModel(messages.at(-1)?.content || '', memory) : modelId;
     const chosen = getModel(requestedModel);
     if (!chosen) throw new Error('Selected model is not available.');
     const candidates = [requestedModel, ...(allowFallback ? chosen.fallback : [])]
