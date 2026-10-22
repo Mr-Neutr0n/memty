@@ -108,7 +108,7 @@ For semantic vector retrieval, create the Atlas Search vector index on `Memory.u
 - Configure `PROXY_TARGET`, allowed `CORS_ORIGIN`, provider credentials, MongoDB, and health checks for the deployed environment.
 - The chat rate limit is in-memory and per frontend process; it is not shared across instances. Add a shared limiter, account quotas, monitoring, backups, and an account deletion/retention process before public launch.
 - Cost estimates require operator-configured per-model token rates. They are estimates, not billing records.
-- Chat responses are not streamed. Auto routing uses basic request heuristics. Provider fallbacks and compare mode depend on configured providers.
+- Chat responses are not streamed. App Auto routing uses task heuristics and configured model rates when available; the separate Python Smart Auto package adds an online contextual bandit for integrations that provide outcome feedback. Provider fallbacks and compare mode depend on configured providers.
 - Review the Privacy Notice and Terms against the actual legal entity, provider agreements, data retention, and deployment before release.
 
 ## Detailed guides
@@ -117,4 +117,5 @@ For semantic vector retrieval, create the Atlas Search vector index on `Memory.u
 - [Backend and MongoDB](backend/README.md)
 - [Portable memory](app/memory/README.md)
 - [Model providers and routing](providers/README.md)
+- [Python Smart Auto router and portable memory](smart_auto/README.md)
 - [Package scripts](package.json) and [backend scripts](backend/package.json)
