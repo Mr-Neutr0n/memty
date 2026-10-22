@@ -13,4 +13,4 @@ dependencies = []
 mongodb = ["pymongo>=4.6"]
 
 [tool.setuptools]
-packages = ["smart_auto"]
+packages = ["SmartMemory"]
