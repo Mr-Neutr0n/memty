@@ -8,7 +8,8 @@ type LegacyPageProps = { page: LegacyPageName; markup: string };
 const pageScripts: Record<LegacyPageName, string[]> = {
   "landing": [
     "/legacy/landing-1.mjs",
-    "/legacy/landing-2.js"
+    "/legacy/landing-2.js",
+    "/legacy/landing-demo.js"
   ],
   "login": [
     "/legacy/login-1.mjs",

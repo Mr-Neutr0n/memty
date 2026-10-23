@@ -7,6 +7,7 @@ NexorAI is a multi-provider AI workspace built with Next.js, an Express authenti
 - [What the app includes](#what-the-app-includes)
 - [Architecture](#architecture)
 - [Run locally](#run-locally)
+- [Run with Docker](#run-with-docker)
 - [Environment configuration](#environment-configuration)
 - [MongoDB setup](#mongodb-setup)
 - [Production notes](#production-notes)
@@ -72,6 +73,25 @@ npm run dev
 Open [http://localhost:3001](http://localhost:3001). The API backend listens on port 3002 by default. Sign-in, chat memory, and the Memory page need the backend and a reachable MongoDB server.
 
 `npm start` starts the built Next.js production server. Build first with `npm run build`. Do not pass `frontend:dev` to `npm start`; to run development, use `npm run dev` or `npm run frontend:dev`.
+
+## Run with Docker
+
+Docker Compose builds the frontend and backend from their lockfiles and starts both services. MongoDB remains external, so configure its connection in the backend environment file.
+
+Create the environment files, fill in `backend/.env` with a reachable MongoDB URI and a stable `SESSION_SECRET`, and set any provider credentials you need in `.env`:
+
+```powershell
+Copy-Item .env.example .env
+Copy-Item backend/.env.example backend/.env
+```
+
+Then build and start the services:
+
+```powershell
+docker compose up --build
+```
+
+Open [http://localhost:3001](http://localhost:3001). The API is also exposed on port 3002. Compose sets the frontend's `PROXY_TARGET` to the backend service and the backend's CORS origin to the local frontend. Stop the services with `Ctrl+C`, or run `docker compose down` in another terminal. Do not commit populated environment files.
 
 ## Environment configuration
 
