@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const Memory = require('../model/memoryModel');
 const Conversation = require('../model/conversationModel');
 const ModelUsage = require('../model/modelUsageModel');
@@ -7,6 +8,45 @@ const MAX_MEMORY_FACTS = 500;
 const MAX_WORKING_MESSAGES = 24;
 const MEMORY_TOKEN_BUDGET = 900;
 const TYPES = new Set(['semantic', 'style']);
+const vaultEnabled = () => Boolean(process.env.MEMORY_VAULT_API_URL && process.env.MEMORY_VAULT_API_TOKEN);
+
+async function vaultRequest(userId, path, { method = 'GET', body } = {}) {
+    if (!vaultEnabled()) throw new Error('The Python Memory Vault API is not configured.');
+    const base = process.env.MEMORY_VAULT_API_URL.replace(/\/$/, '');
+    const response = await fetch(`${base}${path}`, {
+        method,
+        headers: {
+            authorization: `Bearer ${process.env.MEMORY_VAULT_API_TOKEN}`,
+            'x-nexor-user': String(userId),
+            ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(20000),
+    });
+    if (response.status === 204) return null;
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || payload.message || `Python memory service returned HTTP ${response.status}`);
+    return payload;
+}
+
+function fromVaultRecord(record) {
+    return {
+        _id: record.id,
+        fact: record.value,
+        type: record.namespace?.endsWith('.style') ? 'style' : 'semantic',
+        confidence: record.confidence,
+        importance: 0.7,
+        pinned: record.verification_state === 'PINNED',
+        status: record.status === 'ACTIVE' ? 'active' : 'archived',
+        sourceMessage: record.source_quote || '',
+        sourceConversationId: record.source_conversation_id || '',
+        sourceMessageHash: record.source_message_hash || '',
+        supersededBy: record.superseded_by_id || undefined,
+        updatedAt: record.recorded_at,
+        useCount: 0,
+    };
+}
 
 let writerModel;
 function getWriter() {
@@ -125,10 +165,19 @@ function buildBrief(memories, episodes) {
     return [preamble.trim(), factLines.length ? `Known user facts and preferences:\n${factLines.join('\n')}` : '', episodeLines.length ? `Relevant past conversations:\n${episodeLines.join('\n')}` : ''].filter(Boolean).join('\n\n');
 }
 
-async function getContext(userId, { conversationId, query, contextWindow }) {
+async function getContext(userId, { conversationId, query, contextWindow, provider = 'auto' }) {
     const id = String(conversationId || '').slice(0, 80);
     const conversation = id ? await Conversation.findOne({ userId, conversationId: id }).lean() : null;
-    const { memories } = await retrieve(userId, String(query || '').slice(0, 4000));
+    let vaultContext = null;
+    let memories = [];
+    if (vaultEnabled()) {
+        vaultContext = await vaultRequest(userId, '/v1/context', { method: 'POST', body: {
+            query: String(query || '').slice(0, 4000), provider, token_budget: 600,
+        } });
+        memories = (vaultContext.citations || []).map(item => ({ _id: item.id, fact: item.context_value || '', type: 'semantic' }));
+    } else {
+        ({ memories } = await retrieve(userId, String(query || '').slice(0, 4000)));
+    }
     const episodes = await Conversation.find({ userId, conversationId: { $ne: id }, episodeSummary: { $ne: '' } })
         .sort({ updatedAt: -1 }).limit(20).lean();
     const rankedEpisodes = episodes.map(item => ({ item, score: lexicalScore(query || '', item.episodeSummary) + 0.25 * recencyScore(item.updatedAt) }))
@@ -142,11 +191,14 @@ async function getContext(userId, { conversationId, query, contextWindow }) {
         recentMessages.push(message);
         if (remainingChars <= 0) break;
     }
+    const episodeBrief = buildBrief([], rankedEpisodes).slice(0, 1200);
     return {
         messages: recentMessages.reverse(),
         workingSummary: conversation?.workingSummary || '',
-        memoryBrief: buildBrief(memories, rankedEpisodes),
+        memoryBrief: vaultContext ? [vaultContext.text, episodeBrief].filter(Boolean).join('\n\n') : buildBrief(memories, rankedEpisodes),
         usedMemories: memories.map(({ _id, fact, type }) => ({ id: String(_id), fact, type })),
+        redactions: vaultContext?.redactions || {},
+        vaultManaged: Boolean(vaultContext),
         conversationId: id
     };
 }
@@ -154,10 +206,12 @@ async function getContext(userId, { conversationId, query, contextWindow }) {
 async function runWriter({ userId, conversationId, messages, response, previousSummary }) {
     const model = getWriter();
     if (!model) return { memoriesSaved: 0, reason: 'GEMINI_API_KEY is not configured.' };
-    const current = await Memory.find({ userId, status: 'active' }).select('fact type').sort({ updatedAt: -1 }).limit(80).lean();
+    const current = vaultEnabled() ? [] : await Memory.find({ userId, status: 'active' }).select('fact type').sort({ updatedAt: -1 }).limit(80).lean();
     const recent = messages.slice(-12).map(message => `${message.role.toUpperCase()}: ${message.content.slice(0, 5000)}`).join('\n');
     const userQuotes = messages.filter(message => message.role === 'user').map(message => message.content);
-    const prompt = `Extract only useful, durable personal context from the user's messages. Ignore one-off requests, secrets, sensitive personal data, and guesses. Do not duplicate facts already represented in existing memories. When a new fact corrects or replaces one, set supersedes to the exact existing fact text. Return JSON exactly as {"memories":[{"fact":"...","type":"semantic|style","confidence":0.0,"importance":0.0,"source_message":"exact user quote","supersedes":"existing fact or empty"}],"episode_summary":"one sentence about this conversation","working_summary":"concise rolling summary of the conversation so far"}. Save at most 5 facts. Only include confidence >= 0.75. Style includes answer length, language, tone, and format. Semantic includes projects, tools, goals, and stable preferences. If no facts qualify, memories must be []. Existing memories: ${JSON.stringify(current.map(item => ({ fact: item.fact, type: item.type })))}\nPrevious rolling summary:\n${previousSummary || '(none)'}\nRecent conversation:\n${recent}\nLatest assistant response:\n${response.slice(0, 3000)}`;
+    const vaultPrompt = 'Extract at most five durable facts explicitly stated by the user. Ignore one-off requests, secrets, sensitive personal data, and guesses. Return only JSON exactly as {"memories":[{"namespace":"work.project","slot_key":"primary_database","value":"MongoDB Atlas","confidence":0.9,"source_quote":"exact substring from a user message","sensitivity_tier":"PERSONAL","allowed_providers":[],"blocked_providers":[],"ephemeral_redaction":false,"valid_from":null}],"episode_summary":"one sentence about this conversation","working_summary":"concise rolling summary of the conversation so far"}. Use a stable namespace and slot_key for each fact; use the same slot for a correction. Never extract from assistant messages. If nothing qualifies, memories must be [].';
+    const legacyPrompt = 'Extract only useful, durable personal context from the user\'s messages. Ignore one-off requests, secrets, sensitive personal data, and guesses. Do not duplicate facts already represented in existing memories. When a new fact corrects or replaces one, set supersedes to the exact existing fact text. Return JSON exactly as {"memories":[{"fact":"...","type":"semantic|style","confidence":0.0,"importance":0.0,"source_message":"exact user quote","supersedes":"existing fact or empty"}],"episode_summary":"one sentence about this conversation","working_summary":"concise rolling summary of the conversation so far"}. Save at most 5 facts. Only include confidence >= 0.75. Style includes answer length, language, tone, and format. Semantic includes projects, tools, goals, and stable preferences. If no facts qualify, memories must be [].';
+    const prompt = `${vaultEnabled() ? vaultPrompt : legacyPrompt}\nPrevious rolling summary:\n${previousSummary || '(none)'}\n${vaultEnabled() ? '' : `Existing memories: ${JSON.stringify(current.map(item => ({ fact: item.fact, type: item.type })))}\n`}Recent conversation:\n${recent}\nLatest assistant response:\n${response.slice(0, 3000)}`;
     let parsed;
     try {
         const result = await model.generateContent(prompt);
@@ -165,6 +219,23 @@ async function runWriter({ userId, conversationId, messages, response, previousS
     } catch (error) {
         console.warn('Memory writer failed:', error.message);
         return { memoriesSaved: 0, reason: 'writer_failed' };
+    }
+
+    if (vaultEnabled()) {
+        try {
+            const candidates = Array.isArray(parsed.memories) ? parsed.memories.slice(0, 5) : [];
+            const result = await vaultRequest(userId, '/v1/extract', { method: 'POST', body: {
+                user_message: userQuotes.join('\n'), assistant_response: response.slice(0, 3000),
+                conversation_id: conversationId, model_id: process.env.MEMORY_WRITER_MODEL || 'gemini-2.5-flash',
+                memories: candidates,
+            } });
+            return { memoriesSaved: result.saved?.length || 0,
+                episodeSummary: String(parsed.episode_summary || '').slice(0, 2000),
+                workingSummary: String(parsed.working_summary || '').slice(0, 6000) };
+        } catch (error) {
+            console.warn('Python memory extraction failed:', error.message);
+            return { memoriesSaved: 0, reason: 'vault_extract_failed' };
+        }
     }
 
     let memoriesSaved = 0;
@@ -244,12 +315,27 @@ async function commitTurn(userId, payload) {
 }
 
 async function listMemories(userId, includeArchived = false) {
+    if (vaultEnabled()) {
+        const status = includeArchived ? 'SUPERSEDED' : 'ACTIVE';
+        const records = await vaultRequest(userId, `/v1/memories?status=${status}`);
+        return records.map(fromVaultRecord);
+    }
     const filter = { userId };
     filter.status = includeArchived ? 'archived' : 'active';
     return Memory.find(filter).sort({ pinned: -1, updatedAt: -1 }).limit(500).select('-embedding').lean();
 }
 
 async function editMemory(userId, id, changes) {
+    if (vaultEnabled()) {
+        if (!/^mem_[a-f0-9]{32}$/.test(String(id))) return null;
+        const result = await vaultRequest(userId, `/v1/memories/${encodeURIComponent(id)}`, {
+            method: 'PATCH', body: {
+                ...(typeof changes.fact === 'string' ? { value: changes.fact.trim().slice(0, 500) } : {}),
+                ...(typeof changes.pinned === 'boolean' ? { pinned: changes.pinned } : {}),
+            },
+        });
+        return fromVaultRecord(result);
+    }
     if (!mongoose.isValidObjectId(id)) return null;
     const update = {};
     if (typeof changes.fact === 'string') update.fact = changes.fact.trim().slice(0, 500);
@@ -263,6 +349,11 @@ async function editMemory(userId, id, changes) {
 }
 
 async function deleteMemory(userId, id) {
+    if (vaultEnabled()) {
+        if (!/^mem_[a-f0-9]{32}$/.test(String(id))) return false;
+        await vaultRequest(userId, `/v1/memories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return true;
+    }
     if (!mongoose.isValidObjectId(id)) return false;
     const result = await Memory.deleteOne({ _id: id, userId });
     return result.deletedCount > 0;
@@ -290,6 +381,15 @@ async function createMemory(userId, input) {
     if (typeof input.fact !== 'string' || input.fact.trim().length < 4 || input.fact.length > 500) throw new Error('Fact must be between 4 and 500 characters.');
     if (!TYPES.has(input.type)) throw new Error('Memory type must be semantic or style.');
     const fact = input.fact.trim();
+    if (vaultEnabled()) {
+        const namespace = input.type === 'style' ? 'personal.style' : 'personal.notes';
+        const normalized = normalizeFact(fact);
+        const slot_key = `fact_${crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 24)}`;
+        const record = await vaultRequest(userId, '/v1/memories', { method: 'POST', body: {
+            namespace, slot_key, value: fact, sensitivity_tier: 'PERSONAL',
+        } });
+        return fromVaultRecord(record);
+    }
     const existing = await Memory.find({ userId, type: input.type, status: 'active' }).select('fact').lean();
     const duplicate = existing.find(item => normalizeFact(item.fact) === normalizeFact(fact));
     if (duplicate) return duplicate;

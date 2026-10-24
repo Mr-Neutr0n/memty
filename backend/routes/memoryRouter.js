@@ -43,11 +43,11 @@ router.post('/', catchAsync(async (req, res) => {
 }));
 
 router.post('/context', catchAsync(async (req, res) => {
-    const { conversationId, query, contextWindow } = req.body || {};
+    const { conversationId, query, contextWindow, provider } = req.body || {};
     if (typeof conversationId !== 'string' || typeof query !== 'string' || query.length > 4000 || (contextWindow !== undefined && (!Number.isInteger(contextWindow) || contextWindow < 1024 || contextWindow > 2000000))) {
         return res.status(400).json({ status: 'fail', message: 'A conversation ID and query of at most 4,000 characters are required.' });
     }
-    const context = await memoryService.getContext(req.userId, { conversationId, query, contextWindow });
+    const context = await memoryService.getContext(req.userId, { conversationId, query, contextWindow, provider });
     res.set('Cache-Control', 'no-store').json({ status: 'success', data: context });
 }));
 

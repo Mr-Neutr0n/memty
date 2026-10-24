@@ -88,29 +88,49 @@ export async function POST(request: Request) {
     if (typeof userId !== 'string') return NextResponse.json({ error: 'Could not verify your account.' }, { status: 401 });
 
     const contextWindow = selectedModel === 'auto' ? 128000 : getModel(selectedModel)?.contextWindow || 128000;
-    const contextResponse = await backendRequest(request, '/memory/context', { conversationId: activeConversationId, query: message.trim().slice(0, 4000), contextWindow });
+    const providerByModel: Record<string, string> = {
+      'gemini-flash': 'gemini', 'claude-haiku': 'claude', chatgpt: 'openai',
+      'grok-ai': 'grok', kimi: 'kimi', nemotron: 'nvidia', llama: 'llama',
+    };
+    const memoryProvider = selectedModel === 'auto' ? 'auto' : providerByModel[selectedModel] || 'auto';
+    const contextResponse = await backendRequest(request, '/memory/context', { conversationId: activeConversationId, query: message.trim().slice(0, 4000), contextWindow, provider: memoryProvider });
     const contextResult = await parseBackend(contextResponse);
     if (!contextResponse.ok) return NextResponse.json({ error: contextResult.data?.message || 'Memory service is unavailable.' }, { status: contextResponse.status });
     const context = contextResult.data.data || {};
-    const result = await generateResponse(userId, message.trim(), selectedModel, context);
+    const result = await generateResponse(userId, message.trim(), selectedModel, { ...context, allowFallback: context.vaultManaged ? false : context.allowFallback });
+    const rehydrate = (value: string) => Object.entries(context.redactions || {}).reduce(
+      (text, [placeholder, original]) => text.split(placeholder).join(String(original)), value);
+    const reply = rehydrate(result.text);
 
     let comparison: { model: string; reply: string; usage?: { inputTokens: number; outputTokens: number; estimatedCostUsd: number | null } } | null = null;
     if (typeof compareWith === 'string' && compareWith !== selectedModel && compareWith !== 'auto') {
       try {
-        const second = await generateResponse(userId, message.trim(), compareWith, { ...context, allowFallback: false });
-        comparison = { model: second.model, reply: second.text, usage: second.usage };
+        let comparisonContext = context;
+        if (context.vaultManaged) {
+          const comparisonResponse = await backendRequest(request, '/memory/context', {
+            conversationId: activeConversationId, query: message.trim().slice(0, 4000), contextWindow,
+            provider: providerByModel[compareWith] || 'auto',
+          });
+          const comparisonResult = await parseBackend(comparisonResponse);
+          if (!comparisonResponse.ok) throw new Error(comparisonResult.data?.message || 'Comparison memory policy check failed.');
+          comparisonContext = comparisonResult.data?.data || {};
+        }
+        const second = await generateResponse(userId, message.trim(), compareWith, { ...comparisonContext, allowFallback: false });
+        const secondReply = Object.entries(comparisonContext.redactions || {}).reduce(
+          (value, [placeholder, original]) => value.split(placeholder).join(String(original)), second.text);
+        comparison = { model: second.model, reply: secondReply, usage: second.usage };
       } catch (error) {
         comparison = { model: compareWith, reply: error instanceof Error ? `Comparison unavailable: ${error.message}` : 'Comparison unavailable.' };
       }
     }
 
     const commitResponse = await backendRequest(request, '/memory/commit', {
-      conversationId: activeConversationId, message: message.trim(), response: result.text, model: result.model,
+      conversationId: activeConversationId, message: message.trim(), response: reply, model: result.model,
       usage: result.usage, memoryUsed: context.usedMemories || [],
       ...(comparison?.usage ? { comparisonUsage: { model: comparison.model, ...comparison.usage } } : {})
     });
     if (!commitResponse.ok) console.error('Memory commit failed:', commitResponse.status);
-    return NextResponse.json({ reply: result.text, model: result.model, fallback: result.fallback, requestedModel: result.requestedModel, memoryUsed: context.usedMemories || [], conversationId: activeConversationId, comparison, usage: result.usage }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ reply, model: result.model, fallback: result.fallback, requestedModel: result.requestedModel, memoryUsed: context.usedMemories || [], conversationId: activeConversationId, comparison, usage: result.usage }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json({ error: 'AI request failed. Try another model or try again shortly.' }, { status: 502, headers: { 'Cache-Control': 'no-store' } });

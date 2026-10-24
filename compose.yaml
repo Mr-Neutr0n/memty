@@ -8,8 +8,29 @@ services:
       NODE_ENV: production
       PORT: 3002
       CORS_ORIGIN: http://localhost:3001
+      MEMORY_VAULT_API_URL: http://memory-vault:8765
+      MEMORY_VAULT_API_TOKEN: ${MEMORY_VAULT_API_TOKEN:?Set MEMORY_VAULT_API_TOKEN in the root .env file}
+    depends_on:
+      - memory-vault
     ports:
       - "3002:3002"
+    restart: unless-stopped
+
+  memory-vault:
+    build:
+      context: .
+      dockerfile: Dockerfile.vault
+    environment:
+      NEXOR_VAULT_API_HOST: 0.0.0.0
+      NEXOR_VAULT_API_PORT: 8765
+      NEXOR_VAULT_ALLOW_REMOTE: "true"
+      NEXOR_VAULT_API_TOKEN: ${MEMORY_VAULT_API_TOKEN:?Set MEMORY_VAULT_API_TOKEN in the root .env file}
+      NEXOR_VAULT_MULTIUSER: "true"
+      NEXOR_VAULT_ROOT: /var/lib/nexor/users
+    volumes:
+      - memory-vault-data:/var/lib/nexor
+    expose:
+      - "8765"
     restart: unless-stopped
 
   frontend:
@@ -21,9 +42,12 @@ services:
       NODE_ENV: production
       PORT: 3001
       PROXY_TARGET: http://backend:3002
+      MEMORY_VAULT_API_TOKEN: ""
     depends_on:
       - backend
     ports:
       - "3001:3001"
     restart: unless-stopped
 
+volumes:
+  memory-vault-data:
