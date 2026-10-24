@@ -76,7 +76,7 @@ Open [http://localhost:3001](http://localhost:3001). The API backend listens on 
 
 ## Run with Docker
 
-Docker Compose builds the frontend and backend from their lockfiles and starts both services. MongoDB remains external, so configure its connection in the backend environment file.
+Docker Compose builds the frontend, backend, and Python Memory Vault. MongoDB remains external, so configure its connection in the backend environment file. The vault stores its SQLite database in a persistent Docker volume by default.
 
 Create the environment files, fill in `backend/.env` with a reachable MongoDB URI and a stable `SESSION_SECRET`, and set any provider credentials you need in `.env`:
 
@@ -90,6 +90,8 @@ Then build and start the services:
 ```powershell
 docker compose up --build
 ```
+
+Before starting, replace `MEMORY_VAULT_API_TOKEN` in `.env` with a random secret of at least 32 characters. Compose keeps the vault API private to its internal network. Existing MongoDB fact memories are not copied automatically into the new vault; the old MongoDB collections remain intact.
 
 Open [http://localhost:3001](http://localhost:3001). The API is also exposed on port 3002. Compose sets the frontend's `PROXY_TARGET` to the backend service and the backend's CORS origin to the local frontend. Stop the services with `Ctrl+C`, or run `docker compose down` in another terminal. Do not commit populated environment files.
 
@@ -112,6 +114,8 @@ The root `.env` configures Next.js and the model adapters. `backend/.env` config
 | `PROXY_TARGET` | Frontend | Private backend URL; defaults to `http://localhost:3002` |
 | `PORT` | Each service | Frontend defaults to 3001; backend defaults to 3002 |
 | `MEMORY_VECTOR_INDEX` | Backend | Atlas vector index name; defaults to `memory_vector_index` |
+| `MEMORY_VAULT_API_URL` | Backend | Python Memory Vault API address; local default is `http://127.0.0.1:8765`, Compose uses its private service name |
+| `MEMORY_VAULT_API_TOKEN` | Backend and vault | Shared bearer token for the trusted Node backend and Python Vault API; replace the root `.env.example` placeholder and keep it private |
 
 See `.env.example` and `backend/.env.example` for the full variable list, model IDs, timeouts, and optional usage-rate settings. Never paste real secrets into issues, documentation, or source control.
 
@@ -123,7 +127,7 @@ For semantic vector retrieval, create the Atlas Search vector index on `Memory.u
 
 ## Production notes
 
-- Deploy the frontend and backend as separate services. Keep MongoDB private and the backend accessible only through the trusted proxy/network path.
+- Deploy the frontend, backend, and Python vault as services on a private network. Keep MongoDB private and the backend accessible only through the trusted proxy/network path.
 - Set a stable high-entropy `SESSION_SECRET` in the backend production environment. Do not rely on a process-random development secret.
 - Configure `PROXY_TARGET`, allowed `CORS_ORIGIN`, provider credentials, MongoDB, and health checks for the deployed environment.
 - The chat rate limit is in-memory and per frontend process; it is not shared across instances. Add a shared limiter, account quotas, monitoring, backups, and an account deletion/retention process before public launch.
@@ -138,4 +142,6 @@ For semantic vector retrieval, create the Atlas Search vector index on `Memory.u
 - [Portable memory](app/memory/README.md)
 - [Model providers and routing](providers/README.md)
 - [Python Smart Auto router and portable memory](SmartMemory/README.md)
+
+The Python SmartMemory package also includes a local-first, temporal Memory Vault with an encrypted `.nxvault` format, API, optional MCP server, and recall evaluation command. NexorAI can route chat fact recall and dashboard fact operations through it; the service can also be used independently.
 - [Package scripts](package.json) and [backend scripts](backend/package.json)

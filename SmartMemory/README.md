@@ -1,6 +1,85 @@
 # NexorAI Smart Auto
 
-This Python package provides a local model router that learns from model outcomes, plus portable JSON memory. It has no required dependencies and makes no provider requests. The optional MongoDB adapter uses the app's existing `Memory.user_memories` collection. The app's current Next.js Auto path also uses task-aware routing in `providers/index.js`.
+This Python package provides a local model router and a portable memory vault. The vault adds a deterministic, bi-temporal fact ledger, provider policy filtering, a compact context compiler, an encrypted `.nxvault` bundle, an HTTP API, and an optional approval-only MCP server. The core can use local SQLite or a dedicated MongoDB `memory_vault_ledger` collection; it makes no model calls. The older `PortableMemoryStore` and optional MongoDB mirror remain available for compatibility. NexorAI's Node backend can connect chat recall and dashboard fact operations to the vault through its authenticated internal API; conversation summaries and usage stay in MongoDB.
+
+## Memory Vault quick start
+
+The base ledger has no third-party dependencies and stores data at any path you choose:
+
+```python
+from SmartMemory import MemoryLedger
+
+vault = MemoryLedger(".nexor/memory.sqlite3", user_id="local")
+vault.record(
+    "work.nexor_ai.architecture", "primary_database", "MongoDB Atlas",
+    verification_state="USER_CONFIRMED", source_conversation_id="conv_123",
+    source_message="We use MongoDB Atlas for the account memory store.",
+)
+
+context = vault.context("Which database does NexorAI use?", provider="claude", token_budget=900)
+print(context["text"])
+print(context["citations"])
+```
+
+The `nexor-vault` command also supports `add`, `list`, `context`, `delete`, `proposals`, `approve`, `reject`, `export`, `import`, and `evaluate` operations.
+
+Each change appends a version with a canonical namespace/slot, valid-time bounds, recorded time, confidence, source-message SHA-256, verification state, and provider policy. Replacing an active slot supersedes its old value instead of mixing contradictory versions. `vault.as_of(namespace, slot_key, when, known_at=...)` supports valid-time and recorded-time lookups. `vault.delete(id)` removes that memory's stored text/history and leaves a slot tombstone so automatic extraction cannot silently restore it; an explicit user-confirmed write can restore the slot. Deletion is the intentional exception to append-only history: privacy erasure purges the deleted fact's prior plaintext versions.
+
+For first-party chat integrations, `MemoryExtractor` accepts a caller-provided model function, verifies that each extracted fact has a source quote in the user's message, rejects low-confidence or secret-like candidates, and writes approved-confidence facts into canonical slots. The HTTP API also exposes `POST /v1/extract` for a trusted backend that already produced structured candidates. The vault does not choose or call an LLM itself.
+
+The compiler filters by provider before retrieval. `SECRET` memories are available only to the configured local provider names (`local`, `ollama`, `local_ollama`, `nexor_local`). `INTERNAL` and `CONFIDENTIAL` facts require an explicit provider allow-list before an external provider can receive them. `ephemeral_redaction=True` replaces the value with a placeholder; the placeholder-to-value map is returned only to a trusted in-process caller and is deliberately removed by the MCP tool. Token counts use a documented rough estimate of four characters per token, not a model tokenizer.
+
+The working SQLite database is currently plaintext on disk and should be kept in a user-protected directory. Encryption applies to exported `.nxvault` bundles; at-rest database encryption is not included in this version.
+
+## Portable `.nxvault` files
+
+Install the encryption extra, then export. AES-GCM encryption is the default; plaintext requires an explicit opt-in:
+
+```powershell
+pip install -e ".[crypto]"
+nexor-vault export .\backup.nxvault
+nexor-vault import .\backup.nxvault
+```
+
+The CLI prompts for the passphrase instead of putting it in shell history. The archive contains a manifest, ledger history, provider policies, and hashes. Encrypted bundles use AES-256-GCM with a scrypt-derived key; this first version does not add an Ed25519 user signature or precomputed embeddings.
+
+## Local MCP and HTTP interfaces
+
+The MCP server is stdio-only and is intended to be launched as a child process by a local AI client. It exposes `read_context`, `propose_fact`, and `list_my_pending_proposals`. Agent writes remain pending until the user approves them with `nexor-vault approve <proposal_id>`; an MCP agent cannot approve its own proposal. Set `NEXOR_VAULT_PATH`, `NEXOR_VAULT_USER`, and optionally `NEXOR_VAULT_PROVIDER` in the MCP client's server configuration.
+
+```powershell
+pip install -e ".[mcp,crypto]"
+```
+
+The optional HTTP API is for a local UI or trusted backend bridge. It defaults to loopback and requires a bearer token of at least 32 characters. A non-loopback bind requires the explicit `NEXOR_VAULT_ALLOW_REMOTE=true` setting and should only be used on a private network with the API port unpublished. It exposes ledger, context, proposal, approval, and encrypted-export endpoints:
+
+```powershell
+pip install -e ".[server,crypto]"
+$env:NEXOR_VAULT_API_TOKEN = "use-a-random-secret-of-at-least-32-characters"
+python -m SmartMemory.api
+```
+
+To use the new MongoDB collection, install the Mongo extra and set `NEXOR_VAULT_BACKEND=mongodb`, `NEXOR_VAULT_MULTIUSER=true`, `MONGO_URI`, and `MEMORY_DATABASE=Memory`. The API then requires the authenticated backend to send its user ID in `X-Nexor-User`; user data is stored under that ID in `memory_vault_ledger`. This backend requires a MongoDB replica set because state changes use transactions. Example local service setup:
+
+```powershell
+pip install -e ".[mongodb,server,crypto]"
+$env:NEXOR_VAULT_BACKEND = "mongodb"
+$env:NEXOR_VAULT_MULTIUSER = "true"
+$env:MONGO_URI = "<your MongoDB URI>"
+$env:MEMORY_DATABASE = "Memory"
+$env:NEXOR_VAULT_API_TOKEN = "<a random secret of at least 32 characters>"
+python -m SmartMemory.api
+```
+
+For the NexorAI chat/dashboard bridge, set `MEMORY_VAULT_API_URL=http://127.0.0.1:8765` and `MEMORY_VAULT_API_TOKEN` in `backend/.env`; set the same token as `NEXOR_VAULT_API_TOKEN` in the Python process. Keep `NEXOR_VAULT_MULTIUSER=true` so each authenticated account ID gets an isolated vault. In Docker Compose, the backend uses the private address `http://memory-vault:8765`; Compose sets the required non-loopback opt-in and does not publish that API port. The Node backend routes memory recall, validated fact extraction, and dashboard fact CRUD through Python. Existing conversation summaries and usage remain in MongoDB.
+
+Use `nexor-vault evaluate cases.json` to calculate stale-fact bleed rate, deleted-slot stickiness, and distinct injected facts per approximate 100 tokens. The JSON file is a list of cases with fields such as `query`, `provider`, and `stale_values`; deleted-slot cases also specify `deleted_slot`, `namespace`, `slot_key`, and `deleted_value`. This measures the deterministic vault's own behavior; it is not yet a comparative Cognee/Graph-RAG benchmark.
+
+MCP v2 currently requires Python 3.11 or newer. The core ledger itself remains compatible with Python 3.10+.
+
+## Current integration boundary
+
+The NexorAI Node backend can call the Python API for chat recall, fact extraction, and memory dashboard CRUD when both `MEMORY_VAULT_API_URL` and `MEMORY_VAULT_API_TOKEN` are set. Compose includes the Python service; local development can start it separately. When those settings are absent, NexorAI uses its existing MongoDB fact-memory path. Conversation transcripts, episode summaries, and usage counts remain in MongoDB. Browser IndexedDB/CRDT synchronization, clickable source-message navigation, and signed user identities remain future work.
 
 ## Quick start
 

@@ -38,9 +38,27 @@ next-env.d.ts
 # Local databases and user-specific development data
 backend/data/user-data.json
 .smart_auto/
+.nexor/
+vault-data/
+memory-data/
 *.sqlite
 *.sqlite3
+*.sqlite-*
+*.sqlite3-*
 *.db
+*.db-*
+*.nxvault
+
+# Python build and runtime artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
 
 # Logs and package manager debug files
 *.log
