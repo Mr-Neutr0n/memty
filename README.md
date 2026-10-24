@@ -6,6 +6,7 @@ NexorAI is a multi-provider AI workspace built with Next.js, an Express authenti
 
 - [What the app includes](#what-the-app-includes)
 - [Architecture](#architecture)
+- [Project structure](#project-structure)
 - [Run locally](#run-locally)
 - [Run with Docker](#run-with-docker)
 - [Environment configuration](#environment-configuration)
@@ -38,6 +39,33 @@ Browser
 ```
 
 The root `app/` contains the Next.js routes. Older landing, login, and chat markup is served through `components/legacy-page.tsx` and receives its styling from `app/globals.css`. `providers/` normalizes the model calls. `backend/` contains the Express app and MongoDB services. See the component guides below for details.
+
+## Project structure
+
+```text
+NexorAI/
+├── app/                  # Next.js routes, chat API, and web UI
+│   ├── api/chat/route.ts # Chat and memory orchestration
+│   └── memory/           # Memory dashboard
+├── backend/              # Express API, authentication, and app data
+│   ├── routes/            # HTTP endpoints
+│   └── utils/memoryService.js
+├── SmartMemory/          # Python portable memory vault
+│   ├── ledger.py         # SQLite temporal ledger
+│   ├── api.py            # Local/trusted HTTP API
+│   ├── cli.py            # Vault commands
+│   └── mcp_server.py     # Optional MCP tools
+├── providers/            # LLM provider adapters
+├── components/           # Shared and legacy UI components
+├── public/               # Browser assets
+├── templates/            # HTML templates
+├── .env.example          # Frontend and local service settings
+├── backend/.env.example  # Backend settings
+├── pyproject.toml        # Python package and extras
+├── Dockerfile.vault      # Python vault service image
+├── compose.yaml          # Local multi-service deployment
+└── README.md
+```
 
 ## Requirements
 
