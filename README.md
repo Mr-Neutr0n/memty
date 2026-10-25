@@ -169,7 +169,7 @@ For semantic vector retrieval, create the Atlas Search vector index on `Memory.u
 - [Backend and MongoDB](backend/README.md)
 - [Portable memory](app/memory/README.md)
 - [Model providers and routing](providers/README.md)
-- [Python Smart Auto router and portable memory](SmartMemory/README.md)
+- [Install the Python package; use the SmartMemory vault and SmartRouter](SmartMemory/README.md)
 
 The Python SmartMemory package also includes a local-first, temporal Memory Vault with an encrypted `.nxvault` format, API, optional MCP server, and recall evaluation command. NexorAI can route chat fact recall and dashboard fact operations through it; the service can also be used independently.
 - [Package scripts](package.json) and [backend scripts](backend/package.json)

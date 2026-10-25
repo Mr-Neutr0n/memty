@@ -5,9 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nexorai-smart-auto"
 version = "0.1.0"
-description = "Portable memory and Auto model routing utilities for NexorAI"
+description = "Portable memory and automatic model routing utilities for NexorAI"
+readme = "SmartMemory/README.md"
 requires-python = ">=3.10"
 dependencies = []
+keywords = ["portable-memory", "memory-vault", "model-routing", "linucb"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Repository = "https://github.com/RohanNK86/Open_AI_Bot"
+Documentation = "https://github.com/RohanNK86/Open_AI_Bot/tree/main/SmartMemory"
 
 [project.optional-dependencies]
 mongodb = ["pymongo>=4.6"]
@@ -22,3 +37,4 @@ nexor-vault-api = "SmartMemory.api:main"
 
 [tool.setuptools]
 packages = ["SmartMemory"]
+

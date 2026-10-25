@@ -2,6 +2,93 @@
 
 This Python package provides a local model router and a portable memory vault. The vault adds a deterministic, bi-temporal fact ledger, provider policy filtering, a compact context compiler, an encrypted `.nxvault` bundle, an HTTP API, and an optional approval-only MCP server. The core can use local SQLite or a dedicated MongoDB `memory_vault_ledger` collection; it makes no model calls. The older `PortableMemoryStore` and optional MongoDB mirror remain available for compatibility. NexorAI's Node backend can connect chat recall and dashboard fact operations to the vault through its authenticated internal API; conversation summaries and usage stay in MongoDB.
 
+## One-command local install
+
+The installers create an isolated Python environment under the user's local NexorAI data folder, then install this package from GitHub. Python 3.10+ and Git must already be installed. Review the script before running it if you want to inspect what it does.
+
+**Access note:** This GitHub repository is currently private. These installers and the pip-from-GitHub commands below work only for GitHub users who have repository read access and Git credentials configured. To offer one-command installs to everyone, make the source repository public or publish the package to PyPI.
+
+**Windows (PowerShell):**
+
+```powershell
+$installer = Join-Path $env:TEMP "install-smartmemory.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-smartmemory.ps1" -OutFile $installer
+& $installer
+```
+
+For encrypted exports, add `-Extras "crypto"`. Extras can be combined, such as `-Extras "mongodb,server,crypto"`; MCP requires Python 3.11+.
+
+**macOS / Linux (bash):**
+
+```bash
+curl -fsSLo install-smartmemory.sh https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-smartmemory.sh
+bash install-smartmemory.sh
+```
+
+Pass extras as the first argument, for example `bash install-smartmemory.sh crypto` or `bash install-smartmemory.sh mongodb,server,crypto`.
+
+The default CLI locations are `%LOCALAPPDATA%\NexorAI\SmartMemory\venv\Scripts\nexor-vault.exe` on Windows and `~/.local/share/nexorai/venv/bin/nexor-vault` on macOS/Linux. Example commands:
+
+```powershell
+& "$env:LOCALAPPDATA\NexorAI\SmartMemory\venv\Scripts\nexor-vault.exe" add demo.preferences editor "VS Code"
+& "$env:LOCALAPPDATA\NexorAI\SmartMemory\venv\Scripts\nexor-vault.exe" context local "Which editor do I use?"
+```
+
+```bash
+~/.local/share/nexorai/venv/bin/nexor-vault add demo.preferences editor "VS Code"
+~/.local/share/nexorai/venv/bin/nexor-vault context local "Which editor do I use?"
+```
+
+The router is a Python library, not a model host: your application supplies its model list and sends the selected prompt to its own provider adapter. See the SmartRouter example below.
+
+## Manual install
+
+The package is named `nexorai-smart-auto` and includes both SmartMemory and SmartRouter. Until a release is published to PyPI, install directly from GitHub. This requires Python 3.10 or newer, Git on your PATH, and read access to this private repository.
+
+**macOS / Linux (bash):**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install "nexorai-smart-auto @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"
+```
+
+**Windows (PowerShell):**
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python -m pip install --upgrade pip
+.\.venv\Scripts\python -m pip install "nexorai-smart-auto @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"
+```
+
+Install optional features only when you need them:
+
+```bash
+# Encrypted .nxvault export/import
+python -m pip install "nexorai-smart-auto[crypto] @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"
+
+# MongoDB backend, local HTTP API, and encryption
+python -m pip install "nexorai-smart-auto[mongodb,server,crypto] @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"
+
+# MCP server (Python 3.11+)
+python -m pip install "nexorai-smart-auto[mcp,crypto] @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"
+```
+
+On Windows, run those optional install commands with `py -m pip` (or the virtual environment's `.venv\\Scripts\\python -m pip`). See the [pip VCS install guide](https://pip.pypa.io/en/stable/topics/vcs-support/) for installing a package from Git.
+
+After installation, confirm the CLI is available with `nexor-vault --help`. The base vault and router need no provider keys or third-party dependencies; callers connect their own model SDKs and credentials.
+
+Create a local fact and retrieve provider-filtered context:
+
+```shell
+nexor-vault add demo.preferences editor "VS Code"
+nexor-vault list
+nexor-vault context local "Which editor do I use?"
+```
+
+The CLI stores its SQLite database under `~/.nexor/memory.sqlite3` by default. Use `nexor-vault --db ./memory.sqlite3 ...` to choose another location. SmartRouter is used from Python; its quick start is below.
+
 ## Memory Vault quick start
 
 The base ledger has no third-party dependencies and stores data at any path you choose:
@@ -172,3 +259,4 @@ Each read refreshes the local JSON mirror from that user's `user_memories` docum
 Use `reward_from_signals` with observed outcomes: accepted or within-budget responses receive `+1`, a provider fallback receives `-1`, and regenerate/correction receives `-2`. Do not treat mere conversation continuation as proof of answer quality. Update the same model and feature context used for the route. Learning improves with observations and is not a quality guarantee; begin with explicit model capability constraints and review actual quality and spend before changing production policy.
 
 This package intentionally does not implement speculative logprob cancellation: support varies by provider, and the existing NexorAI adapters are non-streaming. Similarity scores from vector databases are inputs that must be calibrated for their particular index; the router does not assume an Atlas score is a raw cosine similarity.
+
