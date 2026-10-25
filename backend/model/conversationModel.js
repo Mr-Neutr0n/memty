@@ -5,7 +5,8 @@ const messageSchema = new mongoose.Schema({
     role: { type: String, enum: ['user', 'assistant'], required: true },
     content: { type: String, required: true, maxlength: 30000 },
     model: { type: String, default: '' },
-    memoryUsed: { type: [{ id: String, fact: String, type: String }], default: [] },
+    // Mixed preserves compatibility with earlier string citations while allowing structured vault citations.
+    memoryUsed: { type: [mongoose.Schema.Types.Mixed], default: [] },
     createdAt: { type: Date, default: Date.now },
 }, { _id: false });
 

@@ -48,6 +48,24 @@ function fromVaultRecord(record) {
     };
 }
 
+function normalizeMemoryUsed(value) {
+    if (!Array.isArray(value)) return [];
+    return value.slice(0, 12).flatMap(item => {
+        if (typeof item === 'string') {
+            const fact = item.trim().slice(0, 2000);
+            return fact ? [{ fact, type: 'semantic' }] : [];
+        }
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+        const fact = typeof item.fact === 'string' ? item.fact.trim().slice(0, 2000) : '';
+        if (!fact) return [];
+        return [{
+            ...(typeof item.id === 'string' ? { id: item.id.slice(0, 120) } : {}),
+            fact,
+            type: item.type === 'style' ? 'style' : 'semantic',
+        }];
+    });
+}
+
 let writerModel;
 function getWriter() {
     if (writerModel) return writerModel;
@@ -57,7 +75,7 @@ function getWriter() {
     writerModel = client.getGenerativeModel({
         model: process.env.MEMORY_WRITER_MODEL || 'gemini-2.5-flash',
         generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
-    });
+    }, { apiVersion: 'v1beta' });
     return writerModel;
 }
 
@@ -282,7 +300,7 @@ async function commitTurn(userId, payload) {
     const existing = await Conversation.findOne({ userId, conversationId });
     const messages = [...(existing?.messages || []),
         { role: 'user', content: message, model: '', createdAt: new Date() },
-        { role: 'assistant', content: response, model: modelId, memoryUsed: Array.isArray(payload.memoryUsed) ? payload.memoryUsed.slice(0, 12) : [], createdAt: new Date() }
+        { role: 'assistant', content: response, model: modelId, memoryUsed: normalizeMemoryUsed(payload.memoryUsed), createdAt: new Date() }
     ];
     const shouldRoll = messages.length > MAX_WORKING_MESSAGES;
     const snapshot = messages.slice(-MAX_WORKING_MESSAGES);
