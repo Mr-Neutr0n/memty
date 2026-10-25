@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="NexorAI and SmartMemory: one premium workspace for every intelligence, with a portable memory vault and smart model routing.">
+    <meta name="theme-color" content="#f7f9fc">
+    <link rel="canonical" href="https://rohannk86.github.io/Open_AI_Bot/">
+    <title>NexorAI / SmartMemory</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="mobile-header">
+        <a class="brand" href="#overview" aria-label="NexorAI home">
+          <img class="brand-logo" src="assets/NexorSplash.jpeg" alt="">
+          <span>NEXOR<span class="brand-muted">AI</span></span>
+        </a>
+        <button class="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">
+          <span></span><span></span><span></span><span class="sr-only">Open navigation</span>
+        </button>
+      </header>
+
+      <aside class="sidebar" id="sidebar">
+        <a class="brand desktop-brand" href="#overview" aria-label="NexorAI home">
+          <img class="brand-logo" src="assets/NexorSplash.jpeg" alt="">
+          <span>NEXOR<span class="brand-muted">AI</span></span>
+        </a>
+        <nav class="side-nav" aria-label="Main navigation">
+          <a class="nav-link active" href="#overview">—&nbsp; Overview</a>
+          <a class="nav-link" href="#start">Start here</a>
+          <a class="nav-link" href="#quickstart">Quickstart</a>
+          <a class="nav-link" href="#architecture">Architecture</a>
+          <a class="nav-link" href="#memory">Memory vault</a>
+          <a class="nav-link" href="#routing">Model routing</a>
+          <a class="nav-link" href="#models">Models</a>
+          <a class="nav-link" href="#roadmap">Roadmap</a>
+          <a class="nav-link" href="#contribute">Contribute</a>
+          <a class="nav-link nav-external" href="https://rohannk86.github.io/Open_AI_Bot/" target="_blank" rel="noreferrer">Live site&nbsp; ↗</a>
+          <a class="nav-link nav-external" href="https://github.com/RohanNK86/Open_AI_Bot" target="_blank" rel="noreferrer">GitHub&nbsp; ↗</a>
+        </nav>
+        <div class="sidebar-footer">
+          <p>NexorAI / SmartMemory</p>
+          <p>OPEN SOURCE · MIT</p>
+          <p>STATUS · IN DEVELOPMENT</p>
+        </div>
+      </aside>
+
+      <main>
+        <section class="hero section-anchor" id="overview">
+          <div class="hero-copy">
+            <p class="eyebrow">Portable intelligence infrastructure</p>
+            <h1>One workspace.<br><em>Every intelligence.</em></h1>
+            <p class="lede">NexorAI brings multiple AI providers into one calm, capable workspace. SmartMemory gives your context a durable home that you control.</p>
+            <div class="button-row">
+              <a class="button button-dark" href="#quickstart">Start building <span>→</span></a>
+              <a class="button" href="https://github.com/RohanNK86/Open_AI_Bot" target="_blank" rel="noreferrer">View on GitHub <span>↗</span></a>
+            </div>
+            <div class="badges" aria-label="Project details">
+              <span>Next.js</span><span>Python 3.10+</span><span>MongoDB</span><span>MIT license</span>
+            </div>
+          </div>
+          <div class="hero-art" aria-label="SmartMemory architecture preview">
+            <div class="art-label">memory_vault.py</div>
+            <pre><code><span class="code-purple">from</span> SmartMemory <span class="code-purple">import</span> MemoryLedger
+
+vault = MemoryLedger(
+    <span class="code-green">".nexor/memory.sqlite3"</span>,
+    user_id=<span class="code-green">"local"</span>
+)
+
+vault.record(
+    <span class="code-green">"work.nexor_ai"</span>,
+    <span class="code-green">"primary_database"</span>,
+    <span class="code-green">"MongoDB Atlas"</span>,
+    verification_state=<span class="code-green">"USER_CONFIRMED"</span>
+)
+
+context = vault.context(
+    <span class="code-green">"Which database do we use?"</span>,
+    provider=<span class="code-green">"claude"</span>
+)</code></pre>
+          </div>
+        </section>
+
+        <section class="intro section-anchor" id="start">
+          <div class="section-index">01 — START HERE</div>
+          <div class="section-content">
+            <p class="eyebrow">Built for people who think in systems</p>
+            <h2>AI that remembers<br><em>without locking you in.</em></h2>
+            <p class="body-copy">Switch models without leaving your context behind. NexorAI handles the conversation surface; SmartMemory stores durable facts, keeps their history, and compiles only the right context for each provider.</p>
+            <div class="feature-grid">
+              <article class="feature-card feature-red">
+                <p class="eyebrow">For builders</p>
+                <h3>Compose your stack</h3>
+                <p>Connect Gemini, Claude, Grok, Kimi, OpenRouter, or your own local model behind a single workspace.</p>
+                <a href="#models">Explore providers →</a>
+              </article>
+              <article class="feature-card feature-blue">
+                <p class="eyebrow">For your data</p>
+                <h3>Own the context</h3>
+                <p>Facts live in a portable ledger with namespaces, confidence, citations, verification state, and deletion semantics.</p>
+                <a href="#architecture">See the architecture →</a>
+              </article>
+              <article class="feature-card feature-green">
+                <p class="eyebrow">For every model</p>
+                <h3>Route with intent</h3>
+                <p>Use automatic routing, fallbacks, and side-by-side comparison while the memory layer stays independent.</p>
+                <a href="#quickstart">Run it locally →</a>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="content-section section-anchor" id="quickstart">
+          <div class="section-index">02 — QUICKSTART</div>
+          <div class="section-content">
+            <p class="eyebrow">A few minutes to your first memory</p>
+            <h2>Make context<br><em>portable.</em></h2>
+            <p class="body-copy">The core ledger has no third-party dependencies. Start locally, inspect every change, and add the providers you need when you are ready.</p>
+            <div class="code-window">
+              <div class="window-bar"><span></span><span></span><span></span><b>terminal</b><button class="copy-button" type="button" data-copy="pip install -e .&#10;nexor-vault add work.nexor_ai.primary_database &quot;MongoDB Atlas&quot;&#10;nexor-vault context &quot;Which database do we use?&quot;">Copy</button></div>
+              <pre><code><span class="code-comment"># install NexorAI SmartMemory</span>
+pip install -e .
+
+<span class="code-comment"># write a verified fact</span>
+nexor-vault add work.nexor_ai.primary_database <span class="code-green">"MongoDB Atlas"</span>
+
+<span class="code-comment"># compile context for a model</span>
+nexor-vault context <span class="code-green">"Which database do we use?"</span></code></pre>
+            </div>
+            <div class="steps">
+              <div><strong>01</strong><span><b>Install</b> the package from the repository.</span></div>
+              <div><strong>02</strong><span><b>Record</b> facts with a canonical namespace and slot.</span></div>
+              <div><strong>03</strong><span><b>Compile</b> provider-safe context when you need it.</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="content-section architecture section-anchor" id="architecture">
+          <div class="section-index">03 — ARCHITECTURE</div>
+          <div class="section-content">
+            <p class="eyebrow">Small pieces, clear boundaries</p>
+            <h2>Memory is a layer,<br><em>not a cage.</em></h2>
+            <p class="body-copy">The web workspace, model adapters, and memory vault can evolve independently. Use the complete NexorAI app, or take the Python package into your own application.</p>
+            <div class="architecture-map">
+              <div class="map-node node-browser"><span>01</span><b>Browser</b><small>Chat workspace · history</small></div>
+              <div class="map-line"></div>
+              <div class="map-node node-app"><span>02</span><b>NexorAI</b><small>Next.js · provider adapters</small></div>
+              <div class="map-line"></div>
+              <div class="map-node node-vault"><span>03</span><b>SmartMemory</b><small>Ledger · policy · context</small></div>
+              <div class="map-line"></div>
+              <div class="map-node node-store"><span>04</span><b>Your storage</b><small>SQLite · MongoDB · .nxvault</small></div>
+            </div>
+            <div class="callout"><span>↳</span><p><b>Core principle:</b> the vault does not call an LLM by itself. You provide the model function, and the ledger keeps the resulting memory inspectable and yours.</p></div>
+          </div>
+        </section>
+
+        <section class="content-section models section-anchor" id="models">
+          <div class="section-index">04 — MODELS</div>
+          <div class="section-content">
+            <p class="eyebrow">Bring your own intelligence</p>
+            <h2>One interface.<br><em>Many perspectives.</em></h2>
+            <div class="model-list">
+              <div class="model-row"><span class="model-icon">G</span><div><b>Gemini</b><small>Google · fast multimodal responses</small></div><em>configured</em></div>
+              <div class="model-row"><span class="model-icon">A</span><div><b>Claude</b><small>Anthropic · careful reasoning and writing</small></div><em>configured</em></div>
+              <div class="model-row"><span class="model-icon">↯</span><div><b>Grok</b><small>xAI · direct, real-time conversations</small></div><em>configured</em></div>
+              <div class="model-row"><span class="model-icon">◆</span><div><b>OpenRouter</b><small>Open models · a broad model catalog</small></div><em>configurable</em></div>
+              <div class="model-row"><span class="model-icon">⌂</span><div><b>Local models</b><small>Ollama and private providers</small></div><em>your choice</em></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="content-section vault-detail section-anchor" id="memory">
+          <div class="section-index">05 — MEMORY VAULT</div>
+          <div class="section-content">
+            <p class="eyebrow">A durable memory layer for every conversation</p>
+            <h2>Remember what matters.<br><em>Forget what you delete.</em></h2>
+            <p class="body-copy">SmartMemory is a local-first, provider-aware memory vault. It stores useful facts as versioned ledger events instead of turning your entire chat history into an opaque prompt. You can inspect, correct, export, or erase what it knows.</p>
+            <div class="vault-grid">
+              <article class="vault-card"><span class="vault-number">01</span><h3>Extract</h3><p>A caller-provided model proposes a fact with a source quote. Secret-like and low-confidence candidates are rejected before they reach the ledger.</p></article>
+              <article class="vault-card"><span class="vault-number">02</span><h3>Verify</h3><p>Facts carry confidence, verification state, sensitivity tier, source conversation, source hash, and the model that extracted them.</p></article>
+              <article class="vault-card"><span class="vault-number">03</span><h3>Version</h3><p>Every update supersedes the previous value for a canonical namespace and slot. Historical state remains available for temporal queries.</p></article>
+              <article class="vault-card"><span class="vault-number">04</span><h3>Compile</h3><p>Only relevant, permitted facts are selected for a query. The context compiler applies provider policies and a token budget before injection.</p></article>
+              <article class="vault-card"><span class="vault-number">05</span><h3>Control</h3><p>Users can pin, edit, archive, delete, approve, or reject memories. A deletion tombstone stops automatic extraction from silently restoring a fact.</p></article>
+              <article class="vault-card"><span class="vault-number">06</span><h3>Export</h3><p>Portable <code>.nxvault</code> bundles include the ledger, manifest, policies, and hashes. Encrypted exports use AES-256-GCM with a scrypt-derived key.</p></article>
+            </div>
+            <div class="privacy-strip"><b>Privacy boundary</b><span>SECRET facts stay with local providers. INTERNAL and CONFIDENTIAL facts require an explicit provider allow-list. Ephemeral redaction can replace a value with a placeholder before it leaves the vault.</span></div>
+          </div>
+        </section>
+
+        <section class="content-section section-anchor" id="routing">
+          <div class="section-index">06 — MODEL ROUTING</div>
+          <div class="section-content">
+            <p class="eyebrow">Capability-constrained smart auto</p>
+            <h2>Give each task<br><em>the right model.</em></h2>
+            <p class="body-copy">NexorAI can route a request across caller-supplied models instead of treating every prompt the same. Smart Auto reads the task shape, checks model capability and context limits, considers cost, and learns from outcome feedback.</p>
+            <div class="routing-flow">
+              <div class="route-step"><span>01</span><b>Understand</b><small>Classify general, code, structured, long-context, or reasoning work.</small></div>
+              <div class="route-arrow">→</div>
+              <div class="route-step"><span>02</span><b>Constrain</b><small>Remove unavailable models and those without enough capability or context.</small></div>
+              <div class="route-arrow">→</div>
+              <div class="route-step"><span>03</span><b>Score</b><small>Balance learned quality, exploration, capability, cost, and memory coverage.</small></div>
+              <div class="route-arrow">→</div>
+              <div class="route-step"><span>04</span><b>Improve</b><small>Use accepted, regenerated, corrected, or fallback outcomes as feedback.</small></div>
+            </div>
+            <div class="code-window routing-code">
+              <div class="window-bar"><span></span><span></span><span></span><b>smart_auto.py</b><button class="copy-button" type="button" data-copy="decision = router.route(prompt, memory_relevance=0.84, memory_coverage=0.65)">Copy</button></div>
+              <pre><code><span class="code-comment"># memory relevance and coverage influence synthesis tasks</span>
+decision = router.route(
+    prompt,
+    memory_relevance=<span class="code-purple">0.84</span>,
+    memory_coverage=<span class="code-purple">0.65</span>,
+    context_tokens=<span class="code-purple">12000</span>,
+)
+
+print(decision.model_id)
+print(decision.reason)
+<span class="code-comment"># update after a user outcome</span>
+router.update(decision.model_id, prompt, reward=<span class="code-purple">1.0</span>)</code></pre>
+            </div>
+            <p class="fine-print">Pricing and credentials stay outside the learning file. The router stores model IDs and small numeric matrices, not secrets or prompt archives.</p>
+          </div>
+        </section>
+
+        <section class="content-section roadmap section-anchor" id="roadmap">
+          <div class="section-index">07 — ROADMAP</div>
+          <div class="section-content">
+            <p class="eyebrow">An open-ended project</p>
+            <h2>Useful now.<br><em>Better together.</em></h2>
+            <div class="roadmap-grid">
+              <div><span class="status status-live">LIVE</span><h3>Portable memory vault</h3><p>Bi-temporal facts, provider policy filtering, encrypted exports, and a local-first ledger.</p></div>
+              <div><span class="status status-next">NEXT</span><h3>Deeper integrations</h3><p>Browser sync, clickable source messages, richer evaluations, and more local model adapters.</p></div>
+              <div><span class="status status-explore">EXPLORE</span><h3>Shared intelligence</h3><p>Team workspaces, opt-in memory sharing, and tools for evaluating model decisions.</p></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="closing section-anchor" id="contribute">
+          <div>
+            <p class="eyebrow">Open source · built in public</p>
+            <h2>Make your AI<br><em>feel like yours.</em></h2>
+            <p class="body-copy">Read the code, run it locally, open an issue, or bring a new provider to the workspace. The public GitHub Pages site is available at <a class="inline-link" href="https://rohannk86.github.io/Open_AI_Bot/" target="_blank" rel="noreferrer">rohannk86.github.io/Open_AI_Bot ↗</a>.</p>
+            <div class="button-row">
+              <a class="button button-dark" href="https://github.com/RohanNK86/Open_AI_Bot" target="_blank" rel="noreferrer">Contribute on GitHub <span>↗</span></a>
+              <a class="button" href="https://github.com/RohanNK86/Open_AI_Bot/issues" target="_blank" rel="noreferrer">Open an issue <span>↗</span></a>
+            </div>
+          </div>
+        </section>
+
+        <footer class="site-footer">
+          <span>© 2026 NexorAI</span><span>SmartMemory / MIT</span><a href="https://rohannk86.github.io/Open_AI_Bot/" target="_blank" rel="noreferrer">Live site ↗</a><a href="#overview">Back to top ↑</a>
+        </footer>
+      </main>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
