@@ -6,6 +6,8 @@ This Python package provides a local model router and a portable memory vault. T
 
 The installers create an isolated Python environment under the user's local NexorAI data folder, then install this package from GitHub. Python 3.10+ and Git must already be installed. Review the script before running it if you want to inspect what it does.
 
+**Access note:** This GitHub repository is currently private. These installers and the pip-from-GitHub commands below work only for GitHub users who have repository read access and Git credentials configured. To offer one-command installs to everyone, make the source repository public or publish the package to PyPI.
+
 **Windows (PowerShell):**
 
 ```powershell
@@ -41,7 +43,7 @@ The router is a Python library, not a model host: your application supplies its 
 
 ## Manual install
 
-The package is named `nexorai-smart-auto` and includes both SmartMemory and SmartRouter. Until a release is published to PyPI, install directly from the public GitHub repository. This requires Python 3.10 or newer and Git on your PATH.
+The package is named `nexorai-smart-auto` and includes both SmartMemory and SmartRouter. Until a release is published to PyPI, install directly from GitHub. This requires Python 3.10 or newer, Git on your PATH, and read access to this private repository.
 
 **macOS / Linux (bash):**
 
