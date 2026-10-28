@@ -1,175 +1,161 @@
+<div align="center">
+
+<img src="assets/NexorSplash.jpeg" alt="NexorAI logo" width="180" />
+
 # NexorAI
 
-NexorAI is a multi-provider AI workspace built with Next.js, an Express authentication and memory service, and MongoDB. It lets signed-in users switch models while NexorAI keeps conversation context and user-controlled memories independently of the model provider.
+### One workspace for multiple AI models, conversations, and portable memory.
 
-## Contents
+[Explore the code](#project-map) · [Run locally](#get-started) · [Understand the architecture](#how-it-fits-together) · [Find a guide](#choose-your-path)
 
-- [What the app includes](#what-the-app-includes)
-- [Architecture](#architecture)
-- [Project structure](#project-structure)
-- [Run locally](#run-locally)
-- [Run with Docker](#run-with-docker)
-- [Environment configuration](#environment-configuration)
-- [MongoDB setup](#mongodb-setup)
-- [Production notes](#production-notes)
-- [Detailed guides](#detailed-guides)
+</div>
 
-## What the app includes
+NexorAI is a multi-provider AI workspace built with **Next.js**, an **Express** account and memory service, **MongoDB**, and an optional **Python Memory Vault**. Choose a model or let Auto routing select from configured providers, then manage saved conversations and user-controlled memory in one place.
 
-- Landing page with model and feature overview.
-- Sign-in, account registration, and optional Google sign-in.
-- Chat workspace with model selection, Auto routing, fallback, side-by-side compare, local history controls, light/dark theme, and mobile sidebar.
-- Portable memory dashboard to inspect, add, edit, pin, and delete facts; view archived facts and conversation summaries; delete saved conversations; and review usage counts.
-- Provider availability and model metadata at `/api/config`.
-- Terms, privacy, and first-party API reference pages.
-- Express API for authentication, signed sessions, conversations, memory retrieval, and usage data.
+> **Project status:** provider access depends on your own credentials. Some production features are still planned; see [current limitations](#current-limitations) before deploying publicly.
 
-Model/provider availability depends on credentials and current provider access. The interface does not imply that every provider key is configured.
+## ✨ What you can do
 
-## Architecture
+| Chat across providers | Keep useful context | Explore the system |
+| --- | --- | --- |
+| Select a configured model, use heuristic Auto routing, fallbacks, or compare responses. | Sign in, save conversations, and inspect or manage account-scoped memory. | Run the web app and API locally, or start the app and optional Vault with Compose. |
 
-```text
-Browser
-  └─ Next.js app (port 3001)
-       ├─ Pages, chat API, model adapters, local browser history
-       └─ private proxy (PROXY_TARGET)
-            └─ Express service (port 3002)
-                 ├─ signed HTTP-only account sessions
-                 └─ MongoDB: Users + Memory databases
+The workspace also includes a responsive chat UI, model availability metadata, a memory dashboard, privacy and terms pages, and a first-party API reference. Provider keys stay on the server side.
+
+<a id="how-it-fits-together"></a>
+## 🧭 How it fits together
+
+![NexorAI system architecture: browser, Next.js, model providers, Express API, MongoDB, and optional Python Memory Vault](docs/architecture.svg)
+
+The browser talks to the Next.js app. Its chat route calls the selected model adapter and uses a private proxy to reach the Express service for account sessions and saved data. MongoDB stores account and memory data. The Python Vault is optional: when configured, the backend can use it for fact recall and dashboard operations; conversation summaries and usage remain in MongoDB.
+
+### A chat request, at a glance
+
+```mermaid
+flowchart LR
+    U[Your message] --> C[Next.js chat route]
+    C --> M[Context and memory lookup]
+    M --> R[Provider adapter or Auto route]
+    R --> A[Assistant response]
+    A --> P[Persist conversation and usage]
 ```
 
-The root `app/` contains the Next.js routes. Older landing, login, and chat markup is served through `components/legacy-page.tsx` and receives its styling from `app/globals.css`. `providers/` normalizes the model calls. `backend/` contains the Express app and MongoDB services. See the component guides below for details.
+<a id="get-started"></a>
+## 🚀 Get started
 
-## Project structure
+### Requirements
 
-```text
-NexorAI/
-├── app/                  # Next.js routes, chat API, and web UI
-│   ├── api/chat/route.ts # Chat and memory orchestration
-│   └── memory/           # Memory dashboard
-├── backend/              # Express API, authentication, and app data
-│   ├── routes/            # HTTP endpoints
-│   └── utils/memoryService.js
-├── SmartMemory/          # Python portable memory vault
-│   ├── ledger.py         # SQLite temporal ledger
-│   ├── api.py            # Local/trusted HTTP API
-│   ├── cli.py            # Vault commands
-│   └── mcp_server.py     # Optional MCP tools
-├── providers/            # LLM provider adapters
-├── components/           # Shared and legacy UI components
-├── public/               # Browser assets
-├── templates/            # HTML templates
-├── .env.example          # Frontend and local service settings
-├── backend/.env.example  # Backend settings
-├── pyproject.toml        # Python package and extras
-├── Dockerfile.vault      # Python vault service image
-├── compose.yaml          # Local multi-service deployment
-└── README.md
-```
+- Node.js 20.9 or later and npm
+- MongoDB for sign-in, saved conversations, and server-side memory
+- Provider credentials for the models you want to use
+- Python 3.10+ only if you want to run the Memory Vault separately
 
-## Requirements
-
-- Node.js 20.9 or later
-- npm
-- MongoDB (MongoDB Atlas is recommended for Atlas Vector Search)
-
-## Run locally
-
-Install dependencies in both packages:
+Install the frontend and backend dependencies:
 
 ```powershell
 npm install
 cd backend
 npm install
+cd ..
 ```
 
-Create the root `.env` from `.env.example` and `backend/.env` from `backend/.env.example`. Fill in the MongoDB URI and any model/provider credentials you plan to use. Keep both populated files private; they are ignored by Git.
-
-Run the frontend and backend in separate terminals:
-
-```powershell
-# Terminal 1, repository root
-npm run dev
-```
-
-```powershell
-# Terminal 2
-cd backend
-npm run dev
-```
-
-Open [http://localhost:3001](http://localhost:3001). The API backend listens on port 3002 by default. Sign-in, chat memory, and the Memory page need the backend and a reachable MongoDB server.
-
-`npm start` starts the built Next.js production server. Build first with `npm run build`. Do not pass `frontend:dev` to `npm start`; to run development, use `npm run dev` or `npm run frontend:dev`.
-
-## Run with Docker
-
-Docker Compose builds the frontend, backend, and Python Memory Vault. MongoDB remains external, so configure its connection in the backend environment file. The vault stores its SQLite database in a persistent Docker volume by default.
-
-Create the environment files, fill in `backend/.env` with a reachable MongoDB URI and a stable `SESSION_SECRET`, and set any provider credentials you need in `.env`:
+Create local environment files and add the MongoDB URI and any provider keys you want to use:
 
 ```powershell
 Copy-Item .env.example .env
 Copy-Item backend/.env.example backend/.env
 ```
 
-Then build and start the services:
+Keep populated environment files private. Open two terminals from the repository root:
+
+```powershell
+# Terminal 1: Next.js app
+npm run dev
+```
+
+```powershell
+# Terminal 2: Express API
+cd backend
+npm run dev
+```
+
+Open [http://localhost:3001](http://localhost:3001). The API listens on port `3002` by default. Sign-in and server-backed memory features need a reachable MongoDB instance. Without provider credentials, those models are shown as unavailable.
+
+### Start with Docker Compose
+
+Compose starts the frontend, backend, and Python Memory Vault. MongoDB remains external. Create the environment files as above, set a reachable `MONGO_URI` and stable `SESSION_SECRET` in `backend/.env`, and replace the example `MEMORY_VAULT_API_TOKEN` with a random secret of at least 32 characters in `.env`.
 
 ```powershell
 docker compose up --build
 ```
 
-Before starting, replace `MEMORY_VAULT_API_TOKEN` in `.env` with a random secret of at least 32 characters. Compose keeps the vault API private to its internal network. Existing MongoDB fact memories are not copied automatically into the new vault; the old MongoDB collections remain intact.
+The Vault API stays on Compose's private network. Open [http://localhost:3001](http://localhost:3001); stop the stack with `Ctrl+C` or `docker compose down`. Compose does not migrate existing MongoDB memories into the Vault.
 
-Open [http://localhost:3001](http://localhost:3001). The API is also exposed on port 3002. Compose sets the frontend's `PROXY_TARGET` to the backend service and the backend's CORS origin to the local frontend. Stop the services with `Ctrl+C`, or run `docker compose down` in another terminal. Do not commit populated environment files.
+<a id="project-map"></a>
+## 🗺️ Project map
 
-## Environment configuration
-
-The root `.env` configures Next.js and the model adapters. `backend/.env` configures MongoDB and the Express service; the backend also loads the root environment first. Common settings:
-
-| Variable | Used by | Purpose |
+| Path | What lives here | Start here |
 | --- | --- | --- |
-| `GEMINI_API_KEY` | Frontend and backend | Gemini chat, memory extraction, summaries, and embeddings |
-| `CLAUDE_API_KEY` | Frontend | Claude adapter |
-| `GROK_API_KEY` | Frontend | Grok adapter |
-| `KIMI_API_KEY` | Frontend | Kimi adapter |
-| `OPEN_ROUTER_OPEN_API_KEYS` | Frontend | ChatGPT-compatible OpenRouter adapter |
-| `OPEN_ROUTER_API_KEY` | Frontend | NVIDIA Nemotron and Meta Llama via OpenRouter |
-| `MONGO_URI` | Backend | MongoDB connection string |
-| `MONGO_DATABASE` | Backend | Account database; defaults to `Users` |
-| `MEMORY_DATABASE` | Backend | Portable-memory database; defaults to `Memory` |
-| `SESSION_SECRET` | Backend | Stable, high-entropy signing key; required in production |
-| `PROXY_TARGET` | Frontend | Private backend URL; defaults to `http://localhost:3002` |
-| `PORT` | Each service | Frontend defaults to 3001; backend defaults to 3002 |
-| `MEMORY_VECTOR_INDEX` | Backend | Atlas vector index name; defaults to `memory_vector_index` |
-| `MEMORY_VAULT_API_URL` | Backend | Python Memory Vault API address; local default is `http://127.0.0.1:8765`, Compose uses its private service name |
-| `MEMORY_VAULT_API_TOKEN` | Backend and vault | Shared bearer token for the trusted Node backend and Python Vault API; replace the root `.env.example` placeholder and keep it private |
+| [`app/`](app/README.md) | Next.js pages, API routes, chat orchestration, and UI styles | [`app/api/chat/route.ts`](app/api/chat/route.ts) |
+| [`backend/`](backend/README.md) | Express routes, authentication, MongoDB models, and memory services | [`backend/server.js`](backend/server.js) |
+| [`providers/`](providers/README.md) | Model registry, provider adapters, Auto routing, and fallbacks | [`providers/index.js`](providers/index.js) |
+| [`SmartMemory/`](SmartMemory/README.md) | Python memory ledger, vault API, CLI, and optional MCP server | [`SmartMemory/ledger.py`](SmartMemory/ledger.py) |
+| [`components/`](components/legacy-page.tsx) · [`lib/`](lib/legacy-markup.ts) · [`public/`](public/) | Shared wrapper, legacy page markup, and browser assets/scripts | [`components/legacy-page.tsx`](components/legacy-page.tsx) |
+| [`templates/`](templates/) · [`static/`](static/) | Legacy HTML templates and static assets | — |
+| [`assets/`](assets/) | Project and provider artwork used by the UI and documentation | — |
+| [`compose.yaml`](compose.yaml) · [`Dockerfile`](Dockerfile) · [`Dockerfile.vault`](Dockerfile.vault) | Local multi-service deployment and container builds | [Compose setup](#start-with-docker-compose) |
+| [`.env.example`](.env.example) · [`backend/.env.example`](backend/.env.example) | Frontend/provider and backend configuration templates | [Configuration](#configuration-at-a-glance) |
 
-See `.env.example` and `backend/.env.example` for the full variable list, model IDs, timeouts, and optional usage-rate settings. Never paste real secrets into issues, documentation, or source control.
+<a id="choose-your-path"></a>
+### Choose your path
 
-## MongoDB setup
+- **Frontend contributor:** [routes, UI, and responsive styles](app/README.md)
+- **API or data contributor:** [backend routes, sessions, and MongoDB](backend/README.md)
+- **Model contributor:** [provider adapters and routing](providers/README.md)
+- **Memory contributor:** [portable vault, CLI, API, and Python router](SmartMemory/README.md)
+- **Memory feature reader:** [memory lifecycle and storage guide](app/memory/README.md)
 
-Set `MONGO_URI`, `MONGO_DATABASE=Users`, and `MEMORY_DATABASE=Memory` in `backend/.env`. On startup the backend creates `user_memories`, `user_conversations`, and `model_usage` in the `Memory` database if needed. Existing collections such as `Memory.messages` are left intact. Account documents remain in `Users`.
+<a id="configuration-at-a-glance"></a>
+## ⚙️ Configuration at a glance
 
-For semantic vector retrieval, create the Atlas Search vector index on `Memory.user_memories` using [`backend/memory-vector-index.json`](backend/memory-vector-index.json). The configured index needs 768-dimensional cosine vectors and filters for `userId` and `status`. Without the index or embedding service, memory retrieval can fall back to lexical and recency scoring.
+The root `.env` configures Next.js and model providers. `backend/.env` configures MongoDB and the Express service; the backend loads the root environment first, then lets backend values override it.
 
-## Production notes
+| Setting | Service | Purpose |
+| --- | --- | --- |
+| `GEMINI_API_KEY`, `CLAUDE_API_KEY`, `GROK_API_KEY`, `KIMI_API_KEY` | Frontend and/or backend | Enable the corresponding model features. |
+| `OPEN_ROUTER_OPEN_API_KEYS`, `OPEN_ROUTER_API_KEY` | Frontend | Enable OpenRouter-backed models. |
+| `MONGO_URI`, `MONGO_DATABASE`, `MEMORY_DATABASE` | Backend | Connect to account and memory databases. |
+| `SESSION_SECRET` | Backend | Sign account sessions; use a stable high-entropy value in production. |
+| `PROXY_TARGET` | Frontend | Backend URL; defaults to `http://localhost:3002`. |
+| `MEMORY_VAULT_API_URL`, `MEMORY_VAULT_API_TOKEN` | Backend and Vault | Connect the trusted backend to the optional Vault API. |
 
-- Deploy the frontend, backend, and Python vault as services on a private network. Keep MongoDB private and the backend accessible only through the trusted proxy/network path.
-- Set a stable high-entropy `SESSION_SECRET` in the backend production environment. Do not rely on a process-random development secret.
-- Configure `PROXY_TARGET`, allowed `CORS_ORIGIN`, provider credentials, MongoDB, and health checks for the deployed environment.
-- The chat rate limit is in-memory and per frontend process; it is not shared across instances. Add a shared limiter, account quotas, monitoring, backups, and an account deletion/retention process before public launch.
-- Cost estimates require operator-configured per-model token rates. They are estimates, not billing records.
-- Chat responses are not streamed. App Auto routing uses task heuristics and configured model rates when available; the separate Python Smart Auto package adds an online contextual bandit for integrations that provide outcome feedback. Provider fallbacks and compare mode depend on configured providers.
-- Review the Privacy Notice and Terms against the actual legal entity, provider agreements, data retention, and deployment before release.
+See [`.env.example`](.env.example) and [`backend/.env.example`](backend/.env.example) for all options. Never commit real credentials or paste them into issues.
 
-## Detailed guides
+For semantic memory retrieval, create the Atlas Search vector index on `Memory.user_memories` using [`backend/memory-vector-index.json`](backend/memory-vector-index.json). The configured index expects 768-dimensional cosine vectors and filters for `userId` and `status`. Without the index or an embedding service, retrieval can use lexical and recency scoring.
+
+<a id="current-limitations"></a>
+## ⚠️ Current limitations
+
+- Chat responses are not streamed.
+- The frontend request limit is in-memory per frontend process, not a shared account quota.
+- Public launch needs an account deletion and retention process, shared abuse controls, monitoring, backups, and deployment-specific security review.
+- Model availability, IDs, prices, and provider behavior depend on external providers and your configuration.
+- Auto routing uses task heuristics; it does not guarantee the best answer. The separate Python SmartRouter learns from feedback supplied by its integration.
+- Cost figures are estimates only when operators configure per-model rates; they are not billing records.
+- The Python Vault's working SQLite database is plaintext on disk. Encrypted `.nxvault` exports are available with the optional crypto extra.
+
+Review the [Privacy Notice](app/privacy/page.tsx) and [Terms](app/terms/page.tsx) against your deployment and applicable provider agreements before release.
+
+## 📚 More documentation
 
 - [Frontend and mobile layout](app/README.md)
-- [Backend and MongoDB](backend/README.md)
-- [Portable memory](app/memory/README.md)
-- [Model providers and routing](providers/README.md)
-- [Install the Python package; use the SmartMemory vault and SmartRouter](SmartMemory/README.md)
+- [Backend, routes, and MongoDB](backend/README.md)
+- [Memory layers, retrieval, and storage](app/memory/README.md)
+- [Provider adapters, Auto routing, and costs](providers/README.md)
+- [Python SmartMemory Vault and SmartRouter](SmartMemory/README.md)
+- [Frontend scripts](package.json) · [Backend scripts](backend/package.json) · [Python package configuration](pyproject.toml)
 
-The Python SmartMemory package also includes a local-first, temporal Memory Vault with an encrypted `.nxvault` format, API, optional MCP server, and recall evaluation command. NexorAI can route chat fact recall and dashboard fact operations through it; the service can also be used independently.
-- [Package scripts](package.json) and [backend scripts](backend/package.json)
+## 🤝 Contributing
+
+Start with the [contributor guide](CONTRIBUTING.md), choose the guide for the area you are changing, and pick a focused issue. Keep credentials and personal data out of commits and issue attachments.
+

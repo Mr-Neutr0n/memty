@@ -2,6 +2,29 @@
 
 This Python package provides a local model router and a portable memory vault. The vault adds a deterministic, bi-temporal fact ledger, provider policy filtering, a compact context compiler, an encrypted `.nxvault` bundle, an HTTP API, and an optional approval-only MCP server. The core can use local SQLite or a dedicated MongoDB `memory_vault_ledger` collection; it makes no model calls. The older `PortableMemoryStore` and optional MongoDB mirror remain available for compatibility. NexorAI's Node backend can connect chat recall and dashboard fact operations to the vault through its authenticated internal API; conversation summaries and usage stay in MongoDB.
 
+[← NexorAI overview](../README.md) · [Backend integration](../backend/README.md) · [Memory lifecycle](../app/memory/README.md)
+
+## Pick the right entry point
+
+| Goal | Start here |
+| --- | --- |
+| Use a local fact vault from the command line | [Install and CLI quick start](#one-command-local-install) |
+| Embed memory in a Python application | [Memory Vault quick start](#memory-vault-quick-start) |
+| Choose a model using task features and feedback | [SmartRouter quick start](#quick-start) |
+| Connect the local HTTP API to a trusted service | [HTTP interface](#local-mcp-and-http-interfaces) |
+| Understand where the Python service fits in NexorAI | [Current integration boundary](#current-integration-boundary) |
+
+```text
+Your app / NexorAI backend
+          │ trusted API or Python library
+          ▼
+    SmartMemory vault ─── SQLite ledger or MongoDB ledger
+          │
+          ├── provider-filtered context
+          ├── user-approved fact proposals
+          └── encrypted .nxvault export
+```
+
 ## One-command local install
 
 The installers create an isolated Python environment under the user's local NexorAI data folder, then install this package from GitHub. Python 3.10+ and Git must already be installed. Review the script before running it if you want to inspect what it does.

@@ -2,6 +2,25 @@
 
 This folder contains the NexorAI Next.js App Router UI, API routes, shared global styles, and route-level pages. Start the frontend from the repository root with `npm run dev`; it serves on port 3001 by default.
 
+> **Frontend path:** browser → Next.js page/API route → provider adapter or private backend proxy. The root [README](../README.md) has the system diagram and full local setup.
+
+| Want to... | Read |
+| --- | --- |
+| Understand model calls and provider fallback | [Provider and routing guide](../providers/README.md) |
+| Change sign-in, sessions, or saved data | [Backend guide](../backend/README.md) |
+| Change memory retrieval or dashboard behavior | [Portable memory guide](memory/README.md) |
+
+## Where to make a frontend change
+
+| Area | Files | Notes |
+| --- | --- | --- |
+| App routes | `page.tsx`, `login/`, `chatbot/`, `memory/`, `terms/`, `privacy/` | Route entry points and React pages. |
+| Chat endpoint | `api/chat/route.ts` | Request validation, context orchestration, provider call, and persistence handoff. |
+| Public model metadata | `api/config/route.ts` | Reports configured models without exposing provider secrets. |
+| Legacy landing, login, and chat UI | `../lib/legacy-markup.ts`, `../components/legacy-page.tsx`, `../public/legacy/` | HTML strings, React wrapper, and page scripts. |
+| Shared and responsive styles | `globals.css` | Scope legacy styles to their page root classes. |
+| Backend proxy routes | `backend/`, `users/` | Forward requests to the Express service. |
+
 ## Pages
 
 | Route | Source | Purpose |
@@ -38,3 +57,4 @@ The root layout declares a device-width viewport with `viewportFit: cover`. Inte
 See the root `.env.example` for provider keys, model names, output limits, proxy target, frontend port, Google client ID, and memory defaults. Provider keys stay server-side in Next.js routes and must not be exposed through client JavaScript.
 
 The workspace's short recent-history list and theme/display preferences use browser storage. Full neutral conversation context and portable memory are stored in MongoDB through the backend. Deleting browser storage removes local UI state; use the Memory page to delete saved server conversations and memories.
+

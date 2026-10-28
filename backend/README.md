@@ -2,6 +2,25 @@
 
 The backend is an Express service that handles account authentication, signed sessions, portable memory, persisted neutral conversations, and per-model usage. It runs independently of Next.js and listens on port 3002 by default.
 
+> **Request path:** the Next.js app proxies trusted account and memory requests to this service. The browser does not connect directly to Express. See the root [architecture diagram](../README.md#how-it-fits-together).
+
+| Looking for... | Guide |
+| --- | --- |
+| Chat request and model selection | [Frontend chat route](../app/README.md) · [Provider adapters](../providers/README.md) |
+| Memory behavior and storage | [Portable memory guide](../app/memory/README.md) |
+| Optional Python vault | [SmartMemory guide](../SmartMemory/README.md) |
+
+## Code map
+
+| Path | Responsibility |
+| --- | --- |
+| `server.js`, `app.js` | Start the HTTP server and configure Express middleware/routes. |
+| `routes/` | Account and memory HTTP endpoints. |
+| `controller/` | Authentication handlers and shared async/error helpers. |
+| `model/` | MongoDB models for accounts, memories, conversations, and usage. |
+| `utils/session.js` | Signed session cookie handling and authentication middleware. |
+| `utils/memoryService.js` | Memory retrieval, persistence, and optional Vault bridge. |
+
 ## Run
 
 From the repository root:
@@ -57,3 +76,4 @@ All account routes are mounted at `/users`; memory routes are mounted at `/memor
 The Express app waits for MongoDB before listening and reports `503` from `/health` until connected. Sessions are signed in the backend and stored in HTTP-only cookies. Production must use a stable secret, HTTPS, the correct cookie/security settings, private backend networking, MongoDB access controls, backups, and monitored logs.
 
 Before exposing the service publicly, review account deletion, data retention, abuse protection, shared rate limits, request logging, and incident response. The existing frontend rate limit is not a backend-wide/shared quota. Do not assume this app has been audited or certified.
+
