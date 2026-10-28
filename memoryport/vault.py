@@ -142,3 +142,4 @@ def import_nxvault(ledger: MemoryLedger, path: str | Path, *, passphrase: str | 
     """Verify and import vault history into this user's ledger."""
     payload = _unpack(Path(path).read_bytes(), passphrase)
     return ledger.import_payload(payload, merge=merge)
+

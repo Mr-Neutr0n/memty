@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Install and use NexorAI SmartMemory: a portable local memory vault, provider-aware context, and capability-constrained model routing.">
+    <meta name="description" content="Install and use NexorAI MemoryPort: a portable local memory vault, provider-aware context, and capability-constrained model routing.">
     <meta name="theme-color" content="#f7f6f2">
     <link rel="canonical" href="https://rohannk86.github.io/Open_AI_Bot/">
-    <title>NexorAI | SmartMemory</title>
+    <title>NexorAI / MemoryPort</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -41,7 +41,7 @@
           <a class="nav-link nav-external" href="https://github.com/RohanNK86/Open_AI_Bot" target="_blank" rel="noreferrer">GitHub&nbsp; ↗</a>
         </nav>
         <div class="sidebar-footer">
-          <p>NexorAI / SmartMemory</p>
+          <p>NexorAI / MemoryPort</p>
           <p>MEMORY · LOCAL-FIRST</p>
           <p>ROUTING · PROVIDER-AGNOSTIC</p>
         </div>
@@ -52,7 +52,7 @@
           <div class="hero-copy">
             <p class="eyebrow">Portable intelligence infrastructure</p>
             <h1>One workspace.<br><em>Every intelligence.</em></h1>
-            <p class="lede">NexorAI brings multiple AI providers into one calm, capable workspace. SmartMemory gives your context a durable home that you control.</p>
+            <p class="lede">NexorAI brings multiple AI providers into one calm, capable workspace. MemoryPort gives your context a durable home that you control.</p>
             <div class="button-row">
               <a class="button button-dark" href="#quickstart">Start building <span>→</span></a>
               <a class="button" href="https://github.com/RohanNK86/Open_AI_Bot" target="_blank" rel="noreferrer">View on GitHub <span>↗</span></a>
@@ -61,12 +61,12 @@
               <span>Next.js</span><span>Python 3.10+</span><span>SQLite / MongoDB</span><span>Local-first</span>
             </div>
           </div>
-          <div class="hero-art" aria-label="SmartMemory architecture preview">
+          <div class="hero-art" aria-label="MemoryPort architecture preview">
             <div class="art-label">memory_vault.py</div>
-            <pre><code><span class="code-purple">from</span> SmartMemory <span class="code-purple">import</span> MemoryLedger
+            <pre><code><span class="code-purple">from</span> memoryport <span class="code-purple">import</span> MemoryLedger
 
 vault = MemoryLedger(
-    <span class="code-green">".nexor/memory.sqlite3"</span>,
+    <span class="code-green">".nexorai/memory.sqlite3"</span>,
     user_id=<span class="code-green">"local"</span>
 )
 
@@ -89,7 +89,7 @@ context = vault.context(
           <div class="section-content">
             <p class="eyebrow">Built for people who think in systems</p>
             <h2>AI that remembers<br><em>without locking you in.</em></h2>
-            <p class="body-copy">Switch models without leaving your context behind. NexorAI handles the conversation surface; SmartMemory stores durable facts, keeps their history, and compiles only the right context for each provider.</p>
+            <p class="body-copy">Switch models without leaving your context behind. NexorAI handles the conversation surface; MemoryPort stores durable facts, keeps their history, and compiles only the right context for each provider.</p>
             <div class="feature-grid">
               <article class="feature-card feature-red">
                 <p class="eyebrow">For builders</p>
@@ -119,25 +119,25 @@ context = vault.context(
           <div class="section-content">
             <p class="eyebrow">Install the Python package and start locally</p>
             <h2>Bring your memory<br><em>with you.</em></h2>
-            <p class="body-copy">SmartMemory and SmartRouter ship together as the <code>nexorai-smart-auto</code> Python package. You need Python 3.10+ and Git. GitHub installs also require repository read access; PyPI publishing is not set up yet.</p>
+            <p class="body-copy">MemoryPort and SmartRouter ship together as the <code>nexorai-smart-auto</code> Python package. You need Python 3.10+ and Git. GitHub installs also require repository read access; PyPI publishing is not set up yet.</p>
             <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>Windows · PowerShell</b><button class="copy-button" type="button" data-copy="$installer = Join-Path $env:TEMP &quot;install-smartmemory.ps1&quot;&#10;Invoke-WebRequest &quot;https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-smartmemory.ps1&quot; -OutFile $installer&#10;&amp; $installer">Copy</button></div>
-              <pre><code>$installer = Join-Path $env:TEMP <span class="code-green">"install-smartmemory.ps1"</span>
-Invoke-WebRequest <span class="code-green">"https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-smartmemory.ps1"</span> -OutFile $installer
+              <div class="window-bar"><span></span><span></span><span></span><b>Windows · PowerShell</b><button class="copy-button" type="button" data-copy="$installer = Join-Path $env:TEMP &quot;install-memoryport.ps1&quot;&#10;Invoke-WebRequest &quot;https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-memoryport.ps1&quot; -OutFile $installer&#10;&amp; $installer">Copy</button></div>
+              <pre><code>$installer = Join-Path $env:TEMP <span class="code-green">"install-memoryport.ps1"</span>
+Invoke-WebRequest <span class="code-green">"https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-memoryport.ps1"</span> -OutFile $installer
 &amp; $installer
 
 <span class="code-comment"># Optional: encrypted exports</span>
 &amp; $installer -Extras <span class="code-green">"crypto"</span></code></pre>
             </div>
             <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>macOS · Linux · Bash</b><button class="copy-button" type="button" data-copy="curl -fsSLo install-smartmemory.sh https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-smartmemory.sh&#10;bash install-smartmemory.sh&#10;&#10;# Optional: encrypted exports&#10;bash install-smartmemory.sh crypto">Copy</button></div>
-              <pre><code>curl -fsSLo install-smartmemory.sh <span class="code-green">https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-smartmemory.sh</span>
-bash install-smartmemory.sh
+              <div class="window-bar"><span></span><span></span><span></span><b>macOS · Linux · Bash</b><button class="copy-button" type="button" data-copy="curl -fsSLo install-memoryport.sh https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-memoryport.sh&#10;bash install-memoryport.sh&#10;&#10;# Optional: encrypted exports&#10;bash install-memoryport.sh crypto">Copy</button></div>
+              <pre><code>curl -fsSLo install-memoryport.sh <span class="code-green">https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-memoryport.sh</span>
+bash install-memoryport.sh
 
 <span class="code-comment"># Optional: encrypted exports</span>
-bash install-smartmemory.sh crypto</code></pre>
+bash install-memoryport.sh crypto</code></pre>
             </div>
-            <p class="body-copy">The installer creates an isolated environment in your user data folder. Activate it to use <code>nexor-vault</code> in your terminal: on Windows run <code>&amp; "$env:LOCALAPPDATA\NexorAI\SmartMemory\venv\Scripts\Activate.ps1"</code>; on macOS/Linux run <code>source ~/.local/share/nexorai/venv/bin/activate</code>. The installer prints the CLI path if you use a custom install folder. The default vault database is <code>~/.nexor/memory.sqlite3</code>. Choose optional extras only for features you use: <code>crypto</code>, <code>mongodb</code>, <code>server</code>, or <code>mcp</code> (MCP needs Python 3.11+).</p>
+            <p class="body-copy">The installer creates an isolated environment in your user data folder. Activate it to use <code>nexor-vault</code> and <code>nexorai</code> in your terminal: on Windows run <code>&amp; "$env:LOCALAPPDATA\NexorAI\memoryport\venv\Scripts\Activate.ps1"</code>; on macOS/Linux run <code>source ~/.local/share/nexorai/venv/bin/activate</code>. The installer prints the CLI path if you use a custom install folder. The default vault database is <code>~/.nexorai/memory.sqlite3</code>. Choose optional extras only for features you use: <code>crypto</code>, <code>mongodb</code>, <code>server</code>, or <code>mcp</code> (MCP needs Python 3.11+).</p>
             <div class="code-window">
               <div class="window-bar"><span></span><span></span><span></span><b>First local memory</b><button class="copy-button" type="button" data-copy="nexor-vault add work.preferences editor &quot;VS Code&quot;&#10;nexor-vault list&#10;nexor-vault context claude &quot;Which editor do I use?&quot;">Copy</button></div>
               <pre><code><span class="code-comment"># Store a user-confirmed fact: namespace, slot, value</span>
@@ -149,11 +149,11 @@ nexor-vault context claude <span class="code-green">"Which editor do I use?"</sp
             </div>
             <p class="body-copy">The same vault can be used directly from Python:</p>
             <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>memory_quickstart.py</b><button class="copy-button" type="button" data-copy="from pathlib import Path&#10;from SmartMemory import MemoryLedger&#10;&#10;vault = MemoryLedger(Path.home() / &quot;.nexor&quot; / &quot;memory.sqlite3&quot;, user_id=&quot;local&quot;)&#10;vault.record(&quot;work.preferences&quot;, &quot;editor&quot;, &quot;VS Code&quot;, verification_state=&quot;USER_CONFIRMED&quot;)&#10;context = vault.context(&quot;Which editor do I use?&quot;, provider=&quot;claude&quot;, token_budget=900)&#10;print(context[&quot;text&quot;])&#10;print(context[&quot;citations&quot;])">Copy</button></div>
+              <div class="window-bar"><span></span><span></span><span></span><b>memory_quickstart.py</b><button class="copy-button" type="button" data-copy="from pathlib import Path&#10;from memoryport import MemoryLedger&#10;&#10;vault = MemoryLedger(Path.home() / &quot;.nexorai&quot; / &quot;memory.sqlite3&quot;, user_id=&quot;local&quot;)&#10;vault.record(&quot;work.preferences&quot;, &quot;editor&quot;, &quot;VS Code&quot;, verification_state=&quot;USER_CONFIRMED&quot;)&#10;context = vault.context(&quot;Which editor do I use?&quot;, provider=&quot;claude&quot;, token_budget=900)&#10;print(context[&quot;text&quot;])&#10;print(context[&quot;citations&quot;])">Copy</button></div>
               <pre><code><span class="code-purple">from</span> pathlib <span class="code-purple">import</span> Path
-<span class="code-purple">from</span> SmartMemory <span class="code-purple">import</span> MemoryLedger
+<span class="code-purple">from</span> memoryport <span class="code-purple">import</span> MemoryLedger
 
-vault = MemoryLedger(Path.home() / <span class="code-green">".nexor"</span> / <span class="code-green">"memory.sqlite3"</span>, user_id=<span class="code-green">"local"</span>)
+vault = MemoryLedger(Path.home() / <span class="code-green">".nexorai"</span> / <span class="code-green">"memory.sqlite3"</span>, user_id=<span class="code-green">"local"</span>)
 vault.record(<span class="code-green">"work.preferences"</span>, <span class="code-green">"editor"</span>, <span class="code-green">"VS Code"</span>,
              verification_state=<span class="code-green">"USER_CONFIRMED"</span>)
 context = vault.context(<span class="code-green">"Which editor do I use?"</span>, provider=<span class="code-green">"claude"</span>, token_budget=900)
@@ -161,7 +161,7 @@ print(context[<span class="code-green">"text"</span>])
 print(context[<span class="code-green">"citations"</span>])</code></pre>
             </div>
             <div class="steps">
-              <div><strong>01</strong><span><b>Install</b> SmartMemory and optional integrations in an isolated environment.</span></div>
+              <div><strong>01</strong><span><b>Install</b> MemoryPort and optional integrations in an isolated environment.</span></div>
               <div><strong>02</strong><span><b>Record</b> facts with a namespace, slot, and explicit verification state.</span></div>
               <div><strong>03</strong><span><b>Compile</b> provider-filtered context and pass it to your own model adapter.</span></div>
             </div>
@@ -211,7 +211,7 @@ print(context[<span class="code-green">"citations"</span>])</code></pre>
           <div class="section-content">
             <p class="eyebrow">A durable memory layer for every conversation</p>
             <h2>Remember what matters.<br><em>Forget what you delete.</em></h2>
-            <p class="body-copy">SmartMemory is a local-first, provider-aware memory vault. It stores useful facts as versioned ledger events instead of turning your entire chat history into an opaque prompt. You can inspect, correct, export, or erase what it knows.</p>
+            <p class="body-copy">MemoryPort is a local-first, provider-aware memory vault. It stores useful facts as versioned ledger events instead of turning your entire chat history into an opaque prompt. You can inspect, correct, export, or erase what it knows.</p>
             <div class="vault-grid">
               <article class="vault-card"><span class="vault-number">01</span><h3>Extract</h3><p>A caller-provided model proposes a fact with a source quote. Secret-like and low-confidence candidates are rejected before they reach the ledger.</p></article>
               <article class="vault-card"><span class="vault-number">02</span><h3>Verify</h3><p>Facts carry confidence, verification state, sensitivity tier, source conversation, source hash, and the model that extracted them.</p></article>
@@ -239,8 +239,8 @@ nexor-vault evaluate cases.json</code></pre>
             </div>
             <p class="body-copy">Encrypted <code>.nxvault</code> export is the portable backup format for the ledger. The JSON store below is a smaller alternative for applications that want lightweight fact storage and caller-generated embeddings:</p>
             <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>Portable JSON memory</b><button class="copy-button" type="button" data-copy="from SmartMemory import PortableMemoryStore&#10;&#10;memory = PortableMemoryStore(&quot;.smart_auto/memories.json&quot;)&#10;memory.add(&quot;The project uses Next.js and MongoDB&quot;, kind=&quot;semantic&quot;, importance=0.8)&#10;matches = memory.retrieve(&quot;What database does the project use?&quot;)&#10;backup = memory.export()&#10;memory.import_data(backup, replace=False)">Copy</button></div>
-              <pre><code><span class="code-purple">from</span> SmartMemory <span class="code-purple">import</span> PortableMemoryStore
+              <div class="window-bar"><span></span><span></span><span></span><b>Portable JSON memory</b><button class="copy-button" type="button" data-copy="from memoryport import PortableMemoryStore&#10;&#10;memory = PortableMemoryStore(&quot;.smart_auto/memories.json&quot;)&#10;memory.add(&quot;The project uses Next.js and MongoDB&quot;, kind=&quot;semantic&quot;, importance=0.8)&#10;matches = memory.retrieve(&quot;What database does the project use?&quot;)&#10;backup = memory.export()&#10;memory.import_data(backup, replace=False)">Copy</button></div>
+              <pre><code><span class="code-purple">from</span> memoryport <span class="code-purple">import</span> PortableMemoryStore
 
 memory = PortableMemoryStore(<span class="code-green">".smart_auto/memories.json"</span>)
 memory.add(<span class="code-green">"The project uses Next.js and MongoDB"</span>, kind=<span class="code-green">"semantic"</span>, importance=<span class="code-purple">0.8</span>)
@@ -268,8 +268,8 @@ memory.import_data(backup, replace=<span class="code-purple">False</span>) <span
               <div class="route-step"><span>04</span><b>Improve</b><small>Use accepted, regenerated, corrected, or fallback outcomes as feedback.</small></div>
             </div>
             <div class="code-window routing-code">
-              <div class="window-bar"><span></span><span></span><span></span><b>smart_router.py</b><button class="copy-button" type="button" data-copy="from SmartMemory import ModelSpec, SmartRouter&#10;&#10;models = [&#10;    ModelSpec(&quot;gemini-flash&quot;, &quot;gemini&quot;, 0.10, 0.40, 0.55, 1000000),&#10;    ModelSpec(&quot;claude-haiku&quot;, &quot;claude&quot;, 0.80, 4.00, 0.75, 200000),&#10;]&#10;router = SmartRouter(models, state_path=&quot;.nexor/router-state.json&quot;)&#10;decision = router.route(prompt, memory_relevance=0.84, memory_coverage=0.65)&#10;selected = next(model for model in models if model.id == decision.model_id)&#10;memory = vault.context(prompt, provider=selected.provider, token_budget=900)&#10;answer = adapters[selected.id].complete(prompt, context=memory[&quot;text&quot;])&#10;reward = router.reward_from_signals(accepted=True)&#10;router.update(decision.model_id, prompt, reward, memory_relevance=0.84, memory_coverage=0.65)">Copy</button></div>
-              <pre><code><span class="code-purple">from</span> SmartMemory <span class="code-purple">import</span> ModelSpec, SmartRouter
+              <div class="window-bar"><span></span><span></span><span></span><b>smart_router.py</b><button class="copy-button" type="button" data-copy="from memoryport import ModelSpec, SmartRouter&#10;&#10;models = [&#10;    ModelSpec(&quot;gemini-flash&quot;, &quot;gemini&quot;, 0.10, 0.40, 0.55, 1000000),&#10;    ModelSpec(&quot;claude-haiku&quot;, &quot;claude&quot;, 0.80, 4.00, 0.75, 200000),&#10;]&#10;router = SmartRouter(models, state_path=&quot;.nexor/router-state.json&quot;)&#10;decision = router.route(prompt, memory_relevance=0.84, memory_coverage=0.65)&#10;selected = next(model for model in models if model.id == decision.model_id)&#10;memory = vault.context(prompt, provider=selected.provider, token_budget=900)&#10;answer = adapters[selected.id].complete(prompt, context=memory[&quot;text&quot;])&#10;reward = router.reward_from_signals(accepted=True)&#10;router.update(decision.model_id, prompt, reward, memory_relevance=0.84, memory_coverage=0.65)">Copy</button></div>
+              <pre><code><span class="code-purple">from</span> memoryport <span class="code-purple">import</span> ModelSpec, SmartRouter
 
 models = [
     ModelSpec(<span class="code-green">"gemini-flash"</span>, <span class="code-green">"gemini"</span>, <span class="code-purple">0.10</span>, <span class="code-purple">0.40</span>, <span class="code-purple">0.55</span>, <span class="code-purple">1_000_000</span>),
@@ -376,10 +376,11 @@ docker compose up --build</code></pre>
         </section>
 
         <footer class="site-footer">
-          <span>© 2026 NexorAI</span><span>NexorAI / SmartMemory</span><a href="https://rohannk86.github.io/Open_AI_Bot/" target="_blank" rel="noreferrer">Live site ↗</a><a href="#overview">Back to top ↑</a>
+          <span>© 2026 NexorAI</span><span>NexorAI / MemoryPort</span><a href="https://rohannk86.github.io/Open_AI_Bot/" target="_blank" rel="noreferrer">Live site ↗</a><a href="#overview">Back to top ↑</a>
         </footer>
       </main>
     </div>
     <script src="script.js"></script>
   </body>
 </html>
+

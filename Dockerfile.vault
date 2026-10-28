@@ -2,8 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 COPY pyproject.toml README.md ./
-COPY SmartMemory ./SmartMemory
+COPY memoryport ./memoryport
 RUN pip install --no-cache-dir '.[mongodb,server,crypto]'
 
 EXPOSE 8765
 CMD ["nexor-vault-api"]
+

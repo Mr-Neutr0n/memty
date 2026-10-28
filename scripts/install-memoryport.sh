@@ -56,7 +56,7 @@ if ((${#extras[@]})); then
 fi
 "$venv/bin/python" -m pip install --upgrade "$package @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"
 
-echo "SmartMemory and SmartRouter installed in: $venv"
-echo "Vault database default: $HOME/.nexor/memory.sqlite3"
+echo "MemoryPort and SmartRouter installed in: $venv"
+echo "Vault database default: $HOME/.nexorai/memory.sqlite3"
 echo "CLI: $venv/bin/nexor-vault --help"
 

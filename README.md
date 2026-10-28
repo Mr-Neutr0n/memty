@@ -16,11 +16,11 @@ NexorAI is a multi-provider AI workspace built with **Next.js**, an **Express** 
 
 ## ✨ What you can do
 
-| Chat across providers | Keep useful context | Explore the system |
+| Chat across providers | Route models locally | Keep useful context |
 | --- | --- | --- |
-| Select a configured model, use heuristic Auto routing, fallbacks, or compare responses. | Sign in, save conversations, and inspect or manage account-scoped memory. | Run the web app and API locally, or start the app and optional Vault with Compose. |
+| Select a configured model, use heuristic Auto routing, fallbacks, or compare responses. | Use the Python SDK's local rules, cost/latency settings, and adaptive feedback to pick models per chat. | Sign in, save conversations, and inspect or manage account-scoped memory. |
 
-The workspace also includes a responsive chat UI, model availability metadata, a memory dashboard, privacy and terms pages, and a first-party API reference. Provider keys stay on the server side.
+The workspace also includes a responsive chat UI, model availability metadata, a memory dashboard, privacy and terms pages, a first-party API reference, and an optional MCP bridge for Codex, Claude Code, and VS Code Copilot. The pip-installable Python package bundles MemoryPort's local portable fact vault, configurable vector embeddings and memory extraction, model routing, and multi-provider chat. Its default vault is shared across SDK chats and selected models on that device.
 
 <a id="how-it-fits-together"></a>
 ## 🧭 How it fits together
@@ -48,7 +48,7 @@ flowchart LR
 - Node.js 20.9 or later and npm
 - MongoDB for sign-in, saved conversations, and server-side memory
 - Provider credentials for the models you want to use
-- Python 3.10+ only if you want to run the Memory Vault separately
+- Python 3.10+ for the MemoryPort SDK or separate Memory Vault service
 
 Install the frontend and backend dependencies:
 
@@ -99,7 +99,8 @@ The Vault API stays on Compose's private network. Open [http://localhost:3001](h
 | [`app/`](app/README.md) | Next.js pages, API routes, chat orchestration, and UI styles | [`app/api/chat/route.ts`](app/api/chat/route.ts) |
 | [`backend/`](backend/README.md) | Express routes, authentication, MongoDB models, and memory services | [`backend/server.js`](backend/server.js) |
 | [`providers/`](providers/README.md) | Model registry, provider adapters, Auto routing, and fallbacks | [`providers/index.js`](providers/index.js) |
-| [`SmartMemory/`](SmartMemory/README.md) | Python memory ledger, vault API, CLI, and optional MCP server | [`SmartMemory/ledger.py`](SmartMemory/ledger.py) |
+| [`memoryport/`](memoryport/README.md) | Python SDK, model router, temporal memory ledger, vault API, CLI, and optional MCP servers | [`memoryport/sdk.py`](memoryport/sdk.py) |
+| [`nexorai/`](nexorai/__init__.py) | Short public Python import path for the SDK | [`nexorai/__init__.py`](nexorai/__init__.py) |
 | [`components/`](components/legacy-page.tsx) · [`lib/`](lib/legacy-markup.ts) · [`public/`](public/) | Shared wrapper, legacy page markup, and browser assets/scripts | [`components/legacy-page.tsx`](components/legacy-page.tsx) |
 | [`templates/`](templates/) · [`static/`](static/) | Legacy HTML templates and static assets | — |
 | [`assets/`](assets/) | Project and provider artwork used by the UI and documentation | — |
@@ -112,7 +113,7 @@ The Vault API stays on Compose's private network. Open [http://localhost:3001](h
 - **Frontend contributor:** [routes, UI, and responsive styles](app/README.md)
 - **API or data contributor:** [backend routes, sessions, and MongoDB](backend/README.md)
 - **Model contributor:** [provider adapters and routing](providers/README.md)
-- **Memory contributor:** [portable vault, CLI, API, and Python router](SmartMemory/README.md)
+- **Memory contributor:** [portable vault, CLI, API, and Python router](memoryport/README.md)
 - **Memory feature reader:** [memory lifecycle and storage guide](app/memory/README.md)
 
 <a id="configuration-at-a-glance"></a>
@@ -152,7 +153,7 @@ Review the [Privacy Notice](app/privacy/page.tsx) and [Terms](app/terms/page.tsx
 - [Backend, routes, and MongoDB](backend/README.md)
 - [Memory layers, retrieval, and storage](app/memory/README.md)
 - [Provider adapters, Auto routing, and costs](providers/README.md)
-- [Python SmartMemory Vault and SmartRouter](SmartMemory/README.md)
+- [Python MemoryPort Vault and SmartRouter](memoryport/README.md)
 - [Frontend scripts](package.json) · [Backend scripts](backend/package.json) · [Python package configuration](pyproject.toml)
 
 ## 🤝 Contributing

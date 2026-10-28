@@ -186,9 +186,10 @@ def main() -> None:
     host = os.getenv("NEXOR_VAULT_API_HOST", "127.0.0.1")
     if host not in {"127.0.0.1", "localhost", "::1"} and os.getenv("NEXOR_VAULT_ALLOW_REMOTE", "false").casefold() != "true":
         raise RuntimeError("Non-loopback binding requires NEXOR_VAULT_ALLOW_REMOTE=true and a strong API token.")
-    uvicorn.run("SmartMemory.api:app", host=host, port=int(os.getenv("NEXOR_VAULT_API_PORT", "8765")),
+    uvicorn.run("memoryport.api:app", host=host, port=int(os.getenv("NEXOR_VAULT_API_PORT", "8765")),
                 log_level="warning")
 
 
 if __name__ == "__main__":
     main()
+

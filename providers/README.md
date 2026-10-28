@@ -46,7 +46,7 @@ Files:
 
 ## Routing behavior
 
-Auto routes by task signals: deep reasoning, long context, code/debug, structured output, memory-backed synthesis, and general chat. It prefers configured providers in each task class, then uses the registry's ordered fallback list if a request fails. Compare mode makes a separate call to the requested second model without fallback. The optional Python package in `SmartMemory/` adds a capability-constrained LinUCB learner and portable JSON memory store for Python integrations; it is not required to run the Next.js app.
+Auto routes by task signals: deep reasoning, long context, code/debug, structured output, memory-backed synthesis, and general chat. It prefers configured providers in each task class, then uses the registry's ordered fallback list if a request fails. Compare mode makes a separate call to the requested second model without fallback. The optional Python package in `memoryport/` adds a capability-constrained LinUCB learner and portable JSON memory store for Python integrations; it is not required to run the Next.js app.
 
 This is heuristic routing, not a quality benchmark or guaranteed best-model selection. If no requested/fallback provider is configured, the chat API returns an error. Responses are currently non-streaming. The registry lists capability metadata; it should not be read as a guarantee that the present UI forwards every modality (for example, vision) to each provider.
 

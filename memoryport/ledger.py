@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import sqlite3
 import uuid
@@ -22,6 +23,14 @@ from typing import Any, Iterator
 SCHEMA_VERSION = 2
 _PROVIDERS = re.compile(r"^[a-zA-Z0-9_.-]{1,80}$")
 _KEY_PART = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+
+def _cosine(left: list[float], right: list[float]) -> float:
+    if not left or len(left) != len(right):
+        return 0.0
+    dot = sum(a * b for a, b in zip(left, right))
+    norm = math.sqrt(sum(a * a for a in left) * sum(b * b for b in right))
+    return dot / norm if norm else 0.0
 
 
 def _utc_now() -> str:
@@ -129,6 +138,16 @@ class MemoryLedger:
                 );
                 CREATE INDEX IF NOT EXISTS proposals_user_status
                     ON pending_proposals(user_id, status, created_at DESC);
+                CREATE TABLE IF NOT EXISTS memory_embeddings (
+                    user_id TEXT NOT NULL,
+                    memory_id TEXT NOT NULL,
+                    model_id TEXT NOT NULL,
+                    vector_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (user_id, memory_id, model_id)
+                );
+                CREATE INDEX IF NOT EXISTS embeddings_user_model
+                    ON memory_embeddings(user_id, model_id);
                 CREATE TABLE IF NOT EXISTS vault_meta (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
@@ -139,7 +158,7 @@ class MemoryLedger:
                 db.execute("ALTER TABLE ledger_events ADD COLUMN source_quote TEXT")
             version = db.execute("SELECT value FROM vault_meta WHERE key='schema_version'").fetchone()
             if version is not None and int(version[0]) > SCHEMA_VERSION:
-                raise ValueError("This vault was created by a newer SmartMemory version")
+                raise ValueError("This vault was created by a newer MemoryPort version")
             db.execute("INSERT OR REPLACE INTO vault_meta(key,value) VALUES('schema_version',?)", (str(SCHEMA_VERSION),))
             db.execute("INSERT OR REPLACE INTO vault_meta(key,value) VALUES('format',?)", (self.FORMAT,))
 
@@ -313,6 +332,7 @@ class MemoryLedger:
             return None
         if current["status"] == "SUPERSEDED":
             with self._connect() as db:
+                db.execute("DELETE FROM memory_embeddings WHERE user_id=? AND memory_id=?", (self.user_id, current["id"]))
                 db.execute("DELETE FROM ledger_events WHERE user_id=? AND memory_id=?", (self.user_id, current["id"]))
             return {"id": current["id"], "status": "PURGED"}
         now = _utc_now()
@@ -322,6 +342,7 @@ class MemoryLedger:
             # Keep only a slot-level tombstone so old summaries cannot silently
             # repopulate the same slot through automatic extraction.
             db.execute("DELETE FROM ledger_events WHERE user_id=? AND memory_id=?", (self.user_id, current["id"]))
+            db.execute("DELETE FROM memory_embeddings WHERE user_id=? AND memory_id=?", (self.user_id, current["id"]))
             self._append_state(db, memory_id=current["id"], user_id=self.user_id, event_type="TOMBSTONE",
                 namespace=current["namespace"], slot_key=current["slot_key"], value="", status="DELETED",
                 confidence=current["confidence"], verification_state=current["verification_state"],
@@ -332,6 +353,45 @@ class MemoryLedger:
                 extracted_by_model=None, supersedes_id=None)
             db.execute("COMMIT")
         return self.get(memory_id)
+
+    def store_embedding(self, memory_id: str, model_id: str, vector: list[float]) -> None:
+        """Store a local semantic vector for an active fact and embedding model."""
+        if not model_id or len(model_id) > 200 or not vector or len(vector) > 32768:
+            raise ValueError("embedding model and a non-empty vector of at most 32768 values are required")
+        values = [float(value) for value in vector]
+        if not all(math.isfinite(value) for value in values):
+            raise ValueError("embedding values must be finite")
+        current = self.get(memory_id)
+        if not current or current["status"] != "ACTIVE":
+            return
+        with self._connect() as db:
+            db.execute("INSERT OR REPLACE INTO memory_embeddings(user_id,memory_id,model_id,vector_json,updated_at) "
+                       "VALUES(?,?,?,?,?)", (self.user_id, memory_id, model_id,
+                       json.dumps(values, separators=(",", ":")), _utc_now()))
+
+    def embedding_scores(self, model_id: str, query_vector: list[float]) -> dict[str, float]:
+        """Return local cosine similarities for vectors made by the same model."""
+        values = [float(value) for value in query_vector]
+        if not values or not all(math.isfinite(value) for value in values):
+            return {}
+        with self._connect() as db:
+            rows = db.execute("SELECT memory_id,vector_json FROM memory_embeddings "
+                              "WHERE user_id=? AND model_id=?", (self.user_id, model_id)).fetchall()
+        results: dict[str, float] = {}
+        for row in rows:
+            try:
+                score = _cosine(values, json.loads(row["vector_json"]))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if score > 0:
+                results[row["memory_id"]] = score
+        return results
+
+    def embedded_memory_ids(self, model_id: str) -> set[str]:
+        with self._connect() as db:
+            rows = db.execute("SELECT memory_id FROM memory_embeddings WHERE user_id=? AND model_id=?",
+                              (self.user_id, model_id)).fetchall()
+        return {row["memory_id"] for row in rows}
 
     def list(self, *, include_history: bool = False, status: str | None = None) -> list[dict[str, Any]]:
         with self._connect() as db:
@@ -423,7 +483,8 @@ class MemoryLedger:
         return {"proposal_id": proposal_id, "status": "APPROVED", "memory": result}
 
     def context(self, query: str, *, provider: str, token_budget: int = 900,
-                as_of: str | None = None, namespace: str | None = None) -> dict[str, Any]:
+                as_of: str | None = None, namespace: str | None = None,
+                semantic_scores: dict[str, float] | None = None) -> dict[str, Any]:
         """Compile allowed current state into compact deterministic key/value context."""
         if not _PROVIDERS.fullmatch(provider):
             raise ValueError("provider is required and must be a provider identifier")
@@ -453,9 +514,10 @@ class MemoryLedger:
                 continue
             record_terms = _terms(record["namespace"] + " " + record["slot_key"] + " " + record["value"])
             overlap = len(query_terms & record_terms) / max(1, len(query_terms))
-            if query_terms and overlap == 0:
+            semantic = max(0.0, min(1.0, float((semantic_scores or {}).get(record["id"], 0.0))))
+            if query_terms and overlap == 0 and semantic < 0.15:
                 continue
-            eligible.append((overlap, record))
+            eligible.append((0.55 * semantic + 0.45 * overlap, record))
         eligible.sort(key=lambda item: (-item[0], item[1]["namespace"], item[1]["slot_key"], item[1]["id"]))
 
         lines: list[str] = ["# nexor-memory-v1"]
@@ -564,3 +626,4 @@ class MemoryLedger:
                          _normalize_timestamp(proposal.get("created_at") or _utc_now())))
             db.execute("COMMIT")
         return added
+
