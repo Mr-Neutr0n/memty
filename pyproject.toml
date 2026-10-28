@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexorai-smart-auto"
-version = "0.1.0"
-description = "Portable memory and automatic model routing utilities for NexorAI"
-readme = "SmartMemory/README.md"
+version = "0.2.0"
+description = "MemoryPort: local model routing, vector memory, multi-provider chat, and a portable Python vault"
+readme = "memoryport/README.md"
 requires-python = ">=3.10"
 dependencies = []
-keywords = ["portable-memory", "memory-vault", "model-routing", "linucb"]
+keywords = ["memoryport", "portable-memory", "vector-memory", "model-routing", "linucb", "mcp", "openai-compatible"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python :: 3",
@@ -22,7 +22,7 @@ classifiers = [
 
 [project.urls]
 Repository = "https://github.com/RohanNK86/Open_AI_Bot"
-Documentation = "https://github.com/RohanNK86/Open_AI_Bot/tree/main/SmartMemory"
+Documentation = "https://github.com/RohanNK86/Open_AI_Bot/tree/main/MemoryPort"
 
 [project.optional-dependencies]
 mongodb = ["pymongo>=4.6"]
@@ -31,10 +31,12 @@ mcp = ["mcp>=2.0,<3; python_version >= '3.11'"]
 server = ["fastapi>=0.115", "uvicorn>=0.30"]
 
 [project.scripts]
-nexor-vault = "SmartMemory.cli:main"
-nexor-vault-mcp = "SmartMemory.mcp_server:main"
-nexor-vault-api = "SmartMemory.api:main"
+nexor-vault = "memoryport.cli:main"
+nexor-vault-mcp = "memoryport.mcp_server:main"
+nexor-vault-api = "memoryport.api:main"
+nexorai = "memoryport.sdk_cli:main"
+nexorai-mcp = "memoryport.sdk_mcp:main"
 
 [tool.setuptools]
-packages = ["SmartMemory"]
+packages = ["memoryport", "nexorai"]
 

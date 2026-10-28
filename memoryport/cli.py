@@ -9,13 +9,14 @@ from pathlib import Path
 from getpass import getpass
 
 from .factory import open_ledger
+from .factory import default_vault_path
 from .vault import export_nxvault, import_nxvault
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="nexor-vault")
-    parser.add_argument("--db", default=os.getenv("NEXOR_VAULT_PATH", str(Path.home() / ".nexor" / "memory.sqlite3")))
-    parser.add_argument("--user", default=os.getenv("NEXOR_VAULT_USER", "local"))
+    parser.add_argument("--db", default=str(default_vault_path()))
+    parser.add_argument("--user", default=os.getenv("NEXORAI_MEMORY_USER", os.getenv("NEXOR_VAULT_USER", "local")))
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("list", help="list active and historical memories")
     add = commands.add_parser("add", help="save a user-confirmed fact")
@@ -90,3 +91,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

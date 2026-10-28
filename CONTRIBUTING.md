@@ -1,82 +1,38 @@
 # Contributing to NexorAI
 
-Thanks for helping improve NexorAI. Contributions are welcome for the Next.js workspace, Express and MongoDB backend, model providers, portable SmartMemory package, and documentation.
+Thanks for helping improve NexorAI. The project has a Next.js app, an Express/MongoDB service, provider adapters, and an optional Python memory package. A focused change with a clear reproduction or outcome is easiest to review.
+
+## Find the right area
+
+| Change | Guide |
+| --- | --- |
+| Pages, chat UI, API routes, responsive behavior | [Frontend guide](app/README.md) |
+| Authentication, sessions, REST endpoints, persistence | [Backend guide](backend/README.md) |
+| Provider adapters, model registry, fallbacks | [Provider guide](providers/README.md) |
+| Memory retrieval and dashboard behavior | [Memory guide](app/memory/README.md) |
+| Python vault, CLI, MCP, or SmartRouter | [MemoryPort guide](memoryport/README.md) |
 
 ## Before you start
 
-- Check the open issues and pull requests for existing work.
-- For a substantial change, open or comment on an issue first so the approach can be agreed on.
-- Do not start work on an issue assigned to someone else without checking with the maintainers.
-- Never post API keys, session secrets, database credentials, personal data, or populated environment files in an issue or pull request.
+1. Search existing [issues](https://github.com/RohanNK86/Open_AI_Bot/issues) and pull requests to avoid duplicating work.
+2. For a bug, include the route or command, steps to reproduce, expected result, actual result, and relevant sanitized logs.
+3. For a feature, describe the user problem and a concrete acceptance outcome before expanding its scope.
+4. For changes that affect account data or provider requests, explain which service owns the data and how user/account boundaries are preserved.
 
-## Set up locally
+## Local setup
 
-1. Install Node.js 20.9 or later, npm, and MongoDB (or use a development MongoDB deployment).
-2. Clone the repository and install dependencies:
-   ```sh
-   npm install
-   cd backend && npm install
-   ```
-3. Copy `.env.example` to `.env` and `backend/.env.example` to `backend/.env`. Add only local development credentials. Keep these files private.
-4. Start the backend and frontend in separate terminals:
-   ```sh
-   cd backend && npm run dev
-   ```
-   ```sh
-   npm run dev
-   ```
-5. Open http://localhost:3001. Sign-in, memory, and database-backed features need the backend and MongoDB. Provider features also need the relevant provider credentials.
+Follow the root [README setup](README.md#get-started) for the frontend and backend. The Python package and its optional extras have separate instructions in [MemoryPort](memoryport/README.md#manual-install). You only need the services involved in your change; provider keys are optional unless the behavior depends on a live provider.
 
-See the root README and the guides in `app/`, `backend/`, `providers/`, and `SmartMemory/` for component-specific details.
+## Pull request checklist
 
-## Choose an issue and plan the change
+- Keep the change focused and explain the user-visible result in the PR description.
+- Update the relevant guide when a route, setting, supported flow, or limitation changes.
+- Include before/after screenshots for visible UI changes and mention tested viewport sizes.
+- Run the checks relevant to the files you changed; list the commands and results in the PR.
+- Do not commit `.env` files, API keys, session secrets, personal data, or real user conversations.
+- Call out migration, configuration, compatibility, or security implications.
 
-- Issues marked **good first issue** are intended as smaller entry points, but please read the full acceptance criteria before starting.
-- Comment on the issue to let maintainers know you are working on it. Describe your proposed solution for larger changes.
-- Keep pull requests focused on one issue. If requirements are unclear, ask in the issue before implementing a large change.
-- Do not broaden the scope or introduce new dependencies without explaining the need.
+## Documentation and issue reports
 
-## Branches and commits
+Use relative links for files inside the repository. Keep examples runnable and use placeholders for secrets. When reporting a problem, never attach credentials, session cookies, full private prompts, or user memory contents; reduce logs to the smallest sanitized excerpt that demonstrates the failure.
 
-Create a branch from the current `main` branch. Use a short descriptive name, for example:
-
-```text
-fix/sidebar-mobile-overflow
-feat/github-oauth
-docs/provider-setup
-```
-
-Write clear commit messages that explain the change. Do not include unrelated formatting or generated files.
-
-## Implementation expectations
-
-- Follow the existing structure and conventions in the part of the project you change.
-- Keep secrets on the server. Never expose provider credentials, session signing keys, or database credentials to browser code.
-- Preserve existing authentication, conversation ownership, and memory privacy boundaries.
-- Handle loading, empty, success, and error states in user-facing flows.
-- Make keyboard use, visible focus, responsive layouts, and accessible names part of UI changes.
-- Update relevant documentation and configuration examples when behavior or setup changes.
-- Avoid committing build output, local databases, logs, real user data, or populated `.env` files.
-
-## Verify your change
-
-Run the checks relevant to your change before opening a pull request. At minimum, use the repository's available type/build checks when practical:
-
-```sh
-npm run typecheck
-npm run build
-```
-
-For backend changes, run the backend checks or exercise the affected endpoint locally. For SmartMemory changes, follow its README and run the applicable Python checks. If a check cannot be run, say which one and why in the pull request.
-
-## Open a pull request
-
-- Push your branch and open a pull request targeting `main`.
-- Link the issue using `Closes #<issue-number>` when the PR fully resolves it, or `Refs #<issue-number>` when it is related but does not close it.
-- Explain the problem, the implementation, and any user-visible behavior changes.
-- List the checks you ran and their results.
-- Add screenshots or a short recording for visual changes, including relevant mobile behavior.
-- Call out configuration changes, migration steps, provider requirements, or known limitations.
-- Keep the PR focused and respond to review feedback with follow-up commits.
-
-Maintainers review contributions and decide whether and when to merge them. Opening a pull request does not guarantee acceptance; please do not merge your own contribution unless a maintainer has explicitly authorized it.

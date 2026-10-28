@@ -64,7 +64,7 @@
   <rect x="686" y="488" width="230" height="90" rx="18" class="optional"/>
   <text x="712" y="524" class="head">Python Memory Vault</text>
   <text x="712" y="551" class="label">Optional · SQLite or MongoDB</text>
-  <text x="712" y="570" class="small">SmartMemory/ · private API</text>
+  <text x="712" y="570" class="small">memoryport/ · private API</text>
 
   <path d="M244 298H318" class="line"/>
   <path d="M578 250C620 250 635 155 676 155" class="line"/>

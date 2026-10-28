@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from .factory import open_ledger
+from .factory import default_vault_path, open_ledger
 from .ledger import MemoryLedger
 
 
@@ -45,11 +45,12 @@ def create_server(ledger: MemoryLedger):
 
 
 def main() -> None:
-    path = Path(os.getenv("NEXOR_VAULT_PATH", Path.home() / ".nexor" / "memory.sqlite3"))
-    user_id = os.getenv("NEXOR_VAULT_USER", "local")
+    path = default_vault_path()
+    user_id = os.getenv("NEXORAI_MEMORY_USER", os.getenv("NEXOR_VAULT_USER", "local"))
     ledger = open_ledger(user_id, path=path)
     create_server(ledger).run(transport="stdio")
 
 
 if __name__ == "__main__":
     main()
+

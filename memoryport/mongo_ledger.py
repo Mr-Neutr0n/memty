@@ -324,3 +324,4 @@ class MongoMemoryLedger(MemoryLedger):
                         "created_at": _normalize_timestamp(proposal.get("created_at") or _utc_now())}},
                         upsert=True, session=session)
         return added
+

@@ -1,6 +1,107 @@
-# NexorAI Smart Auto
+# MemoryPort for NexorAI
 
-This Python package provides a local model router and a portable memory vault. The vault adds a deterministic, bi-temporal fact ledger, provider policy filtering, a compact context compiler, an encrypted `.nxvault` bundle, an HTTP API, and an optional approval-only MCP server. The core can use local SQLite or a dedicated MongoDB `memory_vault_ledger` collection; it makes no model calls. The older `PortableMemoryStore` and optional MongoDB mirror remain available for compatibility. NexorAI's Node backend can connect chat recall and dashboard fact operations to the vault through its authenticated internal API; conversation summaries and usage stay in MongoDB.
+MemoryPort is NexorAI's portable Python memory vault and model SDK. It combines prompt-aware model routing with a per-user temporal fact ledger, local vector embeddings, provider-aware retrieval, portable encrypted exports, an HTTP API, and optional MCP integration. The default SDK install uses SQLite on the device and has no required third-party dependencies. Embedding and chat providers are configurable; local Ollama embeddings are the starter default.
+
+## NexorAI Python SDK
+
+The package includes the router, the portable MemoryPort vault, and a local-first chat client. It can rank models with task rules, cost/latency metadata, or adaptive LinUCB feedback, then call the selected provider through a standard-library HTTP client. `load_client()` opens the same local vault for every chat and model by default, so changing assistants does not discard saved facts. Chat transcripts remain in memory; the fact ledger is durable on the device.
+
+```python
+from nexorai import ModelConfig, NexorAI
+
+client = NexorAI([
+    ModelConfig(
+        id="cloud-coder",
+        provider="openai-compatible",
+        model="your-provider-model-id",
+        base_url="https://your-openai-compatible-endpoint/v1",
+        api_key_env="MY_PROVIDER_KEY",  # set this environment variable separately
+        capability=0.82,                 # operator estimate from your own evaluation
+        context_tokens=64_000,
+        tags=("code", "general"),
+    ),
+    ModelConfig(
+        id="local-coder",
+        provider="ollama",
+        model="your-local-model-name",
+        capability=0.70,
+        context_tokens=16_000,
+        tags=("code", "local"),
+    ),
+], routing="adaptive")
+
+# Each chat ID has its own transcript and can pin a different model.
+answer = client.chat("Review this Python function", chat_id="code-review")
+client.select_model("local-coder", chat_id="private-notes")
+private_answer = client.chat("Summarize these notes", chat_id="private-notes")
+
+# Train adaptive routing from an observed outcome, never from guessed quality.
+client.feedback("code-review", outcome="accepted")
+print(answer.model_id, answer.text)
+```
+
+Supported built-in adapters are OpenAI-compatible endpoints (including OpenRouter, Ollama, and LM Studio), Anthropic Messages, and the Gemini Interactions API. Add a custom adapter by implementing `complete(model, messages, system=...)` and passing it as `adapters={"provider-name": adapter}`. Set capability, context length, initial latency, and prices from your own evaluation; the SDK does not scrape provider catalogs or claim a universal model ranking. It blends observed response latency into routing for the current process. Provider-reported usage is returned when available, and cost is estimated only from the rates you enter.
+
+`load_client()` uses `~/.nexorai/memory.sqlite3` and the local account ID `local` unless `NEXORAI_MEMORY_PATH` and `NEXORAI_MEMORY_USER` are set. If that new path is empty but the older `~/.nexor/memory.sqlite3` exists, it reuses the old vault in place. All chats share that account's vault. `client.remember(...)` saves a user-confirmed fact; `client.recall(...)` and every `client.chat(...)` retrieve provider-filtered context. Use the `nexor-vault` CLI to review, edit, export, or delete the same facts. This is shared across chats and model changes on this device; it does not sync between devices unless you configure a remote ledger.
+
+The starter catalog configures a local Ollama embedding model (`nomic-embed-text`). Install/pull that model in Ollama to get local vector search; if it is unavailable, the SDK falls back to lexical retrieval. Embeddings are saved in the same SQLite vault and stay compatible across chat models because the embedding model is configured independently. For cloud embeddings, set the `memory.embedding` provider, model, and API key environment variable in `models.json`; your queries and eligible facts will then be sent to that embedding provider. Secret facts are never embedded, and INTERNAL/CONFIDENTIAL facts only go to a local embedder or one explicitly allowed in the fact policy.
+
+```shell
+ollama pull nomic-embed-text
+```
+
+Automatic extraction is enabled in the starter catalog and controlled by `memory.auto_extract` in `~/.nexorai/models.json`; set it to `false` to disable it. The SDK uses the selected answer model for extraction, then checks that each saved fact has an exact quote in the user's prompt, rejects secret-like content, and requires confidence of at least 0.8. Extraction adds a provider request and may incur cost; the chat reply still succeeds if extraction fails. Saved facts are marked as automatically extracted and can be reviewed or removed through `nexor-vault`.
+
+For example, load the shared local vault from any Python assistant and explicitly save or recall a fact:
+
+```python
+from nexorai import load_client
+
+assistant = load_client()  # reads ~/.nexorai/models.json and the shared local vault
+assistant.remember("work.preferences", "editor", "VS Code")
+reply = assistant.chat("Which editor do I use?", chat_id="support-chat")
+print(reply.text, reply.memories_saved)
+print(assistant.recall("my preferred editor")["text"])
+```
+
+The starter config enables automatic extraction. Keep or remove that setting to control it:
+
+```json
+{
+  "memory": {
+    "auto_extract": true,
+    "embedding": {
+      "provider": "ollama",
+      "model": "nomic-embed-text",
+      "base_url": "http://localhost:11434/v1"
+    }
+  }
+}
+```
+
+To generate a local starter catalog, install the package and run `nexorai init`. Edit `~/.nexorai/models.json`, set the named API key environment variables in your shell, then use:
+
+```shell
+nexorai models
+nexorai route "Explain this repository's architecture"
+nexorai chat --interactive --chat-id work
+```
+
+Choose `routing="rules"`, `"cheapest"`, `"fastest"`, or `"adaptive"`. Use `select_model(model_id, chat_id=...)` to keep one model for a particular chat, or leave each chat on Auto. `NEXORAI_STATE_PATH` controls where numeric adaptive feedback is saved. Prompts and chat transcripts are not written to disk by the SDK; observed latency is held in memory and starts from the catalog estimate again in a new process.
+
+### Connect coding agents through MCP
+
+The optional `nexorai-mcp` server exposes `recommend_model` (local recommendation only), `delegate_prompt` (a separate request to your selected provider), `search_memory`, `remember_fact`, `rate_last_response`, and `list_configured_models`. Each client uses the same local MemoryPort vault, so facts saved from one coding assistant can be recalled by another. Pass `delegate_prompt` a unique stable `chat_id` for each host conversation so separate agent sessions do not share prompt history. The server only sees host conversation content that the agent explicitly sends through a tool call; it does not read or import host transcripts automatically. It works with MCP-capable Codex, Claude Code, and VS Code Copilot clients:
+
+```shell
+nexorai integration codex
+nexorai integration claude-code
+nexorai integration vscode
+```
+
+Install the `mcp` extra first (Python 3.11 or later). `nexorai integration ...` only prints setup instructions; it does not rewrite your agent settings. Run the Codex or Claude Code command it prints to register the local server. For VS Code, put its JSON snippet in `.vscode/mcp.json` under the top-level `servers` property, then restart the client. MCP lets an agent request a model recommendation or delegate a subtask; it does not change the model hosting the agent's current conversation or use that host's subscription credentials. Delegated prompts and chat history go to the API provider you configured, subject to that provider's data handling and account.
+
+The supported setup formats are documented by [Codex MCP](https://developers.openai.com/codex/mcp/), [Claude Code MCP](https://code.claude.com/docs/en/mcp), and [VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration). 
 
 [← NexorAI overview](../README.md) · [Backend integration](../backend/README.md) · [Memory lifecycle](../app/memory/README.md)
 
@@ -18,7 +119,7 @@ This Python package provides a local model router and a portable memory vault. T
 Your app / NexorAI backend
           │ trusted API or Python library
           ▼
-    SmartMemory vault ─── SQLite ledger or MongoDB ledger
+    MemoryPort vault ─── SQLite ledger or MongoDB ledger
           │
           ├── provider-filtered context
           ├── user-approved fact proposals
@@ -34,8 +135,8 @@ The installers create an isolated Python environment under the user's local Nexo
 **Windows (PowerShell):**
 
 ```powershell
-$installer = Join-Path $env:TEMP "install-smartmemory.ps1"
-Invoke-WebRequest "https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-smartmemory.ps1" -OutFile $installer
+$installer = Join-Path $env:TEMP "install-memoryport.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-memoryport.ps1" -OutFile $installer
 & $installer
 ```
 
@@ -44,17 +145,17 @@ For encrypted exports, add `-Extras "crypto"`. Extras can be combined, such as `
 **macOS / Linux (bash):**
 
 ```bash
-curl -fsSLo install-smartmemory.sh https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-smartmemory.sh
-bash install-smartmemory.sh
+curl -fsSLo install-memoryport.sh https://raw.githubusercontent.com/RohanNK86/Open_AI_Bot/main/scripts/install-memoryport.sh
+bash install-memoryport.sh
 ```
 
-Pass extras as the first argument, for example `bash install-smartmemory.sh crypto` or `bash install-smartmemory.sh mongodb,server,crypto`.
+Pass extras as the first argument, for example `bash install-memoryport.sh crypto` or `bash install-memoryport.sh mongodb,server,crypto`.
 
-The default CLI locations are `%LOCALAPPDATA%\NexorAI\SmartMemory\venv\Scripts\nexor-vault.exe` on Windows and `~/.local/share/nexorai/venv/bin/nexor-vault` on macOS/Linux. Example commands:
+The default CLI locations are `%LOCALAPPDATA%\NexorAI\memoryport\venv\Scripts\nexor-vault.exe` on Windows and `~/.local/share/nexorai/venv/bin/nexor-vault` on macOS/Linux. Example commands:
 
 ```powershell
-& "$env:LOCALAPPDATA\NexorAI\SmartMemory\venv\Scripts\nexor-vault.exe" add demo.preferences editor "VS Code"
-& "$env:LOCALAPPDATA\NexorAI\SmartMemory\venv\Scripts\nexor-vault.exe" context local "Which editor do I use?"
+& "$env:LOCALAPPDATA\NexorAI\memoryport\venv\Scripts\nexor-vault.exe" add demo.preferences editor "VS Code"
+& "$env:LOCALAPPDATA\NexorAI\memoryport\venv\Scripts\nexor-vault.exe" context local "Which editor do I use?"
 ```
 
 ```bash
@@ -66,7 +167,7 @@ The router is a Python library, not a model host: your application supplies its 
 
 ## Manual install
 
-The package is named `nexorai-smart-auto` and includes both SmartMemory and SmartRouter. Until a release is published to PyPI, install directly from GitHub. This requires Python 3.10 or newer, Git on your PATH, and read access to this private repository.
+The package is named `nexorai-smart-auto` and includes both MemoryPort and SmartRouter. Until a release is published to PyPI, install directly from GitHub. This requires Python 3.10 or newer, Git on your PATH, and read access to this private repository.
 
 **macOS / Linux (bash):**
 
@@ -110,16 +211,16 @@ nexor-vault list
 nexor-vault context local "Which editor do I use?"
 ```
 
-The CLI stores its SQLite database under `~/.nexor/memory.sqlite3` by default. Use `nexor-vault --db ./memory.sqlite3 ...` to choose another location. SmartRouter is used from Python; its quick start is below.
+The CLI and Python SDK use `~/.nexorai/memory.sqlite3` by default. Use `nexor-vault --db ./memory.sqlite3 ...` or set `NEXORAI_MEMORY_PATH` to choose another location. SmartRouter is used from Python; its quick start is below.
 
 ## Memory Vault quick start
 
 The base ledger has no third-party dependencies and stores data at any path you choose:
 
 ```python
-from SmartMemory import MemoryLedger
+from memoryport import MemoryLedger
 
-vault = MemoryLedger(".nexor/memory.sqlite3", user_id="local")
+vault = MemoryLedger(".nexorai/memory.sqlite3", user_id="local")
 vault.record(
     "work.nexor_ai.architecture", "primary_database", "MongoDB Atlas",
     verification_state="USER_CONFIRMED", source_conversation_id="conv_123",
@@ -151,7 +252,7 @@ nexor-vault export .\backup.nxvault
 nexor-vault import .\backup.nxvault
 ```
 
-The CLI prompts for the passphrase instead of putting it in shell history. The archive contains a manifest, ledger history, provider policies, and hashes. Encrypted bundles use AES-256-GCM with a scrypt-derived key; this first version does not add an Ed25519 user signature or precomputed embeddings.
+The CLI prompts for the passphrase instead of putting it in shell history. The archive contains a manifest, ledger history, provider policies, and hashes. Encrypted bundles use AES-256-GCM with a scrypt-derived key. Embedding vectors stay in the local SQLite vault and are not included in the portable bundle; the destination can regenerate them with its configured embedding model.
 
 ## Local MCP and HTTP interfaces
 
@@ -166,7 +267,7 @@ The optional HTTP API is for a local UI or trusted backend bridge. It defaults t
 ```powershell
 pip install -e ".[server,crypto]"
 $env:NEXOR_VAULT_API_TOKEN = "use-a-random-secret-of-at-least-32-characters"
-python -m SmartMemory.api
+python -m memoryport.api
 ```
 
 To use the new MongoDB collection, install the Mongo extra and set `NEXOR_VAULT_BACKEND=mongodb`, `NEXOR_VAULT_MULTIUSER=true`, `MONGO_URI`, and `MEMORY_DATABASE=Memory`. The API then requires the authenticated backend to send its user ID in `X-Nexor-User`; user data is stored under that ID in `memory_vault_ledger`. This backend requires a MongoDB replica set because state changes use transactions. Example local service setup:
@@ -178,7 +279,7 @@ $env:NEXOR_VAULT_MULTIUSER = "true"
 $env:MONGO_URI = "<your MongoDB URI>"
 $env:MEMORY_DATABASE = "Memory"
 $env:NEXOR_VAULT_API_TOKEN = "<a random secret of at least 32 characters>"
-python -m SmartMemory.api
+python -m memoryport.api
 ```
 
 For the NexorAI chat/dashboard bridge, set `MEMORY_VAULT_API_URL=http://127.0.0.1:8765` and `MEMORY_VAULT_API_TOKEN` in `backend/.env`; set the same token as `NEXOR_VAULT_API_TOKEN` in the Python process. Keep `NEXOR_VAULT_MULTIUSER=true` so each authenticated account ID gets an isolated vault. In Docker Compose, the backend uses the private address `http://memory-vault:8765`; Compose sets the required non-loopback opt-in and does not publish that API port. The Node backend routes memory recall, validated fact extraction, and dashboard fact CRUD through Python. Existing conversation summaries and usage remain in MongoDB.
@@ -194,7 +295,7 @@ The NexorAI Node backend can call the Python API for chat recall, fact extractio
 ## Quick start
 
 ```python
-from SmartMemory import ModelSpec, SmartRouter
+from memoryport import ModelSpec, SmartRouter
 
 router = SmartRouter([
     ModelSpec("gemini-flash", "Google", 0.10, 0.40, 0.55, 1_000_000),
@@ -235,15 +336,15 @@ For each eligible model `a`, LinUCB estimates outcome utility and uncertainty fr
 
 ```text
 UCB(a, x) = θₐᵀx + α·√(xᵀAₐ⁻¹x)
-score(a)  = UCB(a, x) - λ·normalized_cost(a) + 0.3·capability(a)·S
+score(a)  = UCB(a, x) - λ·normalized_cost(a) - μ·normalized_latency(a) + 0.3·capability(a)·S
 ```
 
-`Aₐ` and `bₐ` are updated after feedback, with `θₐ = Aₐ⁻¹bₐ`; `α` controls exploration and `λ` is `cost_weight`. The router chooses the eligible model with the highest score. Cost is normalized from the configured input-plus-output rates, so it is a relative proxy, not an exact per-request bill. In production, tune these weights and validate quality and actual spend on representative traffic before relying on the learned preference.
+`Aₐ` and `bₐ` are updated after feedback, with `θₐ = Aₐ⁻¹bₐ`; `α` controls exploration, `λ` is `cost_weight`, and `μ` is `latency_weight`. Latency estimates come from the caller's model catalog; unknown latency is treated neutrally. Cost and latency are normalized relative to the eligible models, so both are ranking signals rather than exact measurements. In production, calibrate model capability and latency, tune these weights, and validate quality and actual spend on representative traffic before relying on the learned preference.
 
 ## Portable memory
 
 ```python
-from SmartMemory import PortableMemoryStore
+from memoryport import PortableMemoryStore
 
 memory = PortableMemoryStore(".smart_auto/memories.json")
 memory.add("The project uses Next.js and MongoDB", kind="semantic", importance=0.8)
@@ -260,7 +361,7 @@ Install the optional driver with `pip install -e ".[mongodb]"`, then create a st
 
 ```python
 import os
-from SmartMemory import MongoSyncedMemoryStore
+from memoryport import MongoSyncedMemoryStore
 
 memory = MongoSyncedMemoryStore(
     uri=os.environ["MONGO_URI"],

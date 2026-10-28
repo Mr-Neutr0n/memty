@@ -39,6 +39,7 @@ next-env.d.ts
 backend/data/user-data.json
 .smart_auto/
 .nexor/
+.nexorai/
 vault-data/
 memory-data/
 *.sqlite
@@ -78,3 +79,4 @@ Desktop.ini
 *.postman_environment
 postman/
 node_modules
+

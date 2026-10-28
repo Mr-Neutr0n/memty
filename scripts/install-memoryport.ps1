@@ -37,7 +37,7 @@ if ($LASTEXITCODE -ne 0) {
 $installRoot = if ($env:NEXORAI_HOME) {
     $env:NEXORAI_HOME
 } else {
-    Join-Path $env:LOCALAPPDATA "NexorAI\SmartMemory"
+    Join-Path $env:LOCALAPPDATA "NexorAI\MemoryPort"
 }
 $venv = Join-Path $installRoot "venv"
 $venvPython = Join-Path $venv "Scripts\python.exe"
@@ -54,10 +54,10 @@ if ($extraList.Count -gt 0) {
 }
 $packageSpec = "$package @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"
 & $venvPython -m pip install --upgrade $packageSpec
-if ($LASTEXITCODE -ne 0) { throw "Could not install SmartMemory from GitHub." }
+if ($LASTEXITCODE -ne 0) { throw "Could not install MemoryPort from GitHub." }
 
 $vaultCommand = Join-Path $venv "Scripts\nexor-vault.exe"
-Write-Host "SmartMemory and SmartRouter installed in: $venv"
-Write-Host "Vault database default: $(Join-Path $HOME '.nexor\memory.sqlite3')"
+Write-Host "MemoryPort and SmartRouter installed in: $venv"
+Write-Host "Vault database default: $(Join-Path $HOME '.nexorai\memory.sqlite3')"
 Write-Host "CLI: & `"$vaultCommand`" --help"
 
