@@ -2,6 +2,22 @@
 
 Each model adapter in this directory accepts normalized messages and returns a normalized reply and provider usage where available. The rest of the app calls `providers/index.js`, so model selection, fallback, usage normalization, and cost estimation use a shared path.
 
+> **Provider path:** the chat route passes neutral messages to the shared provider layer; the selected adapter handles provider-specific request details. Secrets remain in server-side environment variables. The root [README](../README.md) shows where providers fit in the full application.
+
+| If you are changing... | Start with... |
+| --- | --- |
+| Prompt orchestration or saved chat turns | [`app/api/chat/route.ts`](../app/api/chat/route.ts) |
+| Model IDs, configuration lookup, or fallback order | [`registry.js`](registry.js) and [`index.js`](index.js) |
+| Provider request format | The adapter module for that provider, such as [`gemini.js`](gemini.js) |
+| User memory injected into prompts | [Memory guide](../app/memory/README.md) |
+
+## How a provider call moves through this folder
+
+```text
+chat route → providers/index.js → providers/registry.js → provider adapter → external API
+                   └─ normalize reply, usage, and fallback metadata ─┘
+```
+
 ## Registered models
 
 | App model ID | Provider | Environment key |
@@ -52,3 +68,4 @@ Estimates are based on provider-reported token counts where available and operat
 3. Register the adapter in `index.js`; include usage-field normalization if the provider reports different fields.
 4. Update model selection UI/registry data and `GET /api/config` expectations as needed.
 5. Update the root README and this guide. Do not claim a provider capability that the chat request path does not support.
+

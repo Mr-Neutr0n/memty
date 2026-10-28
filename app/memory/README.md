@@ -2,6 +2,14 @@
 
 NexorAI stores user memory in its own MongoDB database so selected model providers can share relevant context. Memory is scoped to the signed-in account. Users can inspect and manage saved facts from `/memory`.
 
+> **Reader's map:** this guide explains what is stored and how it is retrieved. For the dashboard UI, see [`page.tsx`](page.tsx) and [`memory-dashboard.tsx`](memory-dashboard.tsx). For endpoints and database models, see the [backend guide](../../backend/README.md). For the optional Python ledger, see [SmartMemory](../../SmartMemory/README.md).
+
+```text
+Signed-in chat → backend retrieves scoped context → provider receives a compact brief
+       │                                            │
+       └── completed turn is saved in MongoDB       └── user manages facts at /memory
+```
+
 ## Memory layers
 
 - **Working context:** recent messages in the active neutral-format conversation and a rolling summary when context grows.
@@ -42,3 +50,4 @@ The authenticated backend endpoints are documented in [`backend/README.md`](../.
 ## Limits
 
 Automatic fact extraction can be incorrect, omit relevant facts, or misclassify a contradiction. Users should review what is saved. Deletion prevents future retrieval but cannot recall content already sent to an external provider. Provider retention is governed by that provider's terms. Configure backups and a retention/account-deletion policy for deployed data.
+
