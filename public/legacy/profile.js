@@ -20,6 +20,7 @@ export function setupProfile({ getUser, onUpdated }) {
                 <nav class="profile-tabs" aria-label="Account settings">
                     <button type="button" class="profile-tab active" data-profile-tab="profile"><span>◉</span> Profile</button>
                     <button type="button" class="profile-tab" data-profile-tab="billing"><span>▤</span> Billing</button>
+                    <button type="button" class="profile-tab" data-profile-tab="settings"><span>⚙</span> Settings</button>
                 </nav>
                 <div class="profile-rail-spacer"></div>
                 <p class="profile-rail-caption">Your account, your choices.</p>
@@ -58,6 +59,11 @@ export function setupProfile({ getUser, onUpdated }) {
                     </div>
                     <div class="billing-notice"><span>ⓘ</span><p>Payments are not active yet. Choosing a preference will not start a subscription, store UPI or card details, or charge you.</p></div>
                     <div class="profile-form-footer billing-footer"><span id="billingPreferenceLabel">No preference selected</span><button type="button" class="profile-primary-button" id="billingSave">Save preference</button></div>
+                </section>
+                <section class="profile-panel" data-profile-panel="settings" hidden>
+                    <div class="billing-heading"><div><span class="profile-welcome-kicker">YOUR DATA</span><h3>Chat history</h3><p>Take a copy of your conversations or clear chat history saved in this browser.</p></div></div>
+                    <article class="settings-data-card"><div><strong>Export chat history</strong><p>Download your saved conversations as a JSON file.</p></div><button type="button" class="profile-secondary-button" id="exportChats">Export chats</button></article>
+                    <article class="settings-data-card settings-danger-card"><div><strong>Delete all local chats</strong><p>Remove saved conversations from this browser. This cannot be undone.</p></div><button type="button" class="profile-danger-button" id="deleteChats">Delete all</button></article>
                 </section>
             </div>
         </section>`;
@@ -130,7 +136,7 @@ export function setupProfile({ getUser, onUpdated }) {
     function switchTab(tab) {
         overlay.querySelectorAll('[data-profile-tab]').forEach(button => button.classList.toggle('active', button.dataset.profileTab === tab));
         overlay.querySelectorAll('[data-profile-panel]').forEach(panel => { panel.hidden = panel.dataset.profilePanel !== tab; });
-        overlay.querySelector('#profileTitle').textContent = tab === 'billing' ? 'Billing' : 'Your profile';
+        overlay.querySelector('#profileTitle').textContent = ({ billing: 'Billing', settings: 'Settings' })[tab] || 'Your profile';
         report();
     }
 
@@ -264,6 +270,14 @@ export function setupProfile({ getUser, onUpdated }) {
         report('This preference is not a payment or subscription.', '');
     }));
     overlay.querySelector('#billingSave').addEventListener('click', saveBillingPreference);
+    overlay.querySelector('#exportChats').addEventListener('click', () => {
+        if (typeof window.exportLocalChats === 'function') window.exportLocalChats();
+        else report('Chat history is not ready to export.', 'error');
+    });
+    overlay.querySelector('#deleteChats').addEventListener('click', () => {
+        if (typeof window.deleteLocalChats === 'function') window.deleteLocalChats(message => report(message, 'success'));
+        else report('Chat history is not ready to delete.', 'error');
+    });
     overlay.querySelector('#profileSignout').addEventListener('click', () => window.logout());
     renderUser(currentUser);
 }

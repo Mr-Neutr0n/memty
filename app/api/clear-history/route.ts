@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 
 export async function POST() {
   try {
-    clearConversationHistory('guest');
+    clearConversationHistory();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Clear history error:', error);
