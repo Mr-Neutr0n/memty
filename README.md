@@ -12,6 +12,8 @@
 
 NexorAI is a multi-provider AI workspace built with **Next.js**, an **Express** account and memory service, **MongoDB**, and an optional **Python Memory Vault**. Choose a model or let Auto routing select from configured providers, then manage saved conversations and user-controlled memory in one place.
 
+This project is licensed under the [MIT License](LICENSE).
+
 > **Project status:** provider access depends on your own credentials. Some production features are still planned; see [current limitations](#current-limitations) before deploying publicly.
 
 ## ✨ What you can do
