@@ -260,3 +260,13 @@ body{background:var(--paper);background-image:none;color:var(--ink);font-size:17
   .closing{padding:80px 8%}
   .site-footer{font-size:10px}
 }
+
+
+/* Product story and roadmap readability. */
+.hero .eyebrow{display:inline-flex;align-items:center;padding:9px 12px;border:1px solid #e2def8;background:#fff;border-radius:999px;letter-spacing:.08em}
+.hero .badges span{border-radius:999px;padding:8px 12px;background:rgba(255,255,255,.78)}
+.intro .section-content{max-width:1120px}.intro .feature-card{min-height:250px;padding:28px 24px;background:linear-gradient(145deg,#fff,#fafaff);box-shadow:0 12px 32px rgba(52,63,99,.07)}
+.intro .feature-card:hover{transform:translateY(-4px);box-shadow:0 18px 38px rgba(52,63,99,.12)}
+.intro .feature-card h3{font-size:29px}.intro .feature-card p:not(.eyebrow){font-size:16px;line-height:1.7}.intro .callout{max-width:100%;margin-top:32px}
+.roadmap-grid>div{min-height:280px}.roadmap-grid .inline-link{display:inline-block;margin-top:9px;font-size:13px;line-height:1.5}
+@media(max-width:900px){.roadmap-grid>div{min-height:0}}

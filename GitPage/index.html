@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Install and use NexorAI MemoryPort: a portable local memory vault, provider-aware context, and capability-constrained model routing.">
+    <meta name="description" content="Work across AI models in one workspace. Keep user-controlled facts in MemoryPort, a local-first memory vault with provider-aware recall, model routing, and developer integrations.">
     <meta name="theme-color" content="#f7f6f2">
     <link rel="canonical" href="https://rohannk86.github.io/Open_AI_Bot/">
-    <title>NexorAI / MemoryPort</title>
+    <title>NexorAI — One workspace for AI. Memory you control.</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -28,14 +28,14 @@
         </a>
         <nav class="side-nav" aria-label="Main navigation">
           <a class="nav-link active" href="#overview">—&nbsp; Overview</a>
-          <a class="nav-link" href="#start">Start here</a>
+          <a class="nav-link" href="#start">Why NexorAI</a>
           <a class="nav-link" href="#quickstart">Quickstart</a>
           <a class="nav-link" href="#architecture">Architecture</a>
           <a class="nav-link" href="#models">Models</a>
           <a class="nav-link" href="#memory">Memory vault</a>
           <a class="nav-link" href="#routing">Model routing</a>
           <a class="nav-link" href="#services">Services &amp; integrations</a>
-          <a class="nav-link" href="#roadmap">Roadmap</a>
+          <a class="nav-link" href="#roadmap">What’s next</a>
           <a class="nav-link" href="#contribute">Contribute</a>
           <a class="nav-link nav-external" href="https://rohannk86.github.io/Open_AI_Bot/" target="_blank" rel="noreferrer">Live site&nbsp; ↗</a>
           <a class="nav-link nav-external" href="https://github.com/RohanNK86/Open_AI_Bot" target="_blank" rel="noreferrer">GitHub&nbsp; ↗</a>
@@ -50,15 +50,15 @@
       <main>
         <section class="hero section-anchor" id="overview">
           <div class="hero-copy">
-            <p class="eyebrow">Portable intelligence infrastructure</p>
-            <h1>One workspace.<br><em>Every intelligence.</em></h1>
-            <p class="lede">NexorAI brings multiple AI providers into one calm, capable workspace. MemoryPort gives your context a durable home that you control.</p>
+            <p class="eyebrow">One workspace for AI. Memory you control.</p>
+            <h1>Your AI tools<br><em>shouldn’t start at zero.</em></h1>
+            <p class="lede">Work across configured models in one workspace. MemoryPort keeps durable facts in a portable, user-controlled vault and supplies relevant context to supported assistants.</p>
             <div class="button-row">
-              <a class="button button-dark" href="#quickstart">Start building <span>→</span></a>
-              <a class="button" href="https://github.com/RohanNK86/Open_AI_Bot" target="_blank" rel="noreferrer">View on GitHub <span>↗</span></a>
+              <a class="button button-dark" href="#start">See what NexorAI does <span>→</span></a>
+              <a class="button" href="#quickstart">Start building <span>↗</span></a>
             </div>
             <div class="badges" aria-label="Project details">
-              <span>Next.js</span><span>Python 3.10+</span><span>SQLite / MongoDB</span><span>Local-first</span>
+              <span>Multi-model workspace</span><span>Local-first fact memory</span><span>Python SDK + MCP</span><span>SQLite / MongoDB</span>
             </div>
           </div>
           <div class="hero-art" aria-label="MemoryPort architecture preview">
@@ -87,30 +87,30 @@ context = vault.context(
         <section class="intro section-anchor" id="start">
           <div class="section-index">01 — START HERE</div>
           <div class="section-content">
-            <p class="eyebrow">Built for people who think in systems</p>
-            <h2>AI that remembers<br><em>without locking you in.</em></h2>
-            <p class="body-copy">Switch models without leaving your context behind. NexorAI handles the conversation surface; MemoryPort stores durable facts, keeps their history, and compiles only the right context for each provider.</p>
+            <p class="eyebrow">For people building with more than one model</p>
+            <h2>Choose the model.<br><em>Keep control of memory.</em></h2>
+            <p class="body-copy">NexorAI brings configured AI providers into one chat workspace with Auto routing, fallbacks, and response comparison. MemoryPort adds a separate, inspectable fact vault: useful details can persist across supported models, with history and provider rules you control.</p>
             <div class="feature-grid">
               <article class="feature-card feature-red">
-                <p class="eyebrow">For builders</p>
-                <h3>Compose your stack</h3>
-                <p>Connect Gemini, Claude, Grok, Kimi, OpenRouter, or your own local model behind a single workspace.</p>
+                <p class="eyebrow">ONE WORKSPACE</p>
+                <h3>Compare and switch</h3>
+                <p>Chat with configured providers, compare responses, and use Auto routing with fallbacks when a provider is unavailable.</p>
                 <a href="#models">Explore providers →</a>
               </article>
               <article class="feature-card feature-blue">
-                <p class="eyebrow">For your data</p>
-                <h3>Own the context</h3>
-                <p>Facts live in a portable ledger with namespaces, confidence, citations, verification state, and deletion semantics.</p>
+                <p class="eyebrow">MEMORY YOU CAN REVIEW</p>
+                <h3>Keep durable facts</h3>
+                <p>Inspect facts, their sources, confidence, sensitivity, and change history. Correct or delete them when they’re wrong.</p>
                 <a href="#architecture">See the architecture →</a>
               </article>
               <article class="feature-card feature-green">
-                <p class="eyebrow">For every model</p>
-                <h3>Route with intent</h3>
-                <p>Use automatic routing, fallbacks, and side-by-side comparison while the memory layer stays independent.</p>
+                <p class="eyebrow">FOR DEVELOPERS</p>
+                <h3>Bring your own stack</h3>
+                <p>Use the Python SDK, CLI, local API, or MCP tools. Start local-first, then add the storage and providers your app needs.</p>
                 <a href="#quickstart">Run it locally →</a>
               </article>
             </div>
-            <p class="body-copy">The full web app adds accounts, a model-switching chat workspace, Auto routing, provider fallback, side-by-side comparison, local conversation history, theme controls, and a memory dashboard. The Python package can also be used independently of the web app.</p>
+            <p class="body-copy"><div class="callout"><span>i</span><p><b>What memory means today:</b> MemoryPort keeps structured, versioned facts and retrieves relevant permitted context. It does not yet archive every platform’s complete conversation history. Full conversation preservation and richer source-linked recall are on the roadmap.</p></div></p>
           </div>
         </section>
 
@@ -209,9 +209,9 @@ print(context[<span class="code-green">"citations"</span>])</code></pre>
         <section class="content-section vault-detail section-anchor" id="memory">
           <div class="section-index">05 — MEMORY VAULT</div>
           <div class="section-content">
-            <p class="eyebrow">A durable memory layer for every conversation</p>
-            <h2>Remember what matters.<br><em>Forget what you delete.</em></h2>
-            <p class="body-copy">MemoryPort is a local-first, provider-aware memory vault. It stores useful facts as versioned ledger events instead of turning your entire chat history into an opaque prompt. You can inspect, correct, export, or erase what it knows.</p>
+            <p class="eyebrow">A local-first memory layer for AI apps</p>
+            <h2>Useful facts persist.<br><em>You stay in control.</em></h2>
+            <p class="body-copy">MemoryPort stores durable facts in a versioned ledger, separate from any one model. Review what was saved, see where it came from, apply provider-specific privacy rules, and export or delete your vault. It preserves fact history; it is not yet a complete archive of every chat transcript.</p>
             <div class="vault-grid">
               <article class="vault-card"><span class="vault-number">01</span><h3>Extract</h3><p>A caller-provided model proposes a fact with a source quote. Secret-like and low-confidence candidates are rejected before they reach the ledger.</p></article>
               <article class="vault-card"><span class="vault-number">02</span><h3>Verify</h3><p>Facts carry confidence, verification state, sensitivity tier, source conversation, source hash, and the model that extracted them.</p></article>
@@ -257,7 +257,7 @@ memory.import_data(backup, replace=<span class="code-purple">False</span>) <span
           <div class="section-content">
             <p class="eyebrow">Capability-constrained smart auto</p>
             <h2>Give each task<br><em>the right model.</em></h2>
-            <p class="body-copy">NexorAI can route a request across caller-supplied models instead of treating every prompt the same. Smart Auto reads the task shape, checks model capability and context limits, considers cost, and learns from outcome feedback.</p>
+            <p class="body-copy">The web workspace offers heuristic Auto routing and provider fallbacks. The Python SmartRouter adds capability and context constraints, operator-supplied cost and latency signals, and optional learning from explicit outcome feedback. You choose the model catalog and adapters; routing remains a recommendation, not a quality guarantee.</p>
             <div class="routing-flow">
               <div class="route-step"><span>01</span><b>Understand</b><small>Classify general, code, structured, long-context, or reasoning work.</small></div>
               <div class="route-arrow">→</div>
@@ -354,11 +354,11 @@ docker compose up --build</code></pre>
           <div class="section-index">08 — ROADMAP</div>
           <div class="section-content">
             <p class="eyebrow">An open-ended project</p>
-            <h2>Useful now.<br><em>Better together.</em></h2>
+            <h2>Useful now.<br><em>Building what’s next.</em></h2>
             <div class="roadmap-grid">
-              <div><span class="status status-live">LIVE</span><h3>Portable memory vault</h3><p>Bi-temporal facts, provider policy filtering, encrypted exports, and a local-first ledger.</p></div>
-              <div><span class="status status-next">NEXT</span><h3>Deeper integrations</h3><p>Browser sync, clickable source messages, richer evaluations, and more local model adapters.</p></div>
-              <div><span class="status status-explore">EXPLORE</span><h3>Shared intelligence</h3><p>Team workspaces, opt-in memory sharing, and tools for evaluating model decisions.</p></div>
+              <div><span class="status status-live">AVAILABLE NOW</span><h3>Multi-model workspace + fact vault</h3><p>Provider switching, Auto routing, response comparison, versioned facts, review controls, provider policies, and encrypted vault exports.</p></div>
+              <div><span class="status status-next">PLANNED</span><h3>Conversation-level memory</h3><p>Preserve complete conversations as source records, connect facts to their origins, and retrieve relevant passages with clear provenance.</p><a class="inline-link" href="https://github.com/RohanNK86/Open_AI_Bot/issues/62" target="_blank" rel="noreferrer">Follow the archive feature</a><br><a class="inline-link" href="https://github.com/RohanNK86/Open_AI_Bot/issues/63" target="_blank" rel="noreferrer">Follow provenance-aware recall</a></div>
+              <div><span class="status status-explore">PLANNED FOUNDATIONS</span><h3>Reliable context across tools</h3><p>Make context selection explainable, add user-controlled sync and connectors, and measure recall, privacy, latency, and cost before making savings claims.</p><a class="inline-link" href="https://github.com/RohanNK86/Open_AI_Bot/issues/64" target="_blank" rel="noreferrer">Context compiler</a><br><a class="inline-link" href="https://github.com/RohanNK86/Open_AI_Bot/issues/65" target="_blank" rel="noreferrer">Connectors and sync</a><br><a class="inline-link" href="https://github.com/RohanNK86/Open_AI_Bot/issues/66" target="_blank" rel="noreferrer">Evaluation suite</a></div>
             </div>
           </div>
         </section>
@@ -366,7 +366,7 @@ docker compose up --build</code></pre>
         <section class="closing section-anchor" id="contribute">
           <div>
             <p class="eyebrow">A community-built project</p>
-            <h2>Make your AI<br><em>feel like yours.</em></h2>
+            <h2>Help build AI<br><em>that remembers responsibly.</em></h2>
             <p class="body-copy">Read the code, run it locally, open an issue, or bring a new provider to the workspace. The public GitHub Pages site is available at <a class="inline-link" href="https://rohannk86.github.io/Open_AI_Bot/" target="_blank" rel="noreferrer">rohannk86.github.io/Open_AI_Bot ↗</a>.</p>
             <div class="button-row">
               <a class="button button-dark" href="https://github.com/RohanNK86/Open_AI_Bot" target="_blank" rel="noreferrer">Contribute on GitHub <span>↗</span></a>
