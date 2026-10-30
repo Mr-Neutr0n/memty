@@ -162,25 +162,135 @@ let history = [];
 try { history = JSON.parse(localStorage.getItem('nexorHistory') || '[]'); } catch(e) {}
 let savedConversations = [];
 const activeConversationStorageKey = 'nexorActiveConversationId';
+let projects = [];
+try { projects = JSON.parse(localStorage.getItem('nexorProjects') || '[]'); } catch {}
+let activeProjectId = localStorage.getItem('nexorActiveProjectId') || '';
+let historySearch = '';
+function persistProjects() { localStorage.setItem('nexorProjects', JSON.stringify(projects)); }
+function currentProject() { return projects.find(project => project.id === activeProjectId) || null; }
+
+const historySearchBox = document.createElement('input');
+historySearchBox.className = 'history-search';
+historySearchBox.type = 'search';
+historySearchBox.placeholder = 'Search chats';
+historySearchBox.setAttribute('aria-label', 'Search chat history');
+document.querySelector('.history-label')?.after(historySearchBox);
+historySearchBox.addEventListener('input', () => { historySearch = historySearchBox.value.trim().toLowerCase(); renderHistory(); });
+const projectSection = document.createElement('section');
+projectSection.className = 'project-section';
+projectSection.innerHTML = '<div class="project-section-head"><span>PROJECTS</span><button type="button" aria-label="Create project" title="Create project">＋</button></div><div class="project-list"></div>';
+document.querySelector('.history-label')?.before(projectSection);
+function renderProjects() {
+    const list = projectSection.querySelector('.project-list');
+    list.replaceChildren();
+    const all = document.createElement('button');
+    all.className = `project-item${!activeProjectId ? ' active' : ''}`;
+    all.textContent = 'All chats';
+    all.onclick = () => { activeProjectId = ''; localStorage.removeItem('nexorActiveProjectId'); renderProjects(); renderHistory(); };
+    list.appendChild(all);
+    projects.forEach(project => {
+        const row = document.createElement('div');
+        row.className = 'project-row';
+        const item = document.createElement('button');
+        item.className = `project-item${project.id === activeProjectId ? ' active' : ''}`;
+        item.textContent = `▰  ${project.name}`;
+        item.title = project.context || project.name;
+        item.onclick = () => { activeProjectId = project.id; localStorage.setItem('nexorActiveProjectId', activeProjectId); renderProjects(); renderHistory(); window.startNewChat(); };
+        const actions = document.createElement('div');
+        actions.className = 'project-actions';
+        const rename = document.createElement('button');
+        rename.type = 'button';
+        rename.textContent = '•••';
+        rename.title = `Manage ${project.name}`;
+        rename.setAttribute('aria-label', `Manage ${project.name}`);
+        rename.onclick = event => {
+            event.stopPropagation();
+            const action = window.prompt(`Manage "${project.name}": enter "rename" or "delete"`, 'rename')?.trim().toLowerCase();
+            if (action === 'rename') {
+                const nextName = window.prompt('Project name', project.name)?.trim();
+                if (!nextName || nextName === project.name) return;
+                if (projects.some(other => other.id !== project.id && other.name.toLowerCase() === nextName.toLowerCase())) {
+                    window.alert('A project with that name already exists.');
+                    return;
+                }
+                project.name = nextName.slice(0, 80);
+                persistProjects();
+                renderProjects();
+                return;
+            }
+            if (action === 'delete' && window.confirm(`Delete "${project.name}"? Its chats will remain in All chats.`)) {
+                projects = projects.filter(other => other.id !== project.id);
+                history = history.map(entry => entry.projectId === project.id ? { ...entry, projectId: '' } : entry);
+                localStorage.setItem('nexorHistory', JSON.stringify(history));
+                if (activeProjectId === project.id) {
+                    activeProjectId = '';
+                    localStorage.removeItem('nexorActiveProjectId');
+                }
+                persistProjects();
+                renderProjects();
+                renderHistory();
+                window.startNewChat();
+            }
+        };
+        actions.append(rename);
+        row.append(item, actions);
+        list.appendChild(row);
+    });
+}
+projectSection.querySelector('button').onclick = () => {
+    const name = window.prompt('Project name');
+    if (!name?.trim()) return;
+    if (projects.some(project => project.name.toLowerCase() === name.trim().toLowerCase())) {
+        window.alert('A project with that name already exists.');
+        return;
+    }
+    const context = window.prompt('Project context: goals, background, constraints, and preferences') || '';
+    const project = { id: crypto.randomUUID(), name: name.trim().slice(0, 80), context: context.trim().slice(0, 4000), createdAt: new Date().toISOString() };
+    projects.push(project); activeProjectId = project.id; localStorage.setItem('nexorActiveProjectId', activeProjectId); persistProjects(); renderProjects(); renderHistory(); window.startNewChat();
+};
+renderProjects();
 
 function renderHistory() {
     const list = document.getElementById('historyList');
     list.innerHTML = '';
-    const byId = new Map();
-    for (const item of history) {
-        const key = item.conversationId || `legacy-${history.indexOf(item)}`;
-        if (!byId.has(key)) byId.set(key, item);
+    const localById = new Map();
+    history.forEach((item, index) => {
+        const key = item.conversationId || `legacy-${index}`;
+        const existing = localById.get(key);
+        localById.set(key, {
+            conversationId: item.conversationId,
+            title: existing?.title || item.title || item.user || '[Attachment]',
+            projectId: item.projectId || existing?.projectId || '',
+            updatedAt: item.updatedAt || existing?.updatedAt || ''
+        });
+    });
+    const conversationsById = new Map();
+    for (const item of savedConversations) {
+        const local = localById.get(item.conversationId);
+        conversationsById.set(item.conversationId, {
+            ...item,
+            title: item.title || local?.title || '[Attachment]',
+            projectId: local?.projectId || '',
+            updatedAt: item.updatedAt || local?.updatedAt || ''
+        });
     }
-    const localConversations = [...byId.values()].map(item => ({ conversationId: item.conversationId, title: item.title || item.user || '[Attachment]' }));
-    const conversations = savedConversations.length ? savedConversations : localConversations;
+    for (const [key, item] of localById) {
+        if (!conversationsById.has(key)) conversationsById.set(key, item);
+    }
+    let conversations = [...conversationsById.values()].filter(item =>
+        activeProjectId ? item.projectId === activeProjectId : !item.projectId
+    );
+    if (historySearch) conversations = conversations.filter(item => (item.title || item.user || '').toLowerCase().includes(historySearch));
     const recent = conversations.slice(0, 100);
     if (!recent.length) {
-        list.innerHTML = '<div class="hist-item" style="cursor:default; padding:10px;">No chats yet</div>';
+        list.innerHTML = `<div class="hist-item" style="cursor:default; padding:10px;">${historySearch ? 'No matching chats' : activeProjectId ? 'No chats in this project yet' : 'No chats yet'}</div>`;
         return;
     }
     recent.forEach(item => {
         const el = document.createElement('div');
         el.className = 'hist-item';
+        const source = history.find(turn => turn.conversationId === item.conversationId);
+        item.projectId ||= source?.projectId || '';
         const title = document.createElement('span');
         title.className = 'hist-title';
         title.textContent = (item.title || item.user || '[Attachment]').slice(0, 50);
@@ -225,11 +335,7 @@ async function refreshSavedConversations() {
 void refreshSavedConversations();
 
 // Local-first data controls: history lives in this browser profile.
-const dataControls = document.createElement('div');
-dataControls.className = 'local-data-controls';
-dataControls.innerHTML = '<button class="sidebar-btn" type="button">Export chat history</button><button class="sidebar-btn" type="button">Delete all local chats</button>';
-const [exportChatsButton, deleteChatsButton] = dataControls.querySelectorAll('button');
-exportChatsButton.onclick = () => {
+window.exportLocalChats = () => {
     const file = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), conversations: history }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
@@ -238,15 +344,16 @@ exportChatsButton.onclick = () => {
     link.click();
     URL.revokeObjectURL(url);
 };
-deleteChatsButton.onclick = () => {
-    if (!history.length && !savedConversations.length || !window.confirm('Delete all saved NexorAI conversations? This cannot be undone.')) return;
+window.deleteLocalChats = (onDeleted = () => {}) => {
+    if (!history.length && !savedConversations.length) { onDeleted('There are no saved chats to delete.'); return; }
+    if (!window.confirm('Delete all saved NexorAI conversations? This cannot be undone.')) return;
     history = [];
     savedConversations = [];
     localStorage.removeItem('nexorHistory');
     fetch('/backend/memory/conversations', { method: 'DELETE' }).catch(() => {});
     renderHistory();
+    onDeleted('All local chats deleted.');
 };
-document.querySelector('.sidebar-footer')?.prepend(dataControls);
 
 /* ── Chat ── */
 const chatScroll = document.getElementById('chatScroll');
@@ -324,8 +431,9 @@ function appendMessage(role, htmlContent, details = {}) {
     const row = document.createElement('div');
     row.className = `msg-row ${role}`;
     
+    const userDisplayName = accountUser.name || accountUser.email || 'User';
     const avatarHtml = role === 'user'
-        ? `<div class="msg-avatar user-av">${userName[0].toUpperCase()}</div>`
+        ? `<div class="msg-avatar user-av">${String(userDisplayName).trim().charAt(0).toUpperCase() || 'U'}</div>`
         : `<div class="msg-avatar bot-av ${lp?.className || ''}"><img src="${lp?.src || '/static/assets/NexorSplash.png'}" alt="${currentModel.displayName}" style="${lp?.invert ? 'filter:invert(1) brightness(2);' : ''}"></div>`;
     
     row.innerHTML = `${avatarHtml}<div class="msg-content">${htmlContent}</div>`;
@@ -509,7 +617,7 @@ window.sendMessage = async () => {
         const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text || '[File attached]', model: currentModel.id, conversationId: activeConversationId, compareWith: compareModelSelect.value || undefined })
+            body: JSON.stringify({ message: currentProject()?.context ? `[Project: ${currentProject().name}]\nContext: ${currentProject().context}\n\nUser request: ${text || '[File attached]'}` : text || '[File attached]', model: currentModel.id, conversationId: activeConversationId, compareWith: compareModelSelect.value || undefined })
         });
         if (res.status === 401) { window.location.href = '/login'; return; }
         const data = await res.json();
@@ -519,7 +627,7 @@ window.sendMessage = async () => {
         localStorage.setItem(activeConversationStorageKey, activeConversationId);
         if (data.comparison) appendModelComparison({ model: data.model, reply: data.reply }, data.comparison, data.memoryUsed || []);
         else appendMessage('bot', mdToHtml(data.reply), { model: data.model, fallback: data.fallback, memoryUsed: data.memoryUsed });
-        history.push({ user: text, bot: data.reply, model: data.model, memoryUsed: data.memoryUsed, conversationId: activeConversationId, title: text || '[Attachment]' });
+        history.push({ user: text, bot: data.reply, model: data.model, memoryUsed: data.memoryUsed, conversationId: activeConversationId, title: text || '[Attachment]', projectId: activeProjectId || '' });
         localStorage.setItem('nexorHistory', JSON.stringify(history));
         renderHistory();
         void refreshSavedConversations();
@@ -536,10 +644,12 @@ window.startNewChat = async () => {
     toggleSidebar(false);
     activeConversationId = crypto.randomUUID();
     localStorage.setItem(activeConversationStorageKey, activeConversationId);
+    const project = currentProject();
     chatScroll.innerHTML = `<div class="welcome" id="welcomeScreen">
         <img src="/static/assets/NexorSplash.png" alt="NexorAI">
-        <h2>How can I help you today?</h2>
-        <p>Powered by Gemini Flash — fast, capable, and intelligent.</p>
+        ${project ? '<span class="project-chat-label">PROJECT WORKSPACE</span>' : ''}
+        <h2>${project ? `Let’s build ${project.name}` : 'How can I help you today?'}</h2>
+        <p>${project ? (project.context || 'Conversations in this project use its dedicated context and stay grouped here.') : 'A focused workspace for your ideas, research, and everyday work.'}</p>
     </div>`;
     renderWelcomePrompts();
     welcomeVisible = true;

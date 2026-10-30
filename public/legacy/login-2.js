@@ -25,7 +25,7 @@ if (localStorage.getItem('nexoraiUser')) {
 
         let googleSignInReady = false;
         let googleSignInBusy = false;
-        //This Function handles the Google Auth
+
         window.handleGoogle = function() {
             showStatus(googleSignInReady ? 'Use the Google sign-in button above.' : 'Google sign-in is still loading. Please try again shortly.', 'error');
         };

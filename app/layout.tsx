@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-// @ts-expect-error: Next.js bundles global CSS imports without TypeScript declarations.
+// @ts-expect-error CSS side-effect imports are handled by Next.js at runtime.
 import './globals.css';
 
 export const metadata: Metadata = {

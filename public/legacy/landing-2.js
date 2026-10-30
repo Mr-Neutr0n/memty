@@ -94,10 +94,97 @@
             return { ...p, px, py, scale, alpha, sin };
         }).sort((a, b) => a.sin - b.sin); // back first
 
+        drawMemoryTransfers(objs, ts);
+
         objs.forEach(o => drawPlanet(o));
 
         /* Sun always on top */
         drawSun();
+    }
+
+    /* ---------- Shared-memory transfer paths ---------- */
+    function drawMemoryTransfers(planets, timestamp) {
+        const byKey = new Map(planets.map(planet => [planet.key, planet]));
+        // A subtle ring connects the models while packets move through one link at a time.
+        const routes = [
+            ['claude', 'meta'],
+            ['meta', 'gemini'],
+            ['gemini', 'nvidia'],
+            ['nvidia', 'openai'],
+            ['openai', 'grok'],
+            ['grok', 'claude']
+        ];
+        const cycleMs = 9000;
+        const activeMs = 1050;
+
+        routes.forEach(([fromKey, toKey], routeIndex) => {
+            const from = byKey.get(fromKey);
+            const to = byKey.get(toKey);
+            if (!from || !to) return;
+
+            const startX = from.px;
+            const startY = from.py;
+            const endX = to.px;
+            const endY = to.py;
+            const midX = (startX + endX) / 2;
+            const midY = (startY + endY) / 2;
+            const dx = endX - startX;
+            const dy = endY - startY;
+            const distance = Math.hypot(dx, dy) || 1;
+            let normalX = -dy / distance;
+            let normalY = dx / distance;
+            const radialX = midX - cx;
+            const radialY = midY - cy;
+            if (normalX * radialX + normalY * radialY < 0) {
+                normalX *= -1;
+                normalY *= -1;
+            }
+            const bend = Math.min(54, Math.max(34, distance * 0.17));
+            const controlX = midX + normalX * bend;
+            const controlY = midY + normalY * bend;
+
+            // Keep each network link dotted, then send a visible packet along its curve.
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+            ctx.strokeStyle = 'rgba(166, 181, 255, 0.32)';
+            ctx.lineWidth = 1.35;
+            ctx.lineCap = 'round';
+            ctx.setLineDash([1, 9]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const phase = ((timestamp + routeIndex * cycleMs / routes.length) % cycleMs) / cycleMs;
+            const progress = phase * cycleMs / activeMs;
+            if (progress < 1) {
+                const pointAt = t => ({
+                    x: (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * controlX + t * t * endX,
+                    y: (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * controlY + t * t * endY
+                });
+                const head = pointAt(progress);
+                // A short trail of separate glowing dots makes direction and motion clear.
+                [0.07, 0.035].forEach((offset, index) => {
+                    const trailProgress = Math.max(0, progress - offset);
+                    const trailPoint = pointAt(trailProgress);
+                    ctx.beginPath();
+                    ctx.arc(trailPoint.x, trailPoint.y, 1.3 + index * 0.35, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(150, 180, 255, ${0.22 + index * 0.18})`;
+                    ctx.fill();
+                });
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, 3.2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(200, 235, 255, 0.3)';
+                ctx.shadowBlur = 7;
+                ctx.shadowColor = 'rgba(120, 190, 255, 0.6)';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, 2.3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(235, 250, 255, 1)';
+                ctx.fill();
+            }
+            ctx.restore();
+        });
     }
 
     /* ---------- Draw planet ---------- */

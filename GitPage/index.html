@@ -7,6 +7,13 @@
     <meta name="theme-color" content="#f7f6f2">
     <link rel="canonical" href="https://rohannk86.github.io/Open_AI_Bot/">
     <title>NexorAI — One workspace for AI. Memory you control.</title>
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="NexorAI">
+    <meta property="og:title" content="NexorAI — One workspace for AI. Memory you control.">
+    <meta property="og:description" content="Work across configured AI models. Keep durable facts in a portable, user-controlled memory vault.">
+    <meta property="og:url" content="https://rohannk86.github.io/Open_AI_Bot/">
+    <meta property="og:image" content="https://rohannk86.github.io/Open_AI_Bot/assets/NexorSplash.jpeg">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -55,32 +62,24 @@
             <p class="lede">Work across configured models in one workspace. MemoryPort keeps durable facts in a portable, user-controlled vault and supplies relevant context to supported assistants.</p>
             <div class="button-row">
               <a class="button button-dark" href="#start">See what NexorAI does <span>→</span></a>
-              <a class="button" href="#quickstart">Start building <span>↗</span></a>
+              <a class="button" href="#quickstart">Start building <span>→</span></a>
             </div>
             <div class="badges" aria-label="Project details">
               <span>Multi-model workspace</span><span>Local-first fact memory</span><span>Python SDK + MCP</span><span>SQLite / MongoDB</span>
             </div>
           </div>
-          <div class="hero-art" aria-label="MemoryPort architecture preview">
-            <div class="art-label">memory_vault.py</div>
-            <pre><code><span class="code-purple">from</span> memoryport <span class="code-purple">import</span> MemoryLedger
-
-vault = MemoryLedger(
-    <span class="code-green">".nexorai/memory.sqlite3"</span>,
-    user_id=<span class="code-green">"local"</span>
-)
-
-vault.record(
-    <span class="code-green">"work.nexor_ai"</span>,
-    <span class="code-green">"primary_database"</span>,
-    <span class="code-green">"MongoDB Atlas"</span>,
-    verification_state=<span class="code-green">"USER_CONFIRMED"</span>
-)
-
-context = vault.context(
-    <span class="code-green">"Which database do we use?"</span>,
-    provider=<span class="code-green">"claude"</span>
-)</code></pre>
+          <div class="hero-art" aria-label="Illustrative NexorAI workflow: select a model, ask a question, and use a relevant saved fact">
+            <div class="mock-window-bar"><span class="mock-dots"><i></i><i></i><i></i></span><b>NEXORAI WORKSPACE</b><span class="mock-live">EXAMPLE FLOW</span></div>
+            <div class="mock-workspace">
+              <aside class="mock-sidebar"><small>WORKSPACE</small><b>Product planning</b><small>MEMORY VAULT</small><div class="mock-memory-item"><span>●</span><div><b>Account memory</b><small>3 reviewed facts</small></div></div><div class="mock-memory-item"><span>◌</span><div><b>Provider rules</b><small>Personal data protected</small></div></div></aside>
+              <div class="mock-chat">
+                <div class="mock-models"><span class="mock-auto">✦ Auto</span><span>Claude</span><span>Gemini</span></div>
+                <div class="mock-prompt">Which database are we using for account memory?</div>
+                <div class="mock-answer"><small>CLAUDE · RESPONSE</small><p>You’re using MongoDB Atlas for the account memory store.</p><div class="mock-context"><small>RELEVANT SAVED FACT</small><b>work.nexor_ai / primary_database</b><span>User confirmed · provider allowed</span></div></div>
+                <div class="mock-compose"><span>Ask a follow-up…</span><b>↑</b></div>
+              </div>
+            </div>
+            <p class="mock-caption">Illustrative flow · MemoryPort supplies a permitted saved fact to a configured model.</p>
           </div>
         </section>
 
@@ -110,7 +109,7 @@ context = vault.context(
                 <a href="#quickstart">Run it locally →</a>
               </article>
             </div>
-            <p class="body-copy"><div class="callout"><span>i</span><p><b>What memory means today:</b> MemoryPort keeps structured, versioned facts and retrieves relevant permitted context. It does not yet archive every platform’s complete conversation history. Full conversation preservation and richer source-linked recall are on the roadmap.</p></div></p>
+            <div class="callout"><span>i</span><p><b>What memory means today:</b> MemoryPort keeps structured, versioned facts and retrieves relevant permitted context. It does not yet archive every platform’s complete conversation history. Full conversation preservation and richer source-linked recall are on the roadmap.</p></div>
           </div>
         </section>
 
@@ -195,13 +194,13 @@ print(context[<span class="code-green">"citations"</span>])</code></pre>
             <p class="eyebrow">Bring your own intelligence</p>
             <h2>One interface.<br><em>Many perspectives.</em></h2>
             <div class="model-list">
-              <div class="model-row"><span class="model-icon">G</span><div><b>Gemini</b><small>Google · fast multimodal responses</small></div><em>bring a key</em></div>
+              <div class="model-row"><span class="model-icon">G</span><div><b>Gemini</b><small>Google · configure a model and API key</small></div><em>bring a key</em></div>
               <div class="model-row"><span class="model-icon">A</span><div><b>Claude</b><small>Anthropic · careful reasoning and writing</small></div><em>bring a key</em></div>
-              <div class="model-row"><span class="model-icon">↯</span><div><b>Grok</b><small>xAI · direct, real-time conversations</small></div><em>bring a key</em></div>
+              <div class="model-row"><span class="model-icon">↯</span><div><b>Grok</b><small>xAI · configure a model and API key</small></div><em>bring a key</em></div>
               <div class="model-row"><span class="model-icon">K</span><div><b>Kimi</b><small>Moonshot · long-context model adapter</small></div><em>bring a key</em></div>
               <div class="model-row"><span class="model-icon">◆</span><div><b>OpenRouter</b><small>Open models · a broad model catalog</small></div><em>configurable</em></div>
               <div class="model-row"><span class="model-icon">N</span><div><b>Nemotron and Llama</b><small>NVIDIA and Meta models through OpenRouter</small></div><em>configurable</em></div>
-              <div class="model-row"><span class="model-icon">⌂</span><div><b>Local models</b><small>Ollama and private providers</small></div><em>your choice</em></div>
+              <div class="model-row"><span class="model-icon">⌂</span><div><b>Local and custom models</b><small>Ollama / LM Studio through the Python SDK; custom adapters supported</small></div><em>SDK</em></div>
             </div>
           </div>
         </section>
@@ -383,4 +382,3 @@ docker compose up --build</code></pre>
     <script src="script.js"></script>
   </body>
 </html>
-
