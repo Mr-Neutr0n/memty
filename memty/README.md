@@ -1,6 +1,6 @@
 # Memty
 
-Memty is a user-owned atomic memory vault plus a deterministic **sub-600-token context compiler**. It replaces whole-context dumping with canonical slots, capped summaries, and an explicit raw drill-down archive.
+Memty is a **CLI-first**, user-owned atomic memory vault plus a deterministic **sub-600-token context compiler**. It replaces whole-context dumping with canonical slots, logical constraints, capped summaries, and an explicit raw drill-down archive. The CLI is the supported Week 1 interface; Python and MCP integrations are optional programmatic bridges.
 
 Week 1 is the storage and retrieval engine. It is standard-library only, local-first, and makes no model or network calls.
 
@@ -23,7 +23,7 @@ Week 1 is the storage and retrieval engine. It is standard-library only, local-f
 | CONFIDENTIAL facts can be masked | `<MEMTY_REDACTED_SLOT_N>` placeholders plus `rehydrate()` in the response path |
 | Provider allow/block lists | Per-fact `allowed_providers` / `blocked_providers` |
 
-The three functional tables are `atomic_facts`, `rolling_summaries`, and `raw_drilldown`. A small `atomic_fact_audit` table preserves superseded values and is purged on forget.
+The four functional tables are `atomic_facts`, `logical_constraints`, `rolling_summaries`, and `raw_drilldown`. A small `atomic_fact_audit` table preserves superseded values and is purged on forget.
 
 ## Install
 
@@ -35,7 +35,25 @@ pip install "memty[mcp]"
 
 The vault lives at `~/.memty/ledger.sqlite3` by default. Override it with `MEMTY_VAULT_PATH` or `--db`.
 
-## Quick start
+## Quick start: CLI
+
+After installing the package, the following commands create a complete local namespace:
+
+```powershell
+python -m pip install -e .
+memty remember project.api cache_engine "DragonflyDB" --verification USER_CONFIRMED
+memty remember project.api rate_limiter "Token Bucket via Lua, 500 req/min" --verification SPEC_LOCKED
+memty rule project.api database_queries "writing database queries" "always use async Motor and project only needed fields"
+memty summary project.api --set "FastAPI backend with JWT auth and MongoDB Atlas sync."
+memty recall "Which cache and rate limiter should I use?" --provider claude --namespace project.api
+memty stats
+```
+
+Use `memty list`, `memty rules`, `memty history`, `memty forget`, `memty raw-add`, and `memty raw-get` to inspect and manage the vault. The default database is `~/.memty/ledger.sqlite3`; use `--db` or `MEMTY_VAULT_PATH` for another location.
+
+`memty recall` prints a deterministic `<memty_state>` capsule. It never includes archived raw source text. A matching `SECRET` fact exits with status 2 and reports that the request must use a local provider.
+
+## Python API
 
 ```python
 from memty import open_ledger
@@ -123,7 +141,7 @@ memty migrate ~/.nexorai/memory.sqlite3
 
 `memty recall` exits with status 2 and prints a `local_routing_required` payload when a SECRET fact matches a cloud provider.
 
-## MCP
+## Optional MCP bridge
 
 ```shell
 memty-mcp
@@ -133,10 +151,11 @@ Tools: `memty_recall`, `memty_remember`, `memty_forget`, `memty_drill_down`, `me
 
 ## Guarantees and verification
 
-The Week 1 acceptance suite covers the schema, 40-token enforcement, versioning/audit, tombstones, raw isolation, budgets, semantic snippets, summaries, allow/block lists, SECRET routing, and CONFIDENTIAL rehydration:
+The Week 1 acceptance suite covers the schema, logical constraints, 40-token enforcement, versioning/audit, tombstones, raw isolation, budgets, semantic snippets, summaries, allow/block lists, SECRET routing, and CONFIDENTIAL rehydration:
 
 ```shell
 python -m pytest tests/test_memty_week1.py -q
+python scripts/test_memty_week1.py
 ```
 
 The performance test builds 200 facts and asserts a warm compiler median below 6 ms on the local machine; the measured median on the development machine is about 3.2 ms (p95 ~4.8 ms) with a 600-token budget and 300 facts. The compiler also enforces a hard `estimate_tokens(text) <= token_budget` check, so larger inputs cannot silently exceed the ceiling.
@@ -153,4 +172,4 @@ Only the newest event for each `(namespace, slot)` is considered, so superseded 
 
 ## Not in Week 1
 
-Memory-conditioned routing, the PyPI release pipeline, and the public benchmark report are the next milestones. Week 1 deliberately stops at a tested, dependency-free vault and compiler.
+Automatic model routing, daemon/HTTP bridge deployment, encrypted storage, the PyPI release pipeline, and the public benchmark report are not part of Week 1. Week 1 deliberately stops at a tested, dependency-free local vault, CLI, and compiler.
