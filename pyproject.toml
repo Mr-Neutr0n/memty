@@ -31,6 +31,8 @@ mcp = ["mcp>=2.0,<3; python_version >= '3.11'"]
 server = ["fastapi>=0.115", "uvicorn>=0.30"]
 
 [project.scripts]
+memty = "memty.cli:main"
+memty-mcp = "memty.mcp_server:main"
 nexor-vault = "memoryport.cli:main"
 nexor-vault-mcp = "memoryport.mcp_server:main"
 nexor-vault-api = "memoryport.api:main"
@@ -38,5 +40,4 @@ nexorai = "memoryport.sdk_cli:main"
 nexorai-mcp = "memoryport.sdk_mcp:main"
 
 [tool.setuptools]
-packages = ["memoryport", "nexorai"]
-
+packages = ["memty", "memoryport", "nexorai"]
