@@ -3,6 +3,7 @@
 Storage is intentionally small and inspectable:
 
 * ``atomic_facts``      canonical slot -> value state (one row per slot)
+* ``logical_constraints`` namespace rules applied by the consuming assistant
 * ``rolling_summaries`` one capped summary per namespace
 * ``raw_drilldown``     raw source text, fetched only by an explicit call
 * ``atomic_fact_audit`` previous versions, kept for temporal auditing
@@ -40,6 +41,7 @@ _VERIFICATION_STATES = {"USER_CONFIRMED", "SPEC_LOCKED", "EXTRACTED"}
 _SENSITIVITY_LEVELS = {"PUBLIC", "INTERNAL", "CONFIDENTIAL", "SECRET"}
 _PROVIDER = re.compile(r"^[a-zA-Z0-9_.-]{1,80}$")
 _KEY_PART = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+_RULE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _TOKEN_TERM = re.compile(r"[\w'-]{2,}", re.UNICODE)
 
 
@@ -190,6 +192,20 @@ class MemtyLedger:
                     ON atomic_facts(user_id, namespace, tombstone, updated_at DESC);
                 CREATE INDEX IF NOT EXISTS atomic_facts_recent
                     ON atomic_facts(user_id, tombstone, updated_at DESC);
+
+                CREATE TABLE IF NOT EXISTS logical_constraints (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    namespace TEXT NOT NULL,
+                    rule_id TEXT NOT NULL,
+                    if_condition TEXT NOT NULL,
+                    then_constraint TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(user_id, namespace, rule_id)
+                );
+                CREATE INDEX IF NOT EXISTS logical_constraints_namespace
+                    ON logical_constraints(user_id, namespace, updated_at DESC);
 
                 CREATE TABLE IF NOT EXISTS rolling_summaries (
                     user_id TEXT NOT NULL,
@@ -434,6 +450,70 @@ class MemtyLedger:
             row = db.execute("SELECT * FROM atomic_facts WHERE user_id=? AND namespace=? AND slot=?",
                              (self.user_id, namespace, slot)).fetchone()
         return self._fact(row) if row else None
+
+    @staticmethod
+    def _constraint(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "namespace": row["namespace"],
+            "rule_id": row["rule_id"],
+            "if_condition": row["if_condition"],
+            "then_constraint": row["then_constraint"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
+    def set_constraint(self, namespace: str, rule_id: str, if_condition: str,
+                       then_constraint: str) -> dict[str, Any]:
+        """Create or replace one deterministic namespace rule."""
+        namespace = _normalize_namespace(namespace)
+        rule_id = str(rule_id).strip().lower()
+        if not _RULE_ID.fullmatch(rule_id):
+            raise ValueError("rule_id must be a lowercase key using letters, numbers, '_' or '-'")
+        if not str(if_condition).strip() or not str(then_constraint).strip():
+            raise ValueError("if_condition and then_constraint cannot be empty")
+        now = _utc_now_ms()
+        with self._connect() as db:
+            db.execute("""
+                INSERT INTO logical_constraints(
+                    id,user_id,namespace,rule_id,if_condition,then_constraint,created_at,updated_at
+                ) VALUES(?,?,?,?,?,?,?,?)
+                ON CONFLICT(user_id, namespace, rule_id) DO UPDATE SET
+                    if_condition=excluded.if_condition,
+                    then_constraint=excluded.then_constraint,
+                    updated_at=excluded.updated_at
+            """, ("rule_" + uuid.uuid4().hex, self.user_id, namespace, rule_id,
+                  str(if_condition).strip(), str(then_constraint).strip(), now, now))
+            row = db.execute("""
+                SELECT * FROM logical_constraints
+                 WHERE user_id=? AND namespace=? AND rule_id=?
+            """, (self.user_id, namespace, rule_id)).fetchone()
+        return self._constraint(row)
+
+    def list_constraints(self, *, namespace: str | None = None) -> list[dict[str, Any]]:
+        """List logical rules, optionally scoped to one namespace."""
+        params: list[Any] = [self.user_id]
+        query = "SELECT * FROM logical_constraints WHERE user_id=?"
+        if namespace is not None:
+            query += " AND namespace=?"
+            params.append(_normalize_namespace(namespace))
+        query += " ORDER BY namespace, rule_id"
+        with self._connect() as db:
+            rows = db.execute(query, params).fetchall()
+        return [self._constraint(row) for row in rows]
+
+    def delete_constraint(self, namespace: str, rule_id: str) -> bool:
+        """Delete one logical rule."""
+        namespace = _normalize_namespace(namespace)
+        rule_id = str(rule_id).strip().lower()
+        if not _RULE_ID.fullmatch(rule_id):
+            raise ValueError("rule_id must be a lowercase key using letters, numbers, '_' or '-'")
+        with self._connect() as db:
+            cursor = db.execute("""
+                DELETE FROM logical_constraints
+                 WHERE user_id=? AND namespace=? AND rule_id=?
+            """, (self.user_id, namespace, rule_id))
+        return cursor.rowcount > 0
 
     def list(self, *, namespace: str | None = None,
              include_tombstones: bool = False) -> list[dict[str, Any]]:
@@ -761,12 +841,16 @@ class MemtyLedger:
                                     (self.user_id,)).fetchone()["n"]
             summaries = db.execute("SELECT COUNT(*) AS n FROM rolling_summaries WHERE user_id=?",
                                    (self.user_id,)).fetchone()["n"]
+            constraints = db.execute(
+                "SELECT COUNT(*) AS n FROM logical_constraints WHERE user_id=?",
+                (self.user_id,)).fetchone()["n"]
             raw = db.execute("SELECT COUNT(*) AS n FROM raw_drilldown WHERE user_id=?",
                              (self.user_id,)).fetchone()["n"]
             audit = db.execute("SELECT COUNT(*) AS n FROM atomic_fact_audit WHERE user_id=?",
                                (self.user_id,)).fetchone()["n"]
         return {"path": str(self.path), "user_id": self.user_id, "active_facts": facts,
-                "tombstones": tombstones, "summaries": summaries, "raw_documents": raw,
+                "tombstones": tombstones, "constraints": constraints, "summaries": summaries,
+                "raw_documents": raw,
                 "audit_versions": audit, "fts5": self._fts}
 
     def __enter__(self) -> "MemtyLedger":

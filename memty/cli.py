@@ -61,6 +61,19 @@ def main() -> None:
     summary.add_argument("--set", dest="summary_text")
     summary.add_argument("--max-tokens", type=int, default=150)
 
+    rule = commands.add_parser("rule", help="create or replace a logical namespace rule")
+    rule.add_argument("namespace")
+    rule.add_argument("rule_id")
+    rule.add_argument("if_condition")
+    rule.add_argument("then_constraint")
+
+    rules = commands.add_parser("rules", help="list logical namespace rules")
+    rules.add_argument("--namespace")
+
+    rule_delete = commands.add_parser("rule-delete", help="delete a logical namespace rule")
+    rule_delete.add_argument("namespace")
+    rule_delete.add_argument("rule_id")
+
     commands.add_parser("stats", help="show vault counters and paths")
 
     raw_add = commands.add_parser("raw-add", help="archive raw text without changing facts")
@@ -109,6 +122,14 @@ def main() -> None:
             _print(ledger.summary(args.namespace))
         else:
             _print(ledger.summarize_namespace(args.namespace, max_tokens=args.max_tokens))
+    elif args.command == "rule":
+        _print(ledger.set_constraint(args.namespace, args.rule_id,
+                                     args.if_condition, args.then_constraint))
+    elif args.command == "rules":
+        _print(ledger.list_constraints(namespace=args.namespace))
+    elif args.command == "rule-delete":
+        _print({"deleted": ledger.delete_constraint(args.namespace, args.rule_id),
+                "namespace": args.namespace, "rule_id": args.rule_id})
     elif args.command == "stats":
         _print(ledger.stats())
     elif args.command == "raw-add":

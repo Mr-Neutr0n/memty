@@ -9,6 +9,7 @@ Week 1 is the storage and retrieval engine. It is standard-library only, local-f
 | Requirement | Implementation |
 | --- | --- |
 | Atomic facts, one value per slot | `atomic_facts` with `UNIQUE(user_id, namespace, slot)` |
+| Logical constraints per namespace | `logical_constraints` with replaceable `rule_id`, condition, and constraint |
 | No contradictory memories | Superseding increments `version`, writes the old value to `atomic_fact_audit`, then overwrites the active slot |
 | Facts capped at 40 tokens | `record()` rejects anything longer |
 | Delete is durable | `forget()` tombstones the slot and purges its plaintext/audit history |
@@ -44,6 +45,9 @@ vault = open_ledger()  # ~/.memty/ledger.sqlite3, user "local"
 vault.record("work.preferences", "editor", "VS Code", verification_state="USER_CONFIRMED")
 vault.record("repo.nexor", "primary_db", "Postgres 16", verification_state="USER_CONFIRMED")
 vault.set_summary("repo.nexor", "Nexor uses Postgres and a local context compiler.")
+vault.set_constraint("repo.nexor", "database_queries",
+                     "writing database queries",
+                     "always use async Motor and project only needed fields")
 
 compiled = vault.context("Which editor and database do I use?", provider="claude", token_budget=600)
 print(compiled["text"])
@@ -111,6 +115,9 @@ memty history work.preferences editor
 memty summary repo.nexor --set "Nexor uses Postgres and a local context compiler."
 memty forget work.preferences editor --purge-raw
 memty stats
+memty rule repo.nexor database_queries "writing database queries" "always use async Motor and project only needed fields"
+memty rules --namespace repo.nexor
+memty rule-delete repo.nexor database_queries
 memty migrate ~/.nexorai/memory.sqlite3
 ```
 

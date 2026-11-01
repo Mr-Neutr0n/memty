@@ -33,9 +33,24 @@ class WeekOneTests(unittest.TestCase):
                 "SELECT name FROM sqlite_master WHERE type IN ('table','view')")}
         finally:
             db.close()
-        self.assertTrue({"atomic_facts", "rolling_summaries", "raw_drilldown",
+        self.assertTrue({"atomic_facts", "logical_constraints", "rolling_summaries", "raw_drilldown",
                          "atomic_fact_audit"}.issubset(names))
         self.assertTrue({"atomic_facts_fts", "rolling_summaries_fts"}.issubset(names))
+
+    def test_logical_constraints_are_replaceable_and_persistent(self) -> None:
+        first = self.ledger.set_constraint(
+            "repo.nexor", "database_queries", "writing database queries",
+            "always use async Motor and project only needed fields")
+        self.assertEqual(first["rule_id"], "database_queries")
+        updated = self.ledger.set_constraint(
+            "repo.nexor", "database_queries", "writing database queries",
+            "use async Motor and project only needed fields")
+        self.assertEqual(updated["id"], first["id"])
+        self.assertEqual(len(self.ledger.list_constraints(namespace="repo.nexor")), 1)
+        self.assertEqual(self.ledger.list_constraints()[0]["then_constraint"],
+                         "use async Motor and project only needed fields")
+        self.assertTrue(self.ledger.delete_constraint("repo.nexor", "database_queries"))
+        self.assertEqual(self.ledger.list_constraints(), [])
 
     def test_atomic_fact_token_limit(self) -> None:
         self.ledger.record("repo.nexor", "ok", "short fact")
