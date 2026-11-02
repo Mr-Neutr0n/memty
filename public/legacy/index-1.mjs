@@ -124,7 +124,7 @@ window.openModels = () => document.getElementById('modelModal').classList.add('o
 window.closeModels = () => document.getElementById('modelModal').classList.remove('open');
 window.closeLock = () => document.getElementById('lockModal').classList.remove('open');
 window.openProPlan = () => {
-    document.getElementById('lockTitle').textContent = 'NexorAI Pro';
+    document.getElementById('lockTitle').textContent = 'Memty Pro';
     document.getElementById('lockDesc').textContent = 'Pro is designed for heavier workflows with more memory, more tokens, and higher chat capacity. Connect a payment provider to enable checkout.';
     closeModels();
     document.getElementById('lockModal').classList.add('open');
@@ -134,8 +134,8 @@ window.selectModel = (m) => {
     if (!m.available) {
         document.getElementById('lockTitle').textContent = `${m.displayName} — Coming Soon`;
         document.getElementById('lockDesc').textContent = m.proOnly
-            ? `${m.displayName} is included with NexorAI Pro. Upgrade to unlock more memory, tokens, and chat capacity.`
-            : `${m.displayName} by ${m.provider} is coming soon to NexorAI.`;
+            ? `${m.displayName} is included with Memty Pro. Upgrade to unlock more memory, tokens, and chat capacity.`
+            : `${m.displayName} by ${m.provider} is coming soon to Memty.`;
         document.getElementById('lockModal').classList.add('open');
         return;
     }
@@ -340,13 +340,13 @@ window.exportLocalChats = () => {
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `nexorai-chats-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `memty-chats-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(url);
 };
 window.deleteLocalChats = (onDeleted = () => {}) => {
     if (!history.length && !savedConversations.length) { onDeleted('There are no saved chats to delete.'); return; }
-    if (!window.confirm('Delete all saved NexorAI conversations? This cannot be undone.')) return;
+    if (!window.confirm('Delete all saved Memty conversations? This cannot be undone.')) return;
     history = [];
     savedConversations = [];
     localStorage.removeItem('nexorHistory');
@@ -434,7 +434,7 @@ function appendMessage(role, htmlContent, details = {}) {
     const userDisplayName = accountUser.name || accountUser.email || 'User';
     const avatarHtml = role === 'user'
         ? `<div class="msg-avatar user-av">${String(userDisplayName).trim().charAt(0).toUpperCase() || 'U'}</div>`
-        : `<div class="msg-avatar bot-av ${lp?.className || ''}"><img src="${lp?.src || '/static/assets/NexorSplash.png'}" alt="${currentModel.displayName}" style="${lp?.invert ? 'filter:invert(1) brightness(2);' : ''}"></div>`;
+        : `<div class="msg-avatar bot-av ${lp?.className || ''}"><img src="${lp?.src || '/static/assets/MemtySplash.png'}" alt="${currentModel.displayName}" style="${lp?.invert ? 'filter:invert(1) brightness(2);' : ''}"></div>`;
     
     row.innerHTML = `${avatarHtml}<div class="msg-content">${htmlContent}</div>`;
     if (role === 'bot' && (details.model || details.memoryUsed?.length || details.fallback)) {
@@ -646,7 +646,7 @@ window.startNewChat = async () => {
     localStorage.setItem(activeConversationStorageKey, activeConversationId);
     const project = currentProject();
     chatScroll.innerHTML = `<div class="welcome" id="welcomeScreen">
-        <img src="/static/assets/NexorSplash.png" alt="NexorAI">
+        <img src="/static/assets/MemtySplash.png" alt="Memty">
         ${project ? '<span class="project-chat-label">PROJECT WORKSPACE</span>' : ''}
         <h2>${project ? `Let’s build ${project.name}` : 'How can I help you today?'}</h2>
         <p>${project ? (project.context || 'Conversations in this project use its dedicated context and stay grouped here.') : 'A focused workspace for your ideas, research, and everyday work.'}</p>

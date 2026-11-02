@@ -12,9 +12,9 @@ export function getModel(id) { return MODEL_REGISTRY.find(model => model.id === 
 export function isConfigured(model) { return Boolean(model && process.env[model.keyEnv]); }
 
 export function getModelRates(modelId) {
-    const prefix = `NEXOR_${modelId.toUpperCase().replace(/-/g, '_')}`;
-    const inputValue = process.env[`${prefix}_INPUT_USD_PER_MILLION`];
-    const outputValue = process.env[`${prefix}_OUTPUT_USD_PER_MILLION`];
+    const suffix = modelId.toUpperCase().replace(/-/g, '_');
+    const inputValue = process.env[`MEMTY_${suffix}_INPUT_USD_PER_MILLION`] ?? process.env[`NEXOR_${suffix}_INPUT_USD_PER_MILLION`];
+    const outputValue = process.env[`MEMTY_${suffix}_OUTPUT_USD_PER_MILLION`] ?? process.env[`NEXOR_${suffix}_OUTPUT_USD_PER_MILLION`];
     if (!inputValue?.trim() || !outputValue?.trim()) return null;
     const inputUsdPerMillion = Number(inputValue);
     const outputUsdPerMillion = Number(outputValue);

@@ -1,6 +1,6 @@
-# Contributing to NexorAI
+# Contributing to Memty
 
-Thanks for helping improve NexorAI. The project has a Next.js app, an Express/MongoDB service, provider adapters, and an optional Python memory package. A focused change with a clear reproduction or outcome is easiest to review.
+Thanks for helping improve Memty. The project has a Next.js app, an Express/MongoDB service, provider adapters, and an optional Python memory package. A focused change with a clear reproduction or outcome is easiest to review.
 
 ## Find the right area
 
@@ -10,18 +10,18 @@ Thanks for helping improve NexorAI. The project has a Next.js app, an Express/Mo
 | Authentication, sessions, REST endpoints, persistence | [Backend guide](backend/README.md) |
 | Provider adapters, model registry, fallbacks | [Provider guide](providers/README.md) |
 | Memory retrieval and dashboard behavior | [Memory guide](app/memory/README.md) |
-| Python vault, CLI, MCP, or SmartRouter | [MemoryPort guide](memoryport/README.md) |
+| Python vault, CLI, MCP, or SmartRouter | [Memty guide](memty/README.md) |
 
 ## Before you start
 
-1. Search existing [issues](https://github.com/RohanNK86/Open_AI_Bot/issues) and pull requests to avoid duplicating work.
+1. Search existing [issues](https://github.com/RohanNK86/memty/issues) and pull requests to avoid duplicating work.
 2. For a bug, include the route or command, steps to reproduce, expected result, actual result, and relevant sanitized logs.
 3. For a feature, describe the user problem and a concrete acceptance outcome before expanding its scope.
 4. For changes that affect account data or provider requests, explain which service owns the data and how user/account boundaries are preserved.
 
 ## Local setup
 
-Follow the root [README setup](README.md#get-started) for the frontend and backend. The Python package and its optional extras have separate instructions in [MemoryPort](memoryport/README.md#manual-install). You only need the services involved in your change; provider keys are optional unless the behavior depends on a live provider.
+Follow the root [README setup](README.md#get-started) for the frontend and backend. The Python package and its optional extras have separate instructions in [Memty](memty/README.md#manual-install). You only need the services involved in your change; provider keys are optional unless the behavior depends on a live provider.
 
 ## Pull request checklist
 

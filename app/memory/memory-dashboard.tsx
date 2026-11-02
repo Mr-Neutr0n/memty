@@ -52,7 +52,7 @@ export default function MemoryDashboard() {
   }
 
   async function deleteConversations() {
-    if (!window.confirm('Delete all saved conversations and summaries from NexorAI? Memories will stay.')) return;
+    if (!window.confirm('Delete all saved conversations and summaries from Memty? Memories will stay.')) return;
     try {
       const response = await fetch('/backend/memory/conversations', { method: 'DELETE' });
       if (!response.ok) await readJson(response);
@@ -74,8 +74,8 @@ export default function MemoryDashboard() {
   const totalTokens = usage.reduce((sum, item) => sum + item.inputTokens + item.outputTokens, 0);
 
   return <main className="memory-page">
-    <header className="memory-header"><Link href="/" className="memory-brand">NexorAI</Link><nav><Link href="/chatbot">Workspace</Link><Link href="/memory" aria-current="page">Memory</Link><button onClick={() => { localStorage.removeItem('nexoraiUser'); void fetch('/users/logout', { method: 'POST' }).finally(() => { window.location.href = '/login'; }); }}>Sign out</button></nav></header>
-    <div className="memory-main"><p className="memory-kicker">PORTABLE CONTEXT</p><h1>Your memory, across every model.</h1><p className="memory-lede">NexorAI keeps these facts independently of Gemini, Claude, and other providers. Review and remove anything you don't want used.</p>
+    <header className="memory-header"><Link href="/" className="memory-brand">Memty</Link><nav><Link href="/chatbot">Workspace</Link><Link href="/memory" aria-current="page">Memory</Link><button onClick={() => { localStorage.removeItem('memtyUser'); void fetch('/users/logout', { method: 'POST' }).finally(() => { window.location.href = '/login'; }); }}>Sign out</button></nav></header>
+    <div className="memory-main"><p className="memory-kicker">PORTABLE CONTEXT</p><h1>Your memory, across every model.</h1><p className="memory-lede">Memty keeps these facts independently of Gemini, Claude, and other providers. Review and remove anything you don't want used.</p>
       <div className="memory-stats"><div><span>Saved memories</span><strong>{memories.length}</strong></div><div><span>AI requests tracked</span><strong>{totalRequests}</strong></div><div><span>Tokens reported by providers</span><strong>{totalTokens.toLocaleString()}</strong></div></div>
       {error && <p className="memory-error" role="alert">{error} {error.includes('Sign in') || error.includes('session') ? <Link href="/login">Sign in</Link> : null}</p>}
       <section className="memory-panel"><div className="memory-panel-heading"><div><h2>Memory library</h2><p>Pin important context. Edit or delete anything at any time.</p></div><button className="memory-tab" onClick={() => setArchived(value => !value)}>{archived ? 'Show active' : 'Show archived'}</button></div>

@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   const root = document.querySelector('[data-legacy-page="landing"] [data-session-demo]');
   if (!root || root.dataset.ready) return;
   root.dataset.ready = 'true';
@@ -17,28 +17,28 @@
   const status = controls.querySelector('.demo-stage-status');
   const steps = [
     {
-      title: '1. Install MemoryPort and the SDK',
-      copy: 'Install the NexorAI Python package from the repository. It includes the model router and the local portable-memory vault.',
-      code: 'python -m pip install "nexorai-smart-auto @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"',
-      output: ['Collecting nexorai-smart-auto from GitHub', 'Router, SDK, and MemoryPort vault installed']
+      title: '1. Install Memty and the SDK',
+      copy: 'Install the Memty Python package from the repository. It includes the model router and the local portable-memory vault.',
+      code: 'python -m pip install "memty @ git+https://github.com/RohanNK86/memty.git@main"',
+      output: ['Collecting memty from GitHub', 'Router, SDK, and Memty vault installed']
     },
     {
       title: '2. Configure providers and models',
       copy: 'Create the starter catalog, add model IDs and task tags, then provide API keys through environment variables.',
-      code: 'nexorai init\n# Edit ~/.nexorai/models.json\n# Set provider API keys in your environment',
-      output: ['Catalog: ~/.nexorai/models.json', 'Keep provider keys outside the model catalog']
+      code: 'memty init\n# Edit ~/.memty/models.json\n# Set provider API keys in your environment',
+      output: ['Catalog: ~/.memty/models.json', 'Keep provider keys outside the model catalog']
     },
     {
       title: '3. Route from the user prompt',
       copy: 'Task rules inspect the prompt, then rank eligible configured models using task tags and catalog settings.',
-      code: 'from nexorai import load_client\nclient = load_client()\nresult = client.route(\n    "Review this Python function",\n    strategy="rules",\n)\nprint(result.task, result.model_id)',
+      code: 'from memty import load_client\nclient = load_client()\nresult = client.route(\n    "Review this Python function",\n    strategy="rules",\n)\nprint(result.task_type, result.model_id)',
       output: ['task=code | selected=<eligible configured model ID>', 'Rules prefer code tags, then capability, price, and latency', 'Route preview is local; no model request is sent']
     },
     {
       title: '4. Retrieve and pass relevant memory',
-      copy: 'Save an explicit fact. On chat, MemoryPort retrieves relevant facts allowed for the selected provider and adds them to that model request.',
+      copy: 'Save an explicit fact. On chat, Memty retrieves relevant facts allowed for the selected provider and adds them to that model request.',
       code: 'client = load_client()\nclient.remember("work.preferences", "editor", "VS Code")\nreply = client.chat(\n    "Which editor do I use?",\n    chat_id="editor-chat",\n    strategy="rules",\n)',
-      output: ['MemoryPort retrieves matching provider-allowed facts', 'Selected model receives the prompt with relevant saved context', 'Chat transcript remains separate from the durable fact vault']
+      output: ['Memty retrieves matching provider-allowed facts', 'Selected model receives the prompt with relevant saved context', 'Chat transcript remains separate from the durable fact vault']
     },
     {
       title: '5. Switch models, keep saved memory',

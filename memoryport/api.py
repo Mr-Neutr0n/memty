@@ -22,10 +22,10 @@ try:
     from fastapi import Depends, FastAPI, Header, HTTPException
     from fastapi.responses import Response
 except ImportError as error:
-    raise RuntimeError("HTTP API support requires: pip install 'nexorai-smart-auto[server]'") from error
+    raise RuntimeError("HTTP API support requires: pip install 'memty[server]'") from error
 
 
-_request_user: contextvars.ContextVar[str] = contextvars.ContextVar("nexor_vault_user", default="local")
+_request_user: contextvars.ContextVar[str] = contextvars.ContextVar("memty_vault_user", default="local")
 
 
 def _ledger() -> MemoryLedger:
@@ -33,27 +33,29 @@ def _ledger() -> MemoryLedger:
 
 
 async def _authorized(authorization: str | None = Header(default=None),
+                      x_memty_user: str | None = Header(default=None),
                       x_nexor_user: str | None = Header(default=None)) -> None:
-    secret = os.getenv("NEXOR_VAULT_API_TOKEN", "")
+    secret = os.getenv("MEMTY_VAULT_API_TOKEN") or os.getenv("NEXOR_VAULT_API_TOKEN", "")
     if len(secret) < 32:
-        raise HTTPException(503, "Configure a random NEXOR_VAULT_API_TOKEN of at least 32 characters.")
+        raise HTTPException(503, "Configure a random MEMTY_VAULT_API_TOKEN of at least 32 characters.")
     supplied = authorization.removeprefix("Bearer ") if authorization else ""
     if not hmac.compare_digest(supplied.encode(), secret.encode()):
         raise HTTPException(401, "Invalid local vault token.")
-    multi_user = os.getenv("NEXOR_VAULT_MULTIUSER", "false").casefold() == "true"
-    if multi_user and not x_nexor_user:
-        raise HTTPException(400, "X-Nexor-User is required in multi-user mode.")
-    if x_nexor_user:
-        if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", x_nexor_user):
+    multi_user = os.getenv("MEMTY_VAULT_MULTIUSER", os.getenv("NEXOR_VAULT_MULTIUSER", "false")).casefold() == "true"
+    user_id = x_memty_user or x_nexor_user
+    if multi_user and not user_id:
+        raise HTTPException(400, "X-Memty-User is required in multi-user mode.")
+    if user_id:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", user_id):
             raise HTTPException(400, "Invalid vault user identifier.")
         if not multi_user:
             raise HTTPException(403, "Multi-user mode is disabled.")
-        _request_user.set(x_nexor_user)
+        _request_user.set(user_id)
     else:
-        _request_user.set(os.getenv("NEXOR_VAULT_USER", "local"))
+        _request_user.set(os.getenv("MEMTY_VAULT_USER", os.getenv("NEXOR_VAULT_USER", "local")))
 
 
-app = FastAPI(title="Nexor Memory Vault", version="1.0.0", dependencies=[Depends(_authorized)])
+app = FastAPI(title="Memty Memory Vault", version="1.0.0", dependencies=[Depends(_authorized)])
 
 
 @app.get("/v1/health")
@@ -182,11 +184,12 @@ def main() -> None:
     try:
         import uvicorn
     except ImportError as error:
-        raise RuntimeError("HTTP API support requires: pip install 'nexorai-smart-auto[server]'") from error
-    host = os.getenv("NEXOR_VAULT_API_HOST", "127.0.0.1")
-    if host not in {"127.0.0.1", "localhost", "::1"} and os.getenv("NEXOR_VAULT_ALLOW_REMOTE", "false").casefold() != "true":
-        raise RuntimeError("Non-loopback binding requires NEXOR_VAULT_ALLOW_REMOTE=true and a strong API token.")
-    uvicorn.run("memoryport.api:app", host=host, port=int(os.getenv("NEXOR_VAULT_API_PORT", "8765")),
+        raise RuntimeError("HTTP API support requires: pip install 'memty[server]'") from error
+    host = os.getenv("MEMTY_VAULT_API_HOST", os.getenv("NEXOR_VAULT_API_HOST", "127.0.0.1"))
+    allow_remote = os.getenv("MEMTY_VAULT_ALLOW_REMOTE", os.getenv("NEXOR_VAULT_ALLOW_REMOTE", "false"))
+    if host not in {"127.0.0.1", "localhost", "::1"} and allow_remote.casefold() != "true":
+        raise RuntimeError("Non-loopback binding requires MEMTY_VAULT_ALLOW_REMOTE=true and a strong API token.")
+    uvicorn.run("memty.api:app", host=host, port=int(os.getenv("MEMTY_VAULT_API_PORT", os.getenv("NEXOR_VAULT_API_PORT", "8765"))),
                 log_level="warning")
 
 

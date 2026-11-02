@@ -13,13 +13,13 @@ def create_server(ledger: MemoryLedger):
     try:
         from mcp.server.mcpserver import MCPServer
     except ImportError as error:
-        raise RuntimeError("MCP support requires Python 3.11+ and: pip install 'nexorai-smart-auto[mcp]'") from error
+        raise RuntimeError("MCP support requires Python 3.11+ and: pip install 'memty[mcp]'") from error
 
-    server = MCPServer("Nexor Memory Vault", instructions=(
+    server = MCPServer("Memty Memory Vault", instructions=(
         "Read user-approved memory for context. New or changed facts must be proposed; "
         "never claim a proposal is saved until the user approves it outside this MCP server."
     ))
-    trusted_provider = os.getenv("NEXOR_VAULT_PROVIDER", "local")
+    trusted_provider = os.getenv("MEMTY_VAULT_PROVIDER", os.getenv("NEXOR_VAULT_PROVIDER", "local"))
 
     @server.tool()
     def read_context(query: str, token_budget: int = 900) -> dict:
@@ -46,7 +46,7 @@ def create_server(ledger: MemoryLedger):
 
 def main() -> None:
     path = default_vault_path()
-    user_id = os.getenv("NEXORAI_MEMORY_USER", os.getenv("NEXOR_VAULT_USER", "local"))
+    user_id = os.getenv("MEMTY_MEMORY_USER", os.getenv("NEXORAI_MEMORY_USER", os.getenv("MEMTY_VAULT_USER", os.getenv("NEXOR_VAULT_USER", "local"))))
     ledger = open_ledger(user_id, path=path)
     create_server(ledger).run(transport="stdio")
 

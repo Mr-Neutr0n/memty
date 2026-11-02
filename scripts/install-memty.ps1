@@ -34,10 +34,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "Python 3.10 or newer is required."
 }
 
-$installRoot = if ($env:NEXORAI_HOME) {
+$installRoot = if ($env:MEMTY_HOME) {
+    $env:MEMTY_HOME
+} elseif ($env:NEXORAI_HOME) {
     $env:NEXORAI_HOME
 } else {
-    Join-Path $env:LOCALAPPDATA "NexorAI\MemoryPort"
+    Join-Path $env:LOCALAPPDATA "Memty"
 }
 $venv = Join-Path $installRoot "venv"
 $venvPython = Join-Path $venv "Scripts\python.exe"
@@ -48,16 +50,16 @@ if ($LASTEXITCODE -ne 0) { throw "Could not create the Python virtual environmen
 & $venvPython -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) { throw "Could not upgrade pip." }
 
-$package = "nexorai-smart-auto"
+$package = "memty"
 if ($extraList.Count -gt 0) {
     $package += "[$($extraList -join ',')]"
 }
-$packageSpec = "$package @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"
+$packageSpec = "$package @ git+https://github.com/RohanNK86/memty.git@main"
 & $venvPython -m pip install --upgrade $packageSpec
-if ($LASTEXITCODE -ne 0) { throw "Could not install MemoryPort from GitHub." }
+if ($LASTEXITCODE -ne 0) { throw "Could not install Memty from GitHub." }
 
-$vaultCommand = Join-Path $venv "Scripts\nexor-vault.exe"
-Write-Host "MemoryPort and SmartRouter installed in: $venv"
-Write-Host "Vault database default: $(Join-Path $HOME '.nexorai\memory.sqlite3')"
+$vaultCommand = Join-Path $venv "Scripts\memty.exe"
+Write-Host "Memty installed in: $venv"
+Write-Host "Vault database default: $(Join-Path $HOME '.memty\ledger.sqlite3')"
 Write-Host "CLI: & `"$vaultCommand`" --help"
 

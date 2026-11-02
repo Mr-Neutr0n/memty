@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
 from .compiler import LocalRoutingRequired
 from .factory import default_user_id, default_vault_path
@@ -20,7 +21,32 @@ def _ledger(args) -> MemtyLedger:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="memty", description="User-owned atomic memory vault")
+    if len(sys.argv) > 1 and sys.argv[1] == "vault":
+        from .legacy_vault import main as legacy_vault_main
+        sys.argv = [sys.argv[0], *sys.argv[2:]]
+        legacy_vault_main()
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "api":
+        from .api import main as api_main
+        api_main()
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "router-mcp":
+        from .router_mcp import main as router_mcp_main
+        router_mcp_main()
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "vault-mcp":
+        from .legacy_mcp import main as legacy_mcp_main
+        legacy_mcp_main()
+        return
+    if len(sys.argv) > 1 and sys.argv[1] in {"init", "models", "route", "chat", "integration"}:
+        from memoryport.sdk_cli import main as sdk_main
+        sdk_main()
+        return
+    parser = argparse.ArgumentParser(
+        prog="memty",
+        description="Memty model routing, chat, and user-owned memory tools",
+        epilog="Also available: init, models, route, chat, integration, vault, api, router-mcp, vault-mcp.",
+    )
     parser.add_argument("--db", default=str(default_vault_path()))
     parser.add_argument("--user", default=default_user_id())
     parser.add_argument("--trusted-provider", action="append", default=[],
@@ -87,7 +113,7 @@ def main() -> None:
     history.add_argument("namespace")
     history.add_argument("slot")
 
-    migrate = commands.add_parser("migrate", help="import latest facts from a legacy memoryport vault")
+    migrate = commands.add_parser("migrate", help="import facts from a previous Memty temporal vault")
     migrate.add_argument("path")
 
     args = parser.parse_args()
@@ -142,8 +168,8 @@ def main() -> None:
     elif args.command == "history":
         _print(ledger.history(args.namespace, args.slot))
     elif args.command == "migrate":
-        from .migrate import migrate_from_memoryport
-        _print(migrate_from_memoryport(args.path, ledger))
+        from .migrate import migrate_from_legacy
+        _print(migrate_from_legacy(args.path, ledger))
     else:  # pragma: no cover - argparse enforces the command list
         parser.error("unknown command")
 

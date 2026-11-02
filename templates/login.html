@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexorAI — Sign In</title>
+    <title>Memty — Sign In</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -246,8 +246,8 @@
     <div class="auth-card">
         <!-- Logo -->
         <div class="logo-row">
-            <div class="logo-row-img"><img src="/static/assets/NexorSplash.png" alt="NexorAI Logo"></div>
-            <span class="brand">NexorAI</span>
+            <div class="logo-row-img"><img src="/static/assets/MemtySplash.png" alt="Memty Logo"></div>
+            <span class="brand">Memty</span>
         </div>
 
         <!-- Tab switch -->
@@ -307,7 +307,7 @@
         initGalaxy('galaxy-bg');
     </script>
     <script>
-        if (localStorage.getItem('nexoraiUser')) window.location.href = '/chatbot';
+        if (localStorage.getItem('memtyUser')) window.location.href = '/chatbot';
 
         let mode = 'login';
 
@@ -355,7 +355,7 @@
                 let data = {};
                 try { data = await res.json(); } catch(err) {}
                 if (!res.ok) throw new Error(data.message || data.error || 'Authentication failed');
-                localStorage.setItem('nexoraiUser', JSON.stringify(data.data?.user || { email: payload.email }));
+                localStorage.setItem('memtyUser', JSON.stringify(data.data?.user || { email: payload.email }));
                 showStatus('Success! Redirecting…', 'success');
                 setTimeout(() => window.location.href = '/chatbot', 1000);
             } catch(err) {

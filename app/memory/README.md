@@ -1,8 +1,8 @@
 # Portable memory guide
 
-NexorAI stores user memory in its own MongoDB database so selected model providers can share relevant context. Memory is scoped to the signed-in account. Users can inspect and manage saved facts from `/memory`.
+Memty stores user memory in its own MongoDB database so selected model providers can share relevant context. Memory is scoped to the signed-in account. Users can inspect and manage saved facts from `/memory`.
 
-> **Reader's map:** this guide explains what is stored and how it is retrieved. For the dashboard UI, see [`page.tsx`](page.tsx) and [`memory-dashboard.tsx`](memory-dashboard.tsx). For endpoints and database models, see the [backend guide](../../backend/README.md). For the optional Python ledger, see [MemoryPort](../../memoryport/README.md).
+> **Reader's map:** this guide explains what is stored and how it is retrieved. For the dashboard UI, see [`page.tsx`](page.tsx) and [`memory-dashboard.tsx`](memory-dashboard.tsx). For endpoints and database models, see the [backend guide](../../backend/README.md). For the optional Python ledger, see [Memty](../../memty/README.md).
 
 ```text
 Signed-in chat → backend retrieves scoped context → provider receives a compact brief

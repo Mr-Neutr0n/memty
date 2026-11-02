@@ -24,7 +24,7 @@ export async function generateNvidiaResponse(userId, message) {
             Authorization: `Bearer ${process.env.OPEN_ROUTER_API_KEY}`,
             'Content-Type': 'application/json',
             'HTTP-Referer': process.env.OPEN_ROUTER_SITE_URL || 'http://localhost:3001',
-            'X-Title': process.env.OPEN_ROUTER_APP_NAME || 'NexorAI'
+            'X-Title': process.env.OPEN_ROUTER_APP_NAME || 'Memty'
         },
         body: JSON.stringify({
             model: MODEL,

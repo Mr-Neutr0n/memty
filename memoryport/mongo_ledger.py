@@ -32,7 +32,7 @@ class MongoMemoryLedger(MemoryLedger):
         try:
             from pymongo import MongoClient
         except ImportError as error:
-            raise RuntimeError("MongoDB vault support requires: pip install 'nexorai-smart-auto[mongodb]'") from error
+            raise RuntimeError("MongoDB vault support requires: pip install 'memty[mongodb]'") from error
         self.user_id = str(user_id)
         with _CLIENT_LOCK:
             self._client = _CLIENTS.get(uri)

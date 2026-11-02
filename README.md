@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/NexorSplash.jpeg" alt="NexorAI logo" width="180" />
+<img src="assets/memty_logo.png" alt="Memty logo" width="180" />
 
-# NexorAI
+# Memty
 
 ### One workspace for multiple AI models, conversations, and portable memory.
 
@@ -10,7 +10,7 @@
 
 </div>
 
-NexorAI is a multi-provider AI workspace built with **Next.js**, an **Express** account and memory service, **MongoDB**, and a local **Memty** memory vault. The primary memory workflow is a transparent Python CLI backed by a user-owned SQLite file; the web workspace and older MemoryPort SDK remain available as separate integrations.
+Memty is a multi-provider AI workspace and portable-memory toolkit built with **Next.js**, an **Express** account service, **MongoDB**, and a local Python SDK. One `memty` package provides the model-routing SDK, atomic memory vault, CLI, and optional HTTP and MCP integrations. The web workspace keeps signed-in account data in MongoDB; the local SDK and CLI keep their vault data on the user's device.
 
 This project is licensed under the [MIT License](LICENSE).
 
@@ -22,12 +22,12 @@ This project is licensed under the [MIT License](LICENSE).
 | --- | --- | --- |
 | Select a configured model, use fallbacks, or compare responses. | Store, inspect, recall, constrain, and delete facts with the `memty` command. | Compile deterministic, provider-filtered context without sending the whole vault to an assistant. |
 
-The workspace also includes a responsive chat UI, model availability metadata, a memory dashboard, privacy and terms pages, and a first-party API reference. Memty is standard-library-only for Week 1: it stores atomic facts, logical constraints, rolling summaries, and raw drill-down records in `~/.memty/ledger.sqlite3`. An optional MCP adapter is available, but the CLI is the canonical way to operate the vault.
+The workspace also includes a responsive chat UI, model availability metadata, a memory dashboard, privacy and terms pages, and a first-party API reference. The atomic vault is standard-library-only: it stores facts, logical constraints, rolling summaries, and raw drill-down records in `~/.memty/ledger.sqlite3`. Smart model routing and multi-provider chat are available from the same Python package.
 
 <a id="how-it-fits-together"></a>
 ## 🧭 How it fits together
 
-![NexorAI system architecture: browser, Next.js, model providers, Express API, MongoDB, and optional local memory services](docs/architecture.svg)
+![Memty system architecture: browser, Next.js, model providers, Express API, MongoDB, and optional local memory services](docs/architecture.svg)
 
 The browser talks to the Next.js app. Its chat route calls the selected model adapter and uses a private proxy to reach the Express service for account sessions and saved data. MongoDB stores account and web-workspace memory. Memty is intentionally separate and local: the CLI owns `~/.memty/ledger.sqlite3`, and assistants consume only the compact context capsule that the user chooses to share.
 
@@ -91,6 +91,12 @@ Install the local package from the repository root:
 python -m pip install -e .
 ```
 
+Once the first PyPI release is published, users can install the distribution with `python -m pip install memty`. Until then, an account with repository access can install the renamed GitHub repository directly:
+
+```powershell
+python -m pip install "memty @ git+https://github.com/RohanNK86/memty.git@main"
+```
+
 Create and inspect a user-owned vault without starting the web application:
 
 ```powershell
@@ -104,15 +110,37 @@ memty rules --namespace project.api
 
 The default database is `~/.memty/ledger.sqlite3`. Use `--db C:\path\to\ledger.sqlite3` or set `MEMTY_VAULT_PATH` to select another file. `memty forget` tombstones a fact, while `memty raw-get` is the only command that reads archived raw source text.
 
+### Use Memty's model SDK
+
+The same install provides prompt-aware routing, provider adapters, and a local chat client:
+
+```powershell
+memty init
+# Edit ~/.memty/models.json and set each configured provider's API key in your environment.
+memty models
+memty route "Review this Python function"
+memty chat --interactive --chat-id work
+```
+
+```python
+from memty import Memty, ModelConfig, load_client
+
+client = load_client()  # reads ~/.memty/models.json
+answer = client.chat("Review this Python function", chat_id="code-review")
+print(answer.model_id, answer.text)
+```
+
+The SDK's historical temporal ledger remains available during migration; its existing data files are reused when found. The atomic CLI vault and web account memory keep their established storage and access boundaries.
+
 ### Start with Docker Compose
 
-Compose starts the frontend, backend, and legacy Python Memory Vault service. MongoDB remains external. Memty remains a separate local CLI vault. Create the environment files as above, set a reachable `MONGO_URI` and stable `SESSION_SECRET` in `backend/.env`, and replace the example `MEMORY_VAULT_API_TOKEN` with a random secret of at least 32 characters in `.env`.
+Compose starts the frontend, backend, and optional Memty HTTP vault service. MongoDB remains external. The Memty CLI can also use its local SQLite vault independently. Create the environment files as above, set a reachable `MONGO_URI` and stable `SESSION_SECRET` in `backend/.env`, and replace the example `MEMORY_VAULT_API_TOKEN` with a random secret of at least 32 characters in `.env`.
 
 ```powershell
 docker compose up --build
 ```
 
-The legacy Vault API stays on Compose's private network. Open [http://localhost:3001](http://localhost:3001); stop the stack with `Ctrl+C` or `docker compose down`. Compose does not migrate existing MongoDB memories into Memty.
+The Memty HTTP vault stays on Compose's private network. Open [http://localhost:3001](http://localhost:3001); stop the stack with `Ctrl+C` or `docker compose down`. Compose does not migrate existing MongoDB memories into the local Memty vault.
 
 <a id="project-map"></a>
 ## 🗺️ Project map
@@ -122,9 +150,9 @@ The legacy Vault API stays on Compose's private network. Open [http://localhost:
 | [`app/`](app/README.md) | Next.js pages, API routes, chat orchestration, and UI styles | [`app/api/chat/route.ts`](app/api/chat/route.ts) |
 | [`backend/`](backend/README.md) | Express routes, authentication, MongoDB models, and memory services | [`backend/server.js`](backend/server.js) |
 | [`providers/`](providers/README.md) | Model registry, provider adapters, and fallbacks | [`providers/index.js`](providers/index.js) |
-| [`memty/`](memty/README.md) | CLI-first atomic memory vault, SQLite ledger, context compiler, tests, and optional MCP server | [`memty/cli.py`](memty/cli.py) |
-| [`memoryport/`](memoryport/README.md) | Legacy Python SDK, model router, temporal ledger, and compatibility integrations | [`memoryport/sdk.py`](memoryport/sdk.py) |
-| [`nexorai/`](nexorai/__init__.py) | Short public Python import path for the SDK | [`nexorai/__init__.py`](nexorai/__init__.py) |
+| [`memty/`](memty/README.md) | Public Python API, smart-routing SDK, CLI, atomic vault, context compiler, and MCP entry points | [`memty/__init__.py`](memty/__init__.py) |
+| [`memoryport/`](memoryport/README.md) | Internal compatibility implementations retained for existing vaults and integrations | [`memoryport/README.md`](memoryport/README.md) |
+| [`GitPage/`](GitPage/index.html) | Memty product site, quick starts, architecture, and integration guides | [`GitPage/index.html`](GitPage/index.html) |
 | [`components/`](components/legacy-page.tsx) · [`lib/`](lib/legacy-markup.ts) · [`public/`](public/) | Shared wrapper, legacy page markup, and browser assets/scripts | [`components/legacy-page.tsx`](components/legacy-page.tsx) |
 | [`templates/`](templates/) · [`static/`](static/) | Legacy HTML templates and static assets | — |
 | [`assets/`](assets/) | Project and provider artwork used by the UI and documentation | — |
@@ -138,7 +166,7 @@ The legacy Vault API stays on Compose's private network. Open [http://localhost:
 - **API or data contributor:** [backend routes, sessions, and MongoDB](backend/README.md)
 - **Model contributor:** [provider adapters and fallbacks](providers/README.md)
 - **Memory contributor:** [Memty CLI and atomic vault](memty/README.md)
-- **Legacy SDK contributor:** [MemoryPort compatibility package](memoryport/README.md)
+- **Python SDK contributor:** [Memty SDK and vault guide](memty/README.md)
 - **Memory feature reader:** [memory lifecycle and storage guide](app/memory/README.md)
 
 <a id="configuration-at-a-glance"></a>
@@ -178,7 +206,7 @@ Review the [Privacy Notice](app/privacy/page.tsx) and [Terms](app/terms/page.tsx
 - [Memory layers, retrieval, and storage](app/memory/README.md)
 - [Provider adapters and costs](providers/README.md)
 - [Memty CLI and atomic vault](memty/README.md)
-- [Legacy Python MemoryPort SDK](memoryport/README.md)
+- [Memty Python SDK and CLI](memty/README.md)
 - [Frontend scripts](package.json) · [Backend scripts](backend/package.json) · [Python package configuration](pyproject.toml)
 
 ## 🤝 Contributing

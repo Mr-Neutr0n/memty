@@ -3,9 +3,9 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'NexorAI — One Universe. Every Intelligence.',
+  title: 'Memty — One Universe. Every Intelligence.',
   description: 'Explore the world’s leading AI models in one intelligent workspace.',
-  applicationName: 'NexorAI',
+  applicationName: 'Memty',
 };
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };

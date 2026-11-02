@@ -8,7 +8,7 @@ The backend is an Express service that handles account authentication, signed se
 | --- | --- |
 | Chat request and model selection | [Frontend chat route](../app/README.md) · [Provider adapters](../providers/README.md) |
 | Memory behavior and storage | [Portable memory guide](../app/memory/README.md) |
-| Optional Python vault | [MemoryPort guide](../memoryport/README.md) |
+| Optional Python vault | [Memty guide](../memty/README.md) |
 
 ## Code map
 

@@ -3,13 +3,13 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nexorai-smart-auto"
+name = "memty"
 version = "0.2.0"
-description = "MemoryPort: local model routing, vector memory, multi-provider chat, and a portable Python vault"
-readme = "memoryport/README.md"
+description = "Memty: portable memory, smart model routing, and multi-provider chat"
+readme = "memty/README.md"
 requires-python = ">=3.10"
 dependencies = []
-keywords = ["memoryport", "portable-memory", "vector-memory", "model-routing", "linucb", "mcp", "openai-compatible"]
+keywords = ["memty", "portable-memory", "vector-memory", "model-routing", "linucb", "mcp", "openai-compatible"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python :: 3",
@@ -21,8 +21,8 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://github.com/RohanNK86/Open_AI_Bot"
-Documentation = "https://github.com/RohanNK86/Open_AI_Bot/tree/main/MemoryPort"
+Repository = "https://github.com/RohanNK86/memty"
+Documentation = "https://github.com/RohanNK86/memty/tree/main/memty"
 
 [project.optional-dependencies]
 mongodb = ["pymongo>=4.6"]
@@ -33,11 +33,10 @@ server = ["fastapi>=0.115", "uvicorn>=0.30"]
 [project.scripts]
 memty = "memty.cli:main"
 memty-mcp = "memty.mcp_server:main"
-nexor-vault = "memoryport.cli:main"
-nexor-vault-mcp = "memoryport.mcp_server:main"
-nexor-vault-api = "memoryport.api:main"
-nexorai = "memoryport.sdk_cli:main"
-nexorai-mcp = "memoryport.sdk_mcp:main"
+memty-legacy-vault = "memty.legacy_vault:main"
+memty-legacy-mcp = "memty.legacy_mcp:main"
+memty-api = "memty.api:main"
+memty-router-mcp = "memty.router_mcp:main"
 
 [tool.setuptools]
-packages = ["memty", "memoryport", "nexorai"]
+packages = ["memty", "memoryport"]

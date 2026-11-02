@@ -1,4 +1,4 @@
-"""One-way import from the legacy ``memoryport``/``nexorai`` SQLite ledger."""
+"""One-way import from the previous Memty temporal SQLite ledger."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ _SENSITIVITY_MAP = {
 }
 
 
-def migrate_from_memoryport(old_path: str | Path, ledger: MemtyLedger) -> dict[str, Any]:
+def migrate_from_legacy(old_path: str | Path, ledger: MemtyLedger) -> dict[str, Any]:
     """Copy the latest active facts from a legacy event-sourced ledger.
 
     The old database is opened read-only and is never modified.  Only the newest
@@ -44,7 +44,7 @@ def migrate_from_memoryport(old_path: str | Path, ledger: MemtyLedger) -> dict[s
     try:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(ledger_events)")}
         if not {"namespace", "slot_key", "value", "status"}.issubset(columns):
-            raise ValueError("not a legacy MemoryPort ledger: required columns are missing")
+            raise ValueError("not a previous Memty temporal ledger: required columns are missing")
         rows = connection.execute("""
             SELECT * FROM (
                 SELECT e.*, ROW_NUMBER() OVER (
@@ -97,6 +97,10 @@ def migrate_from_memoryport(old_path: str | Path, ledger: MemtyLedger) -> dict[s
             "skipped_empty": skipped_empty, "skipped_deleted": skipped_deleted,
             "skipped_inactive": skipped_inactive, "skipped_error": skipped_error,
             "skipped": skipped}
+
+
+# Preserve the former function name for migration scripts already in use.
+migrate_from_memoryport = migrate_from_legacy
 
 
 def _providers(row: sqlite3.Row, column: str) -> list[str]:

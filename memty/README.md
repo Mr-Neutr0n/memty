@@ -1,6 +1,6 @@
 # Memty
 
-Memty is a **CLI-first**, user-owned atomic memory vault plus a deterministic **sub-600-token context compiler**. It replaces whole-context dumping with canonical slots, logical constraints, capped summaries, and an explicit raw drill-down archive. The CLI is the supported Week 1 interface; Python and MCP integrations are optional programmatic bridges.
+Memty is the public product and Python distribution for smart model routing, multi-provider chat, and a user-owned portable memory vault. Its CLI supports both model tasks and the atomic vault. The deterministic context compiler uses canonical slots, logical constraints, capped summaries, and an explicit raw drill-down archive.
 
 Week 1 is the storage and retrieval engine. It is standard-library only, local-first, and makes no model or network calls.
 
@@ -28,7 +28,7 @@ The four functional tables are `atomic_facts`, `logical_constraints`, `rolling_s
 ## Install
 
 ```shell
-pip install memty
+python -m pip install memty
 # optional MCP server
 pip install "memty[mcp]"
 ```
@@ -51,6 +51,29 @@ memty stats
 
 Use `memty list`, `memty rules`, `memty history`, `memty forget`, `memty raw-add`, and `memty raw-get` to inspect and manage the vault. The default database is `~/.memty/ledger.sqlite3`; use `--db` or `MEMTY_VAULT_PATH` for another location.
 
+## Model routing and chat SDK
+
+The same package provides prompt-aware routing, provider adapters, and a local chat client. Generate a model catalog, set provider credentials in your environment, and use:
+
+```shell
+memty init
+memty models
+memty route "Review this Python function"
+memty chat --interactive --chat-id work
+```
+
+```python
+from memty import Memty, ModelConfig, load_client
+
+client = load_client()  # reads ~/.memty/models.json
+answer = client.chat("Review this Python function", chat_id="code-review")
+print(answer.model_id, answer.text)
+```
+
+`Memty` supports configured OpenAI-compatible providers, Anthropic, Gemini Interactions, local Ollama, and custom adapters. Routing can use task rules, cost, latency, or adaptive feedback. The catalog uses operator-supplied capability, context, cost, and latency metadata; it does not fetch provider catalogs. Chat transcripts remain in process memory by default. Existing temporal-vault files are reused when found; the atomic CLI vault and web account memory keep their established storage boundaries.
+
+The distribution metadata is named `memty`. Once a release is published on PyPI, install it with `python -m pip install memty`; until then, install the project checkout or use the GitHub installer linked in the root guide. PyPI publishing still needs to be completed.
+
 `memty recall` prints a deterministic `<memty_state>` capsule. It never includes archived raw source text. A matching `SECRET` fact exits with status 2 and reports that the request must use a local provider.
 
 ## Python API
@@ -61,9 +84,9 @@ from memty import open_ledger
 vault = open_ledger()  # ~/.memty/ledger.sqlite3, user "local"
 
 vault.record("work.preferences", "editor", "VS Code", verification_state="USER_CONFIRMED")
-vault.record("repo.nexor", "primary_db", "Postgres 16", verification_state="USER_CONFIRMED")
-vault.set_summary("repo.nexor", "Nexor uses Postgres and a local context compiler.")
-vault.set_constraint("repo.nexor", "database_queries",
+vault.record("repo.memty", "primary_db", "Postgres 16", verification_state="USER_CONFIRMED")
+vault.set_summary("repo.memty", "Memty uses Postgres and a local context compiler.")
+vault.set_constraint("repo.memty", "database_queries",
                      "writing database queries",
                      "always use async Motor and project only needed fields")
 
@@ -77,12 +100,12 @@ Typical output:
 ```xml
 <memty_state v="1" provider="claude">
 <slots>
-repo.nexor.primary_db="Postgres 16"
+repo.memty.primary_db="Postgres 16"
 work.preferences.editor="VS Code"
 </slots>
-<summary ns="repo.nexor">Nexor uses Postgres and a local context compiler.</summary>
+<summary ns="repo.memty">Memty uses Postgres and a local context compiler.</summary>
 <semantic>
-repo.nexor.primary_db="Postgres 16"
+repo.memty.primary_db="Postgres 16"
 </semantic>
 </memty_state>
 ```
@@ -103,19 +126,19 @@ except LocalRoutingRequired as exc:
     print(exc.as_dict())  # suggests ollama; no secret value is included
 
 # CONFIDENTIAL facts are masked for untrusted providers.
-vault.record("repo.nexor", "internal_host", "db.internal.example",
+vault.record("repo.memty", "internal_host", "db.internal.example",
              sensitivity="CONFIDENTIAL", verification_state="USER_CONFIRMED")
 compiled = vault.context("internal host", provider="claude")
 answer = vault.rehydrate(model_output, compiled["redactions"])
 # For streamed output, use vault.rehydrate_stream(chunks, compiled["redactions"]).
 ```
 
-A provider is trusted when it is local (`local`, `ollama`, `local_ollama`, `memty_local`, `nexor_local`), was passed to `MemtyLedger(..., trusted_providers=[...])`, or is named in that fact's `allowed_providers`.
+A provider is trusted when it is local (`local`, `ollama`, `local_ollama`, `memty_local`), was passed to `MemtyLedger(..., trusted_providers=[...])`, or is named in that fact's `allowed_providers`.
 
 ## Raw drill-down
 
 ```python
-fact = vault.record("repo.nexor", "deployment_host", "db.internal.example",
+fact = vault.record("repo.memty", "deployment_host", "db.internal.example",
                     verification_state="USER_CONFIRMED",
                     source_raw="full transcript or log excerpt ...")
 
@@ -130,13 +153,13 @@ memty --db ~/.memty/ledger.sqlite3 remember work.preferences editor "VS Code"
 memty recall "Which editor do I use?" --provider claude --tokens 600
 memty list
 memty history work.preferences editor
-memty summary repo.nexor --set "Nexor uses Postgres and a local context compiler."
+memty summary repo.memty --set "Memty uses Postgres and a local context compiler."
 memty forget work.preferences editor --purge-raw
 memty stats
-memty rule repo.nexor database_queries "writing database queries" "always use async Motor and project only needed fields"
-memty rules --namespace repo.nexor
-memty rule-delete repo.nexor database_queries
-memty migrate ~/.nexorai/memory.sqlite3
+memty rule repo.memty database_queries "writing database queries" "always use async Motor and project only needed fields"
+memty rules --namespace repo.memty
+memty rule-delete repo.memty database_queries
+memty migrate ~/.memty/memory.sqlite3
 ```
 
 `memty recall` exits with status 2 and prints a `local_routing_required` payload when a SECRET fact matches a cloud provider.
@@ -160,16 +183,16 @@ python scripts/test_memty_week1.py
 
 The performance test builds 200 facts and asserts a warm compiler median below 6 ms on the local machine; the measured median on the development machine is about 3.2 ms (p95 ~4.8 ms) with a 600-token budget and 300 facts. The compiler also enforces a hard `estimate_tokens(text) <= token_budget` check, so larger inputs cannot silently exceed the ceiling.
 
-## Migration from MemoryPort
+## Migration from an earlier Memty vault
 
-The old `memoryport`/`nexorai` packages remain installed for backward compatibility. To copy the latest active facts from an old vault:
+The SDK can continue reading its previous temporal-vault database format. To copy its latest active facts into the atomic vault:
 
 ```shell
-memty migrate ~/.nexorai/memory.sqlite3
+memty migrate ~/.memty/memory.sqlite3
 ```
 
 Only the newest event for each `(namespace, slot)` is considered, so superseded values are not re-imported and deleted slots stay deleted. Facts longer than 40 tokens are skipped and reported rather than truncated.
 
-## Not in Week 1
+## Scope of the atomic vault release
 
-Automatic model routing, daemon/HTTP bridge deployment, encrypted storage, the PyPI release pipeline, and the public benchmark report are not part of Week 1. Week 1 deliberately stops at a tested, dependency-free local vault, CLI, and compiler.
+The atomic vault CLI and compiler are dependency-free and local-first. Model routing, multi-provider chat, the optional HTTP and MCP bridges, MongoDB support, and encrypted exports are provided through the same Memty distribution as separate integrations and optional extras.

@@ -78,8 +78,8 @@ export const MODEL_REGISTRY = [
     },
     {
         id: 'auto',
-        displayName: 'NexorAI Auto',
-        provider: 'NexorAI Router',
+        displayName: 'Memty Auto',
+        provider: 'Memty Router',
         description: 'Automatically route code, long documents, and quick questions to a suitable configured model.',
         capabilities: ['Text', 'Code', 'Routing'],
         available: true,
