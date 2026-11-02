@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Work across AI models in one workspace. Keep user-controlled facts in Memty, a local-first memory vault with provider-aware recall, model routing, and developer integrations.">
+    <meta name="description" content="Memty is a user-owned atomic memory vault for AI tools. Store verified facts locally and compile only relevant, permitted context.">
     <meta name="theme-color" content="#f7f6f2">
     <link rel="canonical" href="https://rohannk86.github.io/memty/">
-    <title>Memty — One workspace for AI. Memory you control.</title>
+    <title>Memty — Your memory. Your rules.</title>
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Memty">
-    <meta property="og:title" content="Memty — One workspace for AI. Memory you control.">
-    <meta property="og:description" content="Work across configured AI models. Keep durable facts in a portable, user-controlled memory vault.">
+    <meta property="og:title" content="Memty — Your memory. Your rules.">
+    <meta property="og:description" content="A local-first atomic memory vault, with memory-conditioned model routing on the roadmap.">
     <meta property="og:url" content="https://rohannk86.github.io/memty/">
     <meta property="og:image" content="https://rohannk86.github.io/memty/assets/memty_logo.png">
     <meta name="twitter:card" content="summary_large_image">
@@ -20,8 +20,7 @@
     <div class="site-shell">
       <header class="mobile-header">
         <a class="brand" href="#overview" aria-label="Memty home">
-          <img class="brand-logo" src="assets/memty_logo.png" alt="">
-          <span>MEMTY</span>
+          <img class="brand-logo" src="assets/memty_logo.png" alt="Memty">
         </a>
         <button class="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">
           <span></span><span></span><span></span><span class="sr-only">Open navigation</span>
@@ -30,353 +29,129 @@
 
       <aside class="sidebar" id="sidebar">
         <a class="brand desktop-brand" href="#overview" aria-label="Memty home">
-          <img class="brand-logo" src="assets/memty_logo.png" alt="">
-          <span>MEMTY</span>
+          <img class="brand-logo" src="assets/memty_logo.png" alt="Memty">
         </a>
         <nav class="side-nav" aria-label="Main navigation">
-          <a class="nav-link active" href="#overview">—&nbsp; Overview</a>
-          <a class="nav-link" href="#start">Why Memty</a>
-          <a class="nav-link" href="#quickstart">Quickstart</a>
-          <a class="nav-link" href="#architecture">Architecture</a>
-          <a class="nav-link" href="#models">Models</a>
-          <a class="nav-link" href="#memory">Memory vault</a>
-          <a class="nav-link" href="#routing">Model routing</a>
-          <a class="nav-link" href="#services">Services &amp; integrations</a>
-          <a class="nav-link" href="#roadmap">What’s next</a>
-          <a class="nav-link" href="#contribute">Contribute</a>
-          <a class="nav-link nav-external" href="https://rohannk86.github.io/memty/" target="_blank" rel="noreferrer">Live site&nbsp; ↗</a>
-          <a class="nav-link nav-external" href="https://github.com/RohanNK86/memty" target="_blank" rel="noreferrer">GitHub&nbsp; ↗</a>
+          <a class="nav-link active" href="#overview">Overview</a>
+          <a class="nav-link" href="#how-it-works">How it works</a>
+          <a class="nav-link" href="#quickstart">Try Memty</a>
+          <a class="nav-link" href="#roadmap">Roadmap</a>
+          <a class="nav-link" href="#workspace">Workspace &amp; MCP</a>
+          <a class="nav-link nav-external" href="https://github.com/RohanNK86/memty" target="_blank" rel="noreferrer">GitHub ↗</a>
         </nav>
         <div class="sidebar-footer">
-          <p>Memty · portable memory and model routing</p>
-          <p>MEMORY · LOCAL-FIRST</p>
-          <p>ROUTING · PROVIDER-AGNOSTIC</p>
+          <p>Memty · user-owned memory</p>
+          <p>LOCAL SQLITE · OPEN SOURCE</p>
         </div>
       </aside>
 
       <main>
         <section class="hero section-anchor" id="overview">
           <div class="hero-copy">
-            <p class="eyebrow">One workspace for AI. Memory you control.</p>
-            <h1>Your AI tools<br><em>shouldn’t start at zero.</em></h1>
-            <p class="lede">Work across configured models in one workspace. Memty keeps durable facts in a portable, user-controlled vault and supplies relevant context to supported assistants.</p>
+            <p class="eyebrow">A memory vault for the AI tools you use</p>
+            <h1>Your memory.<br><em>Your rules.</em></h1>
+            <p class="lede">Memty stores small, verified facts in a local vault and compiles relevant context for each request. Next, that verified memory will help Memty choose a suitable model. You decide what is saved, shared, and deleted.</p>
             <div class="button-row">
-              <a class="button button-dark" href="#start">See what Memty does <span>→</span></a>
-              <a class="button" href="#quickstart">Start building <span>→</span></a>
+              <a class="button button-dark" href="#quickstart">Try the vault <span>→</span></a>
+              <a class="button" href="#how-it-works">See how it works <span>→</span></a>
             </div>
-            <div class="badges" aria-label="Project details">
-              <span>Multi-model workspace</span><span>Local-first fact memory</span><span>Python SDK + MCP</span><span>SQLite / MongoDB</span>
+            <div class="badges" aria-label="Current product facts">
+              <span>SQLite on your device</span><span>40-token facts</span><span>600-token default context</span><span>Week 1 shipped</span>
             </div>
           </div>
-          <div class="hero-art" aria-label="Illustrative Memty workflow: select a model, ask a question, and use a relevant saved fact">
-            <div class="mock-window-bar"><span class="mock-dots"><i></i><i></i><i></i></span><b>MEMTY WORKSPACE</b><span class="mock-live">EXAMPLE FLOW</span></div>
-            <div class="mock-workspace">
-              <aside class="mock-sidebar"><small>WORKSPACE</small><b>Product planning</b><small>MEMORY VAULT</small><div class="mock-memory-item"><span>●</span><div><b>Account memory</b><small>3 reviewed facts</small></div></div><div class="mock-memory-item"><span>◌</span><div><b>Provider rules</b><small>Personal data protected</small></div></div></aside>
-              <div class="mock-chat">
-                <div class="mock-models"><span class="mock-auto">✦ Auto</span><span>Claude</span><span>Gemini</span></div>
-                <div class="mock-prompt">Which database are we using for account memory?</div>
-                <div class="mock-answer"><small>CLAUDE · RESPONSE</small><p>You’re using MongoDB Atlas for the account memory store.</p><div class="mock-context"><small>RELEVANT SAVED FACT</small><b>work.memty_ai / primary_database</b><span>User confirmed · provider allowed</span></div></div>
-                <div class="mock-compose"><span>Ask a follow-up…</span><b>↑</b></div>
-              </div>
-            </div>
-            <p class="mock-caption">Illustrative flow · Memty supplies a permitted saved fact to a configured model.</p>
-          </div>
-        </section>
+          <div class="hero-art" aria-label="Example of saving a fact and compiling a short memory context">
+            <div class="art-label">A SMALL, EXPLICIT MEMORY LOOP</div>
+            <pre><span class="code-comment"># Save one verified fact</span>
+memty remember project.api primary_db \
+  <span class="code-green">"Postgres 16"</span> \
+  --verification USER_CONFIRMED
 
-        <section class="intro section-anchor" id="start">
-          <div class="section-index">01 — START HERE</div>
-          <div class="section-content">
-            <p class="eyebrow">For people building with more than one model</p>
-            <h2>Choose the model.<br><em>Keep control of memory.</em></h2>
-            <p class="body-copy">Memty brings configured AI providers into one chat workspace with Auto routing, fallbacks, and response comparison. Its inspectable fact vault keeps useful details available across supported models, with history and provider rules you control.</p>
-            <div class="feature-grid">
-              <article class="feature-card feature-red">
-                <p class="eyebrow">ONE WORKSPACE</p>
-                <h3>Compare and switch</h3>
-                <p>Chat with configured providers, compare responses, and use Auto routing with fallbacks when a provider is unavailable.</p>
-                <a href="#models">Explore providers →</a>
-              </article>
-              <article class="feature-card feature-blue">
-                <p class="eyebrow">MEMORY YOU CAN REVIEW</p>
-                <h3>Keep durable facts</h3>
-                <p>Inspect facts, their sources, confidence, sensitivity, and change history. Correct or delete them when they’re wrong.</p>
-                <a href="#architecture">See the architecture →</a>
-              </article>
-              <article class="feature-card feature-green">
-                <p class="eyebrow">FOR DEVELOPERS</p>
-                <h3>Bring your own stack</h3>
-                <p>Use the Python SDK, CLI, local API, or MCP tools. Start local-first, then add the storage and providers your app needs.</p>
-                <a href="#quickstart">Run it locally →</a>
-              </article>
-            </div>
-            <div class="callout"><span>i</span><p><b>What memory means today:</b> Memty keeps structured, versioned facts and retrieves relevant permitted context. It does not yet archive every platform’s complete conversation history. Full conversation preservation and richer source-linked recall are on the roadmap.</p></div>
+<span class="code-comment"># Compile only relevant context</span>
+memty recall <span class="code-green">"Which database do we use?"</span> \
+  --provider claude
+
+<span class="code-comment"># Output: a bounded &lt;memty_state&gt; capsule</span></pre>
+            <p class="mock-caption">Raw source text stays out unless you explicitly drill down.</p>
           </div>
         </section>
 
-        <section class="content-section section-anchor" id="quickstart">
-          <div class="section-index">02 — QUICKSTART</div>
-          <div class="section-content">
-            <p class="eyebrow">Install the Python package and start locally</p>
-            <h2>Bring your memory<br><em>with you.</em></h2>
-            <p class="body-copy">The model SDK, smart router, and memory vault ship together as the <code>memty</code> Python package. You need Python 3.10+ and Git. GitHub installs require repository read access; the PyPI release still needs to be published.</p>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>Windows · PowerShell</b><button class="copy-button" type="button" data-copy="$installer = Join-Path $env:TEMP &quot;install-memty.ps1&quot;&#10;Invoke-WebRequest &quot;https://raw.githubusercontent.com/RohanNK86/memty/main/scripts/install-memty.ps1&quot; -OutFile $installer&#10;&amp; $installer">Copy</button></div>
-              <pre><code>$installer = Join-Path $env:TEMP <span class="code-green">"install-memty.ps1"</span>
-Invoke-WebRequest <span class="code-green">"https://raw.githubusercontent.com/RohanNK86/memty/main/scripts/install-memty.ps1"</span> -OutFile $installer
-&amp; $installer
+        <section class="product-section section-anchor" id="how-it-works">
+          <div class="section-heading">
+            <p class="eyebrow">The core product</p>
+            <h2>Atomic memory, built for control.</h2>
+            <p>One fact occupies one named slot. New values supersede old ones, and the compiler selects only useful context for the current request.</p>
+          </div>
+          <div class="steps-grid">
+            <article class="step-card"><span>01</span><h3>Save a fact</h3><p>Use a namespace and slot, such as <code>project.api.primary_db</code>. Facts are capped at 40 tokens.</p></article>
+            <article class="step-card"><span>02</span><h3>Keep the latest state</h3><p>Updates replace the active slot and retain version history. A deletion tombstone prevents automatic extraction from restoring it.</p></article>
+            <article class="step-card"><span>03</span><h3>Compile for a request</h3><p>Keyword and optional semantic matching select facts, summaries, and snippets under a token budget. The default budget is 600.</p></article>
+            <article class="step-card"><span>04</span><h3>Apply privacy rules</h3><p>Matched SECRET facts block cloud context. CONFIDENTIAL values can be masked for untrusted providers. Raw archives require explicit drill-down.</p></article>
+          </div>
+          <p class="plain-note"><strong>Today:</strong> the atomic vault and compiler work locally. A caller must honor the local-routing requirement returned for SECRET facts; automatic vault-aware model selection is still being built.</p>
+        </section>
 
-<span class="code-comment"># Optional: encrypted exports</span>
-&amp; $installer -Extras <span class="code-green">"crypto"</span></code></pre>
+        <section class="product-section quickstart-section section-anchor" id="quickstart">
+          <div class="section-heading">
+            <p class="eyebrow">Start with the working core</p>
+            <h2>Try it from your terminal.</h2>
+            <p>The package is on GitHub now. PyPI publishing is planned; <code>pip install memty</code> is not available yet.</p>
+          </div>
+          <div class="quickstart-grid">
+            <div class="code-card">
+              <div class="code-card-heading"><span>INSTALL FROM GITHUB</span><button class="copy-button" type="button" data-copy="python -m pip install &quot;memty @ git+https://github.com/RohanNK86/memty.git@main&quot;">Copy</button></div>
+              <pre><code>python -m pip install <span class="code-green">"memty @ git+https://github.com/RohanNK86/memty.git@main"</span></code></pre>
+              <p>Python 3.10+. Add the <code>[mcp]</code> extra for the stdio MCP server; MCP requires Python 3.11+.</p>
             </div>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>macOS · Linux · Bash</b><button class="copy-button" type="button" data-copy="curl -fsSLo install-memty.sh https://raw.githubusercontent.com/RohanNK86/memty/main/scripts/install-memty.sh&#10;bash install-memty.sh&#10;&#10;# Optional: encrypted exports&#10;bash install-memty.sh crypto">Copy</button></div>
-              <pre><code>curl -fsSLo install-memty.sh <span class="code-green">https://raw.githubusercontent.com/RohanNK86/memty/main/scripts/install-memty.sh</span>
-bash install-memty.sh
-
-<span class="code-comment"># Optional: encrypted exports</span>
-bash install-memty.sh crypto</code></pre>
-            </div>
-            <p class="body-copy">The installer creates an isolated environment in your user data folder. Activate it to use <code>memty</code> in your terminal: on Windows run <code>&amp; "$env:LOCALAPPDATA\Memty\venv\Scripts\Activate.ps1"</code>; on macOS/Linux run <code>source ~/.local/share/memty/venv/bin/activate</code>. The atomic vault uses <code>~/.memty/ledger.sqlite3</code>. Existing temporal SDK data stays in <code>~/.memty/memory.sqlite3</code> and is reused. Choose optional extras only for features you use: <code>crypto</code>, <code>mongodb</code>, <code>server</code>, or <code>mcp</code> (MCP needs Python 3.11+).</p>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>First local memory</b><button class="copy-button" type="button" data-copy="memty vault add work.preferences editor &quot;VS Code&quot;&#10;memty vault list&#10;memty vault context claude &quot;Which editor do I use?&quot;">Copy</button></div>
-              <pre><code><span class="code-comment"># Store a user-confirmed fact: namespace, slot, value</span>
-memty vault add work.preferences editor <span class="code-green">"VS Code"</span>
-memty vault list
-
-<span class="code-comment"># Build context allowed for a provider</span>
-memty vault context claude <span class="code-green">"Which editor do I use?"</span></code></pre>
-            </div>
-            <p class="body-copy">The same vault can be used directly from Python:</p>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>memory_quickstart.py</b><button class="copy-button" type="button" data-copy="from pathlib import Path&#10;from memty import MemoryLedger&#10;&#10;vault = MemoryLedger(Path.home() / &quot;.memty&quot; / &quot;memory.sqlite3&quot;, user_id=&quot;local&quot;)&#10;vault.record(&quot;work.preferences&quot;, &quot;editor&quot;, &quot;VS Code&quot;, verification_state=&quot;USER_CONFIRMED&quot;)&#10;context = vault.context(&quot;Which editor do I use?&quot;, provider=&quot;claude&quot;, token_budget=900)&#10;print(context[&quot;text&quot;])&#10;print(context[&quot;citations&quot;])">Copy</button></div>
-              <pre><code><span class="code-purple">from</span> pathlib <span class="code-purple">import</span> Path
-<span class="code-purple">from</span> memty <span class="code-purple">import</span> MemoryLedger
-
-vault = MemoryLedger(Path.home() / <span class="code-green">".memty"</span> / <span class="code-green">"memory.sqlite3"</span>, user_id=<span class="code-green">"local"</span>)
-vault.record(<span class="code-green">"work.preferences"</span>, <span class="code-green">"editor"</span>, <span class="code-green">"VS Code"</span>,
-             verification_state=<span class="code-green">"USER_CONFIRMED"</span>)
-context = vault.context(<span class="code-green">"Which editor do I use?"</span>, provider=<span class="code-green">"claude"</span>, token_budget=900)
-print(context[<span class="code-green">"text"</span>])
-print(context[<span class="code-green">"citations"</span>])</code></pre>
-            </div>
-            <div class="steps">
-              <div><strong>01</strong><span><b>Install</b> Memty and optional integrations in an isolated environment.</span></div>
-              <div><strong>02</strong><span><b>Record</b> facts with a namespace, slot, and explicit verification state.</span></div>
-              <div><strong>03</strong><span><b>Compile</b> provider-filtered context and pass it to your own model adapter.</span></div>
+            <div class="code-card">
+              <div class="code-card-heading"><span>SAVE AND RECALL</span><button class="copy-button" type="button" data-copy="memty remember project.api primary_db &quot;Postgres 16&quot; --verification USER_CONFIRMED&#10;memty recall &quot;Which database does this project use?&quot; --provider claude">Copy</button></div>
+              <pre><code>memty remember project.api primary_db <span class="code-green">"Postgres 16"</span> --verification USER_CONFIRMED
+memty recall <span class="code-green">"Which database does this project use?"</span> --provider claude</code></pre>
+              <p>Default vault: <code>~/.memty/ledger.sqlite3</code>. Choose another file with <code>--db</code>.</p>
             </div>
           </div>
         </section>
 
-        <section class="content-section architecture section-anchor" id="architecture">
-          <div class="section-index">03 — ARCHITECTURE</div>
-          <div class="section-content">
-            <p class="eyebrow">Small pieces, clear boundaries</p>
-            <h2>Memory is a layer,<br><em>not a cage.</em></h2>
-            <p class="body-copy">The web workspace, Express service, provider adapters, and Python memory vault have separate jobs. Run the full Memty app, or install the Python package on its own and connect it to your own application.</p>
-            <div class="architecture-map">
-              <div class="map-node node-browser"><span>01</span><b>Browser</b><small>Chat workspace and UI</small></div>
-              <div class="map-line"></div>
-              <div class="map-node node-app"><span>02</span><b>Next.js</b><small>App and provider adapters</small></div>
-              <div class="map-line"></div>
-              <div class="map-node"><span>03</span><b>Express</b><small>Accounts and conversations</small></div>
-              <div class="map-line"></div>
-              <div class="map-node node-vault"><span>04</span><b>Python vault</b><small>Ledger · policy · context</small></div>
-              <div class="map-line"></div>
-              <div class="map-node node-store"><span>05</span><b>Your storage</b><small>SQLite or MongoDB</small></div>
-            </div>
-            <div class="callout"><span>↳</span><p><b>Memory bridge:</b> when the trusted backend is configured with <code>MEMORY_VAULT_API_URL</code> and a shared token, it calls the Python service over a private API. Without that bridge, the web app keeps using its existing MongoDB fact-memory path. Conversation summaries and account data remain in MongoDB.</p></div>
+        <section class="product-section roadmap-section section-anchor" id="roadmap">
+          <div class="section-heading">
+            <p class="eyebrow">The four-week build plan</p>
+            <h2>Memory first. Measured routing next.</h2>
+            <p>The product is the user-owned vault coupled to a router that can use verified memory. We’ll publish measured results when the benchmark is reproducible.</p>
+          </div>
+          <div class="plan-grid">
+            <article class="plan-card"><span class="status-pill status-done">WEEK 1 · SHIPPED</span><h3>Atomic compiler</h3><p>SQLite facts, versioning, tombstones, summaries, raw drill-down, provider privacy rules, and a bounded context compiler.</p></article>
+            <article class="plan-card"><span class="status-pill status-next">WEEK 2 · NEXT</span><h3>Memory-conditioned routing</h3><p>Connect SmartRouter to relevant verified facts. Combine prompt complexity with confirmed memory coverage when selecting from the models you configure. Publish the package on PyPI.</p></article>
+            <article class="plan-card"><span class="status-pill status-planned">WEEK 3 · PLANNED</span><h3>Cross-tool use</h3><p>Unify the MCP command, simplify editor setup, harden local extraction, and dogfood the vault with the web workspace and MongoDB sync.</p><small>A basic stdio MCP server is already available as <code>memty-mcp</code>.</small></article>
+            <article class="plan-card"><span class="status-pill status-planned">WEEK 4 · PLANNED</span><h3>Reproducible benchmarks</h3><p>Run a public task set for recall accuracy, context tokens, and cost. Publish prompts, raw results, and the evaluation method.</p><small>No public cost-savings or benchmark result is claimed yet.</small></article>
           </div>
         </section>
 
-        <section class="content-section models section-anchor" id="models">
-          <div class="section-index">04 — MODELS</div>
-          <div class="section-content">
-            <p class="eyebrow">Bring your own intelligence</p>
-            <h2>One interface.<br><em>Many perspectives.</em></h2>
-            <div class="model-list">
-              <div class="model-row"><span class="model-icon">G</span><div><b>Gemini</b><small>Google · configure a model and API key</small></div><em>bring a key</em></div>
-              <div class="model-row"><span class="model-icon">A</span><div><b>Claude</b><small>Anthropic · careful reasoning and writing</small></div><em>bring a key</em></div>
-              <div class="model-row"><span class="model-icon">↯</span><div><b>Grok</b><small>xAI · configure a model and API key</small></div><em>bring a key</em></div>
-              <div class="model-row"><span class="model-icon">K</span><div><b>Kimi</b><small>Moonshot · long-context model adapter</small></div><em>bring a key</em></div>
-              <div class="model-row"><span class="model-icon">◆</span><div><b>OpenRouter</b><small>Open models · a broad model catalog</small></div><em>configurable</em></div>
-              <div class="model-row"><span class="model-icon">N</span><div><b>Nemotron and Llama</b><small>NVIDIA and Meta models through OpenRouter</small></div><em>configurable</em></div>
-              <div class="model-row"><span class="model-icon">⌂</span><div><b>Local and custom models</b><small>Ollama / LM Studio through the Python SDK; custom adapters supported</small></div><em>SDK</em></div>
-            </div>
+        <section class="product-section companion-section section-anchor" id="workspace">
+          <div class="section-heading">
+            <p class="eyebrow">Where the other pieces fit</p>
+            <h2>A vault first. The workspace is its companion.</h2>
           </div>
-        </section>
-
-        <section class="content-section vault-detail section-anchor" id="memory">
-          <div class="section-index">05 — MEMORY VAULT</div>
-          <div class="section-content">
-            <p class="eyebrow">A local-first memory layer for AI apps</p>
-            <h2>Useful facts persist.<br><em>You stay in control.</em></h2>
-            <p class="body-copy">Memty stores durable facts in a versioned ledger, separate from any one model. Review what was saved, see where it came from, apply provider-specific privacy rules, and export or delete your vault. It preserves fact history; it is not yet a complete archive of every chat transcript.</p>
-            <div class="vault-grid">
-              <article class="vault-card"><span class="vault-number">01</span><h3>Extract</h3><p>A caller-provided model proposes a fact with a source quote. Secret-like and low-confidence candidates are rejected before they reach the ledger.</p></article>
-              <article class="vault-card"><span class="vault-number">02</span><h3>Verify</h3><p>Facts carry confidence, verification state, sensitivity tier, source conversation, source hash, and the model that extracted them.</p></article>
-              <article class="vault-card"><span class="vault-number">03</span><h3>Version</h3><p>Every update supersedes the previous value for a canonical namespace and slot. Historical state remains available for temporal queries.</p></article>
-              <article class="vault-card"><span class="vault-number">04</span><h3>Compile</h3><p>Only relevant, permitted facts are selected for a query. The context compiler applies provider policies and a token budget before injection.</p></article>
-              <article class="vault-card"><span class="vault-number">05</span><h3>Control</h3><p>Users can pin, edit, archive, delete, approve, or reject memories. A deletion tombstone stops automatic extraction from silently restoring a fact.</p></article>
-              <article class="vault-card"><span class="vault-number">06</span><h3>Export</h3><p>Portable <code>.nxvault</code> bundles include the ledger, manifest, policies, and hashes. Encrypted exports use AES-256-GCM with a scrypt-derived key.</p></article>
-            </div>
-            <div class="privacy-strip"><b>Privacy boundary</b><span>SECRET facts stay with local providers. INTERNAL and CONFIDENTIAL facts require an explicit provider allow-list. Ephemeral redaction can replace a value with a placeholder before it leaves the vault.</span></div>
-            <p class="body-copy">The temporal <code>MemoryLedger</code> is the recommended vault. The package also keeps <code>PortableMemoryStore</code> for local JSON memories and <code>MongoSyncedMemoryStore</code> for syncing with the app's existing user-scoped MongoDB memory collection.</p>
-            <p class="body-copy">The default SQLite working database is local and plaintext; protect its folder. Encryption protects exported <code>.nxvault</code> bundles, not the live database. Export and import a bundle to move memory between devices. The project does not automatically sync vault files between devices.</p>
-            <div class="steps">
-              <div><strong>CLI</strong><span><b>Manage facts</b> with <code>add</code>, <code>list</code>, <code>context</code>, <code>delete</code>, <code>proposals</code>, <code>approve</code>, and <code>reject</code>.</span></div>
-              <div><strong>TIME</strong><span><b>Query history</b> with valid time and recorded time; a changed slot supersedes its previous value.</span></div>
-              <div><strong>FILE</strong><span><b>Move a vault</b> with encrypted <code>export</code> and <code>import</code>; the CLI prompts for the passphrase.</span></div>
-            </div>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>Review, approve, and back up</b><button class="copy-button" type="button" data-copy="memty vault proposals&#10;memty vault approve &lt;proposal_id&gt;&#10;memty vault reject &lt;proposal_id&gt;&#10;memty vault export ./memory-backup.nxvault&#10;memty vault import ./memory-backup.nxvault&#10;memty vault evaluate cases.json">Copy</button></div>
-              <pre><code>memty vault proposals
-memty vault approve <span class="code-green">&lt;proposal_id&gt;</span>  <span class="code-comment"># user approval is required</span>
-memty vault reject <span class="code-green">&lt;proposal_id&gt;</span>
-memty vault export ./memory-backup.nxvault
-memty vault import ./memory-backup.nxvault
-memty vault evaluate cases.json</code></pre>
-            </div>
-            <p class="body-copy">Encrypted <code>.nxvault</code> export is the portable backup format for the ledger. The JSON store below is a smaller alternative for applications that want lightweight fact storage and caller-generated embeddings:</p>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>Portable JSON memory</b><button class="copy-button" type="button" data-copy="from memty import PortableMemoryStore&#10;&#10;memory = PortableMemoryStore(&quot;.smart_auto/memories.json&quot;)&#10;memory.add(&quot;The project uses Next.js and MongoDB&quot;, kind=&quot;semantic&quot;, importance=0.8)&#10;matches = memory.retrieve(&quot;What database does the project use?&quot;)&#10;backup = memory.export()&#10;memory.import_data(backup, replace=False)">Copy</button></div>
-              <pre><code><span class="code-purple">from</span> memty <span class="code-purple">import</span> PortableMemoryStore
-
-memory = PortableMemoryStore(<span class="code-green">".smart_auto/memories.json"</span>)
-memory.add(<span class="code-green">"The project uses Next.js and MongoDB"</span>, kind=<span class="code-green">"semantic"</span>, importance=<span class="code-purple">0.8</span>)
-matches = memory.retrieve(<span class="code-green">"What database does the project use?"</span>)
-backup = memory.export()                 <span class="code-comment"># JSON-compatible portable document</span>
-memory.import_data(backup, replace=<span class="code-purple">False</span>) <span class="code-comment"># merges and deduplicates facts</span></code></pre>
-            </div>
-            <p class="fine-print">Portable JSON files are local user data and should be protected. Entries may include caller-generated embeddings for cosine ranking; without vectors, retrieval uses lightweight lexical ranking. <code>MongoSyncedMemoryStore</code> is a compatibility integration for the app's existing user-scoped MongoDB memory collection. The MongoDB ledger backend is a separate, newer storage option.</p>
+          <div class="companion-grid">
+            <article class="companion-card"><h3>CLI and Python</h3><p>Use the vault without launching the web app. The compiler itself uses the Python standard library; optional integrations add MCP, HTTP, MongoDB, and encrypted exports.</p></article>
+            <article class="companion-card"><h3>MCP today</h3><p>Install with <code>python -m pip install "memty[mcp] @ git+https://github.com/RohanNK86/memty.git@main"</code>. Python 3.11+ is required.</p><pre class="mcp-config">{"mcpServers":{"memty":{"command":"memty-mcp"}}}</pre><p>Tools cover recall, remember, forget, drill-down, list, and stats.</p></article>
+            <article class="companion-card"><h3>Web workspace</h3><p>The existing app is a visual companion. Its account conversations and MongoDB memory are separate from the local SQLite vault today; they do not sync automatically.</p></article>
           </div>
-        </section>
-
-        <section class="content-section section-anchor" id="routing">
-          <div class="section-index">06 — MODEL ROUTING</div>
-          <div class="section-content">
-            <p class="eyebrow">Capability-constrained smart auto</p>
-            <h2>Give each task<br><em>the right model.</em></h2>
-            <p class="body-copy">The web workspace offers heuristic Auto routing and provider fallbacks. The Python SmartRouter adds capability and context constraints, operator-supplied cost and latency signals, and optional learning from explicit outcome feedback. You choose the model catalog and adapters; routing remains a recommendation, not a quality guarantee.</p>
-            <div class="routing-flow">
-              <div class="route-step"><span>01</span><b>Understand</b><small>Classify general, code, structured, long-context, or reasoning work.</small></div>
-              <div class="route-arrow">→</div>
-              <div class="route-step"><span>02</span><b>Constrain</b><small>Remove unavailable models and those without enough capability or context.</small></div>
-              <div class="route-arrow">→</div>
-              <div class="route-step"><span>03</span><b>Score</b><small>Balance learned quality, exploration, capability, cost, and memory coverage.</small></div>
-              <div class="route-arrow">→</div>
-              <div class="route-step"><span>04</span><b>Improve</b><small>Use accepted, regenerated, corrected, or fallback outcomes as feedback.</small></div>
-            </div>
-            <div class="code-window routing-code">
-              <div class="window-bar"><span></span><span></span><span></span><b>smart_router.py</b><button class="copy-button" type="button" data-copy="from memty import ModelSpec, SmartRouter&#10;&#10;models = [&#10;    ModelSpec(&quot;gemini-flash&quot;, &quot;gemini&quot;, 0.10, 0.40, 0.55, 1000000),&#10;    ModelSpec(&quot;claude-haiku&quot;, &quot;claude&quot;, 0.80, 4.00, 0.75, 200000),&#10;]&#10;router = SmartRouter(models, state_path=&quot;.memty/router-state.json&quot;)&#10;decision = router.route(prompt, memory_relevance=0.84, memory_coverage=0.65)&#10;selected = next(model for model in models if model.id == decision.model_id)&#10;memory = vault.context(prompt, provider=selected.provider, token_budget=900)&#10;answer = adapters[selected.id].complete(prompt, context=memory[&quot;text&quot;])&#10;reward = router.reward_from_signals(accepted=True)&#10;router.update(decision.model_id, prompt, reward, memory_relevance=0.84, memory_coverage=0.65)">Copy</button></div>
-              <pre><code><span class="code-purple">from</span> memty <span class="code-purple">import</span> ModelSpec, SmartRouter
-
-models = [
-    ModelSpec(<span class="code-green">"gemini-flash"</span>, <span class="code-green">"gemini"</span>, <span class="code-purple">0.10</span>, <span class="code-purple">0.40</span>, <span class="code-purple">0.55</span>, <span class="code-purple">1_000_000</span>),
-    ModelSpec(<span class="code-green">"claude-haiku"</span>, <span class="code-green">"claude"</span>, <span class="code-purple">0.80</span>, <span class="code-purple">4.00</span>, <span class="code-purple">0.75</span>, <span class="code-purple">200_000</span>),
-]
-router = SmartRouter(models, state_path=<span class="code-green">".memty/router-state.json"</span>)
-
-decision = router.route(prompt, memory_relevance=<span class="code-purple">0.84</span>, memory_coverage=<span class="code-purple">0.65</span>)
-selected = next(model <span class="code-purple">for</span> model <span class="code-purple">in</span> models <span class="code-purple">if</span> model.id == decision.model_id)
-memory = vault.context(prompt, provider=selected.provider, token_budget=<span class="code-purple">900</span>)
-answer = adapters[selected.id].complete(prompt, context=memory[<span class="code-green">"text"</span>])
-
-<span class="code-comment"># Learn from an observed user outcome</span>
-reward = router.reward_from_signals(accepted=<span class="code-purple">True</span>)
-router.update(decision.model_id, prompt, reward,
-              memory_relevance=<span class="code-purple">0.84</span>, memory_coverage=<span class="code-purple">0.65</span>)</code></pre>
-            </div>
-            <p class="body-copy">You supply model IDs, provider names, input/output prices per million tokens, capability scores, context limits, availability, and provider adapters. The router does not call a model or fetch live prices. It filters unavailable and under-capable models, scores the remaining choices for the prompt, and learns from your outcome feedback. Mark a model <code>available=False</code> when its credentials are missing.</p>
-            <p class="fine-print">The routing state file contains model IDs and numeric learning state, not prompts, memory text, or provider secrets. Capability and price values are operator estimates; validate them against your workloads.</p>
-          </div>
-        </section>
-
-        <section class="content-section section-anchor" id="services">
-          <div class="section-index">07 — SERVICES &amp; INTEGRATIONS</div>
-          <div class="section-content">
-            <p class="eyebrow">Run the parts you need</p>
-            <h2>Local library.<br><em>Optional services.</em></h2>
-            <p class="body-copy">The memory ledger and router work as a Python library. Add a loopback HTTP API, an approval-only MCP server, MongoDB storage, or the complete Memty web stack when your use case needs them.</p>
-            <div class="vault-grid">
-              <article class="vault-card"><span class="vault-number">API</span><h3>Local HTTP</h3><p>Install the <code>server</code> extra and run <code>memty api</code>. The API binds to <code>127.0.0.1:8765</code> by default and requires a bearer token of at least 32 characters. Keep it on loopback unless you have a trusted private-network setup.</p></article>
-              <article class="vault-card"><span class="vault-number">MCP</span><h3>Local AI tools</h3><p>Install the <code>mcp</code> extra with Python 3.11+. The stdio server offers <code>read_context</code>, <code>propose_fact</code>, and <code>list_my_pending_proposals</code>. Proposals remain pending until the user approves them with <code>memty vault approve</code>.</p></article>
-              <article class="vault-card"><span class="vault-number">DB</span><h3>MongoDB backend</h3><p>Install the <code>mongodb</code> extra and set <code>MEMTY_VAULT_BACKEND=mongodb</code> plus <code>MEMTY_VAULT_MULTIUSER=true</code>. Facts go to <code>memory_vault_ledger</code>; transaction support requires a replica set such as MongoDB Atlas.</p></article>
-              <article class="vault-card"><span class="vault-number">APP</span><h3>Memty stack</h3><p>The web app uses Next.js, the Express account/conversation service, a Python vault service, and MongoDB. The backend calls Python only when <code>MEMORY_VAULT_API_URL</code> and its shared token are configured; otherwise the existing MongoDB fact-memory path remains active.</p></article>
-              <article class="vault-card"><span class="vault-number">DOCKER</span><h3>Compose</h3><p>Docker Compose starts the frontend, Express backend, and Python Memory Vault together. MongoDB stays external. The vault API is kept on the private Compose network and is not published to the host.</p></article>
-              <article class="vault-card"><span class="vault-number">EXTEND</span><h3>Bring your adapters</h3><p>MemoryExtractor accepts a caller-provided model function. SmartRouter returns a selected model ID. Connect either to your own provider SDK, local model, editor, or agent runtime.</p></article>
-            </div>
-            <p class="body-copy">The HTTP API is bearer-token protected. Main routes include <code>/v1/health</code>, <code>/v1/memories</code>, <code>/v1/extract</code>, <code>/v1/context</code>, <code>/v1/proposals</code>, and <code>/v1/vault/export</code>. In multi-user MongoDB mode, the trusted backend supplies the authenticated user in <code>X-Memty-User</code>; do not accept that identity directly from an untrusted browser.</p>
-            <p class="body-copy">For the app bridge, configure <code>MEMORY_VAULT_API_URL=http://127.0.0.1:8765</code> and <code>MEMORY_VAULT_API_TOKEN</code> in the Express backend environment. Set the same token as <code>MEMTY_VAULT_API_TOKEN</code> in the Python service. Compose uses the private address <code>http://memory-vault:8765</code>. User accounts, chat transcripts, summaries, and usage remain in MongoDB.</p>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>Local API · PowerShell</b><button class="copy-button" type="button" data-copy="python -m pip install &quot;memty[server,crypto] @ git+https://github.com/RohanNK86/memty.git@main&quot;&#10;$env:MEMTY_VAULT_API_TOKEN = &quot;replace-with-a-random-secret-of-at-least-32-characters&quot;&#10;memty api">Copy</button></div>
-              <pre><code>python -m pip install <span class="code-green">"memty[server,crypto] @ git+https://github.com/RohanNK86/memty.git@main"</span>
-$env:MEMTY_VAULT_API_TOKEN = <span class="code-green">"replace-with-a-random-secret-of-at-least-32-characters"</span>
-memty api</code></pre>
-            </div>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>MongoDB multi-user vault · PowerShell</b><button class="copy-button" type="button" data-copy="python -m pip install &quot;memty[mongodb,server,crypto] @ git+https://github.com/RohanNK86/memty.git@main&quot;&#10;$env:MEMTY_VAULT_BACKEND = &quot;mongodb&quot;&#10;$env:MEMTY_VAULT_MULTIUSER = &quot;true&quot;&#10;$env:MONGO_URI = &quot;your MongoDB replica-set URI&quot;&#10;$env:MEMORY_DATABASE = &quot;Memory&quot;&#10;$env:MEMTY_VAULT_API_TOKEN = &quot;replace-with-a-random-secret-of-at-least-32-characters&quot;&#10;memty api">Copy</button></div>
-              <pre><code>python -m pip install <span class="code-green">"memty[mongodb,server,crypto] @ git+https://github.com/RohanNK86/memty.git@main"</span>
-$env:MEMTY_VAULT_BACKEND = <span class="code-green">"mongodb"</span>
-$env:MEMTY_VAULT_MULTIUSER = <span class="code-green">"true"</span>
-$env:MONGO_URI = <span class="code-green">"your MongoDB replica-set URI"</span>
-$env:MEMORY_DATABASE = <span class="code-green">"Memory"</span>
-$env:MEMTY_VAULT_API_TOKEN = <span class="code-green">"replace-with-a-random-secret-of-at-least-32-characters"</span>
-memty api</code></pre>
-            </div>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>MCP client server entry · JSON</b><button class="copy-button" type="button" data-copy="{&#10;  &quot;mcpServers&quot;: {&#10;    &quot;memty-memory&quot;: {&#10;      &quot;command&quot;: &quot;/absolute/path/to/memty&quot;,&#10;      &quot;args&quot;: [&quot;vault-mcp&quot;],&#10;      &quot;env&quot;: {&#10;        &quot;MEMTY_VAULT_PATH&quot;: &quot;/absolute/path/to/memory.sqlite3&quot;,&#10;        &quot;MEMTY_VAULT_USER&quot;: &quot;local&quot;,&#10;        &quot;MEMTY_VAULT_PROVIDER&quot;: &quot;local&quot;&#10;      }&#10;    }&#10;  }&#10;}">Copy</button></div>
-              <pre><code>{
-  <span class="code-green">"mcpServers"</span>: {
-    <span class="code-green">"memty-memory"</span>: {
-      <span class="code-green">"command"</span>: <span class="code-green">"/absolute/path/to/memty"</span>,
-      <span class="code-green">"args"</span>: [<span class="code-green">"vault-mcp"</span>],
-      <span class="code-green">"env"</span>: {
-        <span class="code-green">"MEMTY_VAULT_PATH"</span>: <span class="code-green">"/absolute/path/to/memory.sqlite3"</span>,
-        <span class="code-green">"MEMTY_VAULT_USER"</span>: <span class="code-green">"local"</span>,
-        <span class="code-green">"MEMTY_VAULT_PROVIDER"</span>: <span class="code-green">"local"</span>
-      }
-    }
-  }
-}</code></pre>
-            </div>
-            <div class="code-window">
-              <div class="window-bar"><span></span><span></span><span></span><b>Full app · Docker Compose</b><button class="copy-button" type="button" data-copy="Copy-Item .env.example .env&#10;Copy-Item backend/.env.example backend/.env&#10;# Set MongoDB and matching vault API tokens in the environment files&#10;docker compose up --build">Copy</button></div>
-              <pre><code>Copy-Item .env.example .env
-Copy-Item backend/.env.example backend/.env
-<span class="code-comment"># Configure MongoDB and matching vault API tokens before starting</span>
-docker compose up --build</code></pre>
-            </div>
-            <div class="callout"><span>!</span><p><b>Keep the API private.</b> Use a strong random token. Non-loopback binding requires the explicit <code>MEMTY_VAULT_ALLOW_REMOTE=true</code> flag and a private trusted network. Never publish the vault API port directly to the internet.</p></div>
-          </div>
-        </section>
-
-        <section class="content-section roadmap section-anchor" id="roadmap">
-          <div class="section-index">08 — ROADMAP</div>
-          <div class="section-content">
-            <p class="eyebrow">An open-ended project</p>
-            <h2>Useful now.<br><em>Building what’s next.</em></h2>
-            <div class="roadmap-grid">
-              <div><span class="status status-live">AVAILABLE NOW</span><h3>Multi-model workspace + fact vault</h3><p>Provider switching, Auto routing, response comparison, versioned facts, review controls, provider policies, and encrypted vault exports.</p></div>
-              <div><span class="status status-next">PLANNED</span><h3>Conversation-level memory</h3><p>Preserve complete conversations as source records, connect facts to their origins, and retrieve relevant passages with clear provenance.</p><a class="inline-link" href="https://github.com/RohanNK86/memty/issues/62" target="_blank" rel="noreferrer">Follow the archive feature</a><br><a class="inline-link" href="https://github.com/RohanNK86/memty/issues/63" target="_blank" rel="noreferrer">Follow provenance-aware recall</a></div>
-              <div><span class="status status-explore">PLANNED FOUNDATIONS</span><h3>Reliable context across tools</h3><p>Make context selection explainable, add user-controlled sync and connectors, and measure recall, privacy, latency, and cost before making savings claims.</p><a class="inline-link" href="https://github.com/RohanNK86/memty/issues/64" target="_blank" rel="noreferrer">Context compiler</a><br><a class="inline-link" href="https://github.com/RohanNK86/memty/issues/65" target="_blank" rel="noreferrer">Connectors and sync</a><br><a class="inline-link" href="https://github.com/RohanNK86/memty/issues/66" target="_blank" rel="noreferrer">Evaluation suite</a></div>
-            </div>
-          </div>
+          <p class="plain-note"><strong>What to expect:</strong> the current SmartRouter is a separate library and the web app has its own heuristic Auto mode. Automatically using vault coverage to choose a model, one-command IDE setup, PyPI publishing, and cross-client sync are roadmap work.</p>
         </section>
 
         <section class="closing section-anchor" id="contribute">
-          <div>
-            <p class="eyebrow">A community-built project</p>
-            <h2>Help build AI<br><em>that remembers responsibly.</em></h2>
-            <p class="body-copy">Read the code, run it locally, open an issue, or bring a new provider to the workspace. The public GitHub Pages site is available at <a class="inline-link" href="https://rohannk86.github.io/memty/" target="_blank" rel="noreferrer">rohannk86.github.io/memty ↗</a>.</p>
-            <div class="button-row">
-              <a class="button button-dark" href="https://github.com/RohanNK86/memty" target="_blank" rel="noreferrer">Contribute on GitHub <span>↗</span></a>
-              <a class="button" href="https://github.com/RohanNK86/memty/issues" target="_blank" rel="noreferrer">Open an issue <span>↗</span></a>
-            </div>
+          <p class="eyebrow">Build with us</p>
+          <h2>Keep memory useful.<br><em>Keep it yours.</em></h2>
+          <p class="body-copy">Read the implementation, follow the roadmap, or open an issue on GitHub.</p>
+          <div class="button-row">
+            <a class="button button-dark" href="https://github.com/RohanNK86/memty" target="_blank" rel="noreferrer">View Memty on GitHub <span>↗</span></a>
+            <a class="button" href="https://github.com/RohanNK86/memty/issues" target="_blank" rel="noreferrer">Open an issue <span>↗</span></a>
           </div>
         </section>
 
         <footer class="site-footer">
-          <span>© 2026 Memty</span><span>Portable memory and model routing</span><a href="https://rohannk86.github.io/memty/" target="_blank" rel="noreferrer">Live site ↗</a><a href="#overview">Back to top ↑</a>
+          <span>© 2026 Memty</span><span>User-owned atomic memory</span>
+          <a href="https://github.com/RohanNK86/memty" target="_blank" rel="noreferrer">GitHub ↗</a>
+          <a href="#overview">Back to top ↑</a>
         </footer>
       </main>
     </div>
