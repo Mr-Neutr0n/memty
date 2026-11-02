@@ -182,6 +182,8 @@ python -m pytest tests/test_memty_week1.py -q
 python -m unittest discover -s tests -p test_memty_week1.py -q
 # Short end-to-end smoke run
 python scripts/test_memty_week1.py
+# Human-readable walkthrough with temporary sample data
+python scripts/demo_memty_week1.py
 ```
 
 The performance test builds 200 facts and asserts a warm compiler median below 6 ms on the local machine; the measured median on the development machine is about 3.2 ms (p95 ~4.8 ms) with a 600-token budget and 300 facts. The compiler also enforces a hard `estimate_tokens(text) <= token_budget` check, so larger inputs cannot silently exceed the ceiling.
