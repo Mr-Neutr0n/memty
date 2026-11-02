@@ -178,6 +178,9 @@ The Week 1 acceptance suite covers the schema, logical constraints, 40-token enf
 
 ```shell
 python -m pytest tests/test_memty_week1.py -q
+# Standard-library alternative when pytest is not installed
+python -m unittest discover -s tests -p test_memty_week1.py -q
+# Short end-to-end smoke run
 python scripts/test_memty_week1.py
 ```
 
