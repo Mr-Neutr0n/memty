@@ -344,3 +344,6 @@ body{background:var(--paper);background-image:none;color:var(--ink);font-size:17
 @media(max-width:700px){.product-section,.closing{padding:62px 7%}.steps-grid,.quickstart-grid,.plan-grid,.companion-grid{grid-template-columns:1fr}.step-card{min-height:0}.code-card{box-shadow:6px 6px 0 #dedbd2}.site-footer{flex-wrap:wrap;gap:12px}.site-footer a:first-of-type{margin-left:0}.brand-logo{width:84px;height:48px}}
 
 .mcp-config{margin:14px 0;padding:12px;overflow-wrap:anywhere;white-space:pre-wrap;background:#202225;color:#e8e8e4;font:11px/1.6 var(--mono)}
+
+@media(min-width:901px){.desktop-brand .brand-logo{width:184px;height:104px}.side-nav{margin-top:36px}}
+@media(max-width:900px){.mobile-header{height:80px}.mobile-header .brand-logo{width:130px;height:74px}}
