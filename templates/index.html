@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexorAI Workspace</title>
+    <title>Memty Workspace</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -668,8 +668,8 @@
 <aside class="sidebar">
     <div class="sidebar-top">
         <a class="sidebar-logo" href="/">
-            <img src="/static/assets/NexorSplash.png" alt="NexorAI">
-            <span>NexorAI</span>
+            <img src="/static/assets/MemtySplash.png" alt="Memty">
+            <span>Memty</span>
         </a>
         <button class="new-chat" onclick="startNewChat()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
@@ -708,7 +708,7 @@
     <div class="chat-scroll" id="chatScroll">
         <!-- Welcome state -->
         <div class="welcome" id="welcomeScreen">
-            <img src="/static/assets/NexorSplash.png" alt="NexorAI">
+            <img src="/static/assets/MemtySplash.png" alt="Memty">
             <h2>How can I help you today?</h2>
             <p>Powered by Gemini Flash — fast, capable, and intelligent.</p>
         </div>
@@ -731,7 +731,7 @@
             <input type="file" id="imgInput" accept="image/*" style="display:none" onchange="handleAttach(event,'image')">
             <input type="file" id="fileInput" style="display:none" onchange="handleAttach(event,'file')">
 
-            <textarea id="chatInput" placeholder="Message NexorAI…" rows="1"
+            <textarea id="chatInput" placeholder="Message Memty…" rows="1"
                 oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px'"></textarea>
 
             <button class="composer-model" id="composerModel" type="button" onclick="openModels()" title="Choose AI model">
@@ -744,7 +744,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
         </div>
-        <p class="input-footer">NexorAI can make mistakes. Verify important info.</p>
+        <p class="input-footer">Memty can make mistakes. Verify important info.</p>
     </div>
 </main>
 
@@ -777,7 +777,7 @@
 import { getAllModels } from '/static/registry.js';
 
 /* ── Auth guard ── */
-const userRaw = localStorage.getItem('nexoraiUser');
+const userRaw = localStorage.getItem('memtyUser');
 if (!userRaw) { window.location.href = '/login'; }
 let userName = 'User';
 try {
@@ -787,7 +787,7 @@ try {
     document.getElementById('avatarEl').textContent = userName[0].toUpperCase();
 } catch(e) {}
 
-window.logout = () => { localStorage.removeItem('nexoraiUser'); window.location.href = '/login'; };
+window.logout = () => { localStorage.removeItem('memtyUser'); window.location.href = '/login'; };
 window.toggleSidebar = (open) => {
     document.querySelector('.sidebar').classList.toggle('open', open);
     document.getElementById('sidebarBackdrop').classList.toggle('open', open);
@@ -844,7 +844,7 @@ window.openModels = () => document.getElementById('modelModal').classList.add('o
 window.closeModels = () => document.getElementById('modelModal').classList.remove('open');
 window.closeLock = () => document.getElementById('lockModal').classList.remove('open');
 window.openProPlan = () => {
-    document.getElementById('lockTitle').textContent = 'NexorAI Pro';
+    document.getElementById('lockTitle').textContent = 'Memty Pro';
     document.getElementById('lockDesc').textContent = 'Pro is designed for heavier workflows with more memory, more tokens, and higher chat capacity. Connect a payment provider to enable checkout.';
     closeModels();
     document.getElementById('lockModal').classList.add('open');
@@ -854,8 +854,8 @@ window.selectModel = (m) => {
     if (!m.available) {
         document.getElementById('lockTitle').textContent = `${m.displayName} — Coming Soon`;
         document.getElementById('lockDesc').textContent = m.proOnly
-            ? `${m.displayName} is included with NexorAI Pro. Upgrade to unlock more memory, tokens, and chat capacity.`
-            : `${m.displayName} by ${m.provider} is coming soon to NexorAI.`;
+            ? `${m.displayName} is included with Memty Pro. Upgrade to unlock more memory, tokens, and chat capacity.`
+            : `${m.displayName} by ${m.provider} is coming soon to Memty.`;
         document.getElementById('lockModal').classList.add('open');
         return;
     }
@@ -938,7 +938,7 @@ function appendMessage(role, htmlContent) {
     
     const avatarHtml = role === 'user'
         ? `<div class="msg-avatar user-av">${userName[0].toUpperCase()}</div>`
-        : `<div class="msg-avatar bot-av ${lp?.className || ''}"><img src="${lp?.src || '/static/assets/NexorSplash.png'}" alt="${currentModel.displayName}" style="${lp?.invert ? 'filter:invert(1) brightness(2);' : ''}"></div>`;
+        : `<div class="msg-avatar bot-av ${lp?.className || ''}"><img src="${lp?.src || '/static/assets/MemtySplash.png'}" alt="${currentModel.displayName}" style="${lp?.invert ? 'filter:invert(1) brightness(2);' : ''}"></div>`;
     
     row.innerHTML = `${avatarHtml}<div class="msg-content">${htmlContent}</div>`;
     chatScroll.appendChild(row);
@@ -1042,7 +1042,7 @@ window.sendMessage = async () => {
 window.startNewChat = async () => {
     toggleSidebar(false);
     chatScroll.innerHTML = `<div class="welcome" id="welcomeScreen">
-        <img src="/static/assets/NexorSplash.png" alt="NexorAI">
+        <img src="/static/assets/MemtySplash.png" alt="Memty">
         <h2>How can I help you today?</h2>
         <p>Powered by Gemini Flash — fast, capable, and intelligent.</p>
     </div>`;

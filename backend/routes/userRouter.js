@@ -9,7 +9,7 @@ function requireTrustedOrigin(req, res, next) {
     const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3001')
         .split(',').map(value => value.trim()).filter(Boolean);
     if (!origin || !allowedOrigins.includes(origin)) {
-        return res.status(403).json({ status: 'fail', message: 'Google sign-in must come from the configured NexorAI site.' });
+        return res.status(403).json({ status: 'fail', message: 'Google sign-in must come from the configured Memty site.' });
     }
     next();
 }

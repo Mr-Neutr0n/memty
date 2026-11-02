@@ -1,6 +1,6 @@
 # Frontend guide
 
-This folder contains the NexorAI Next.js App Router UI, API routes, shared global styles, and route-level pages. Start the frontend from the repository root with `npm run dev`; it serves on port 3001 by default.
+This folder contains the Memty Next.js App Router UI, API routes, shared global styles, and route-level pages. Start the frontend from the repository root with `npm run dev`; it serves on port 3001 by default.
 
 > **Frontend path:** browser → Next.js page/API route → provider adapter or private backend proxy. The root [README](../README.md) has the system diagram and full local setup.
 

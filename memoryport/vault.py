@@ -31,7 +31,7 @@ def _crypto():
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
     except ImportError as error:
-        raise RuntimeError("Encrypted vaults require: pip install 'nexorai-smart-auto[crypto]'") from error
+        raise RuntimeError("Encrypted vaults require: pip install 'memty[crypto]'") from error
     return AESGCM, Scrypt
 
 

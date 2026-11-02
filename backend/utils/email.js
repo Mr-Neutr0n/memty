@@ -19,19 +19,19 @@ const sendWelcomeEmail = async (options) => {
 
     // 2) Define the email options
     const mailOptions = {
-        from: 'NexorAI Assistant Team <hello@nexorai.com>',
+        from: process.env.MEMTY_EMAIL_FROM || process.env.EMAIL_FROM || 'Memty Assistant <no-reply@localhost>',
         to: options.email,
-        subject: 'Welcome to NexorAI Assistant!',
-        text: `from team NexorAI Assistant thank you for creating an account with NexorAI`,
+        subject: 'Welcome to Memty Assistant!',
+        text: `from team Memty Assistant thank you for creating an account with Memty`,
         html: `
             <div style="font-family: Arial, sans-serif; text-align: center; color: #333;">
-                <h2>Welcome to NexorAI Assistant! 🤖</h2>
+                <h2>Welcome to Memty Assistant! 🤖</h2>
                 <p>Hi ${options.name},</p>
-                <p>From the NexorAI Assistant team, thank you for creating an account with NexorAI.</p>
+                <p>From the Memty Assistant team, thank you for creating an account with Memty.</p>
                 <p>We are excited to have you on board. Start chatting and exploring the AI capabilities!</p>
                 <br>
                 <p>Best Regards,</p>
-                <p><strong>NexorAI Team</strong></p>
+                <p><strong>Memty Team</strong></p>
             </div>
         `
     };

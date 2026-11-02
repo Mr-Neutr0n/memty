@@ -1,4 +1,4 @@
-"""Local model routing and provider calls for the NexorAI Python SDK.
+"""Local model routing and provider calls for the Memty Python SDK.
 
 The routing and chat history stay local. Requests are sent only to the configured
 provider for the selected model. The module has no runtime dependencies outside
@@ -26,19 +26,19 @@ from .extractor import MemoryExtractor
 from .router import ModelSpec, RouteDecision as BanditDecision, SmartRouter
 
 
-class NexorAIError(RuntimeError):
+class MemtyError(RuntimeError):
     """Base error for SDK configuration, routing, and provider failures."""
 
 
-class ConfigurationError(NexorAIError):
+class ConfigurationError(MemtyError):
     pass
 
 
-class NoModelAvailable(NexorAIError):
+class NoModelAvailable(MemtyError):
     pass
 
 
-class ProviderRequestError(NexorAIError):
+class ProviderRequestError(MemtyError):
     def __init__(self, message: str, *, status: int | None = None, retryable: bool = False):
         super().__init__(message)
         self.status = status
@@ -284,7 +284,7 @@ class _ChatState:
     last_model: str = ""
 
 
-class NexorAI:
+class Memty:
     """A local-first, pluggable model router and chat client.
 
     ``chat_id`` keeps independent in-memory conversation and model-selection
@@ -336,7 +336,7 @@ class NexorAI:
         )
 
     @classmethod
-    def from_file(cls, path: str | Path, **kwargs: Any) -> "NexorAI":
+    def from_file(cls, path: str | Path, **kwargs: Any) -> "Memty":
         """Load non-secret model metadata from a JSON config file."""
         config_path = Path(path).expanduser()
         try:
@@ -368,7 +368,7 @@ class NexorAI:
     @classmethod
     def default_config(cls, path: str | Path | None = None) -> Path:
         """Create a commented-by-example config without overwriting existing data."""
-        target = Path(path or Path.home() / ".nexorai" / "models.json").expanduser()
+        target = Path(path or Path.home() / ".memty" / "models.json").expanduser()
         if target.exists():
             raise FileExistsError(f"Refusing to overwrite existing model config: {target}")
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -705,14 +705,27 @@ class NexorAI:
         return None
 
 
-def load_client(path: str | Path | None = None, **kwargs: Any) -> NexorAI:
-    config = Path(path or os.getenv("NEXORAI_CONFIG", Path.home() / ".nexorai" / "models.json"))
-    kwargs.setdefault("state_path", os.getenv("NEXORAI_STATE_PATH", str(Path.home() / ".nexorai" / "router-state.json")))
-    if "memory_ledger" not in kwargs and os.getenv("NEXORAI_MEMORY_ENABLED", "true").casefold() not in {"0", "false", "no"}:
+def load_client(path: str | Path | None = None, **kwargs: Any) -> Memty:
+    home = Path.home()
+    new_config = home / ".memty" / "models.json"
+    old_config = home / ".nexorai" / "models.json"
+    config_value = path or os.getenv("MEMTY_CONFIG") or os.getenv("NEXORAI_CONFIG")
+    config = Path(config_value).expanduser() if config_value else (new_config if new_config.exists() or not old_config.exists() else old_config)
+    state_value = os.getenv("MEMTY_STATE_PATH") or os.getenv("NEXORAI_STATE_PATH")
+    old_state = home / ".nexorai" / "router-state.json"
+    kwargs.setdefault("state_path", state_value or str(old_state if old_state.exists() else home / ".memty" / "router-state.json"))
+    memory_enabled = os.getenv("MEMTY_MEMORY_ENABLED", os.getenv("NEXORAI_MEMORY_ENABLED", "true"))
+    if "memory_ledger" not in kwargs and memory_enabled.casefold() not in {"0", "false", "no"}:
         from .factory import default_vault_path
         from .ledger import MemoryLedger
         vault_path = default_vault_path()
         kwargs["memory_ledger"] = MemoryLedger(
-            vault_path, user_id=os.getenv("NEXORAI_MEMORY_USER", os.getenv("NEXOR_VAULT_USER", "local")))
-    return NexorAI.from_file(config, **kwargs)
+            vault_path, user_id=os.getenv("MEMTY_MEMORY_USER", os.getenv("NEXORAI_MEMORY_USER", os.getenv("NEXOR_VAULT_USER", "local"))))
+    return Memty.from_file(config, **kwargs)
+
+
+# Compatibility aliases for existing Python callers. New applications should
+# import Memty and MemtyError from the `memty` package.
+NexorAI = Memty
+NexorAIError = MemtyError
 

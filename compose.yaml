@@ -21,14 +21,14 @@ services:
       context: .
       dockerfile: Dockerfile.vault
     environment:
-      NEXOR_VAULT_API_HOST: 0.0.0.0
-      NEXOR_VAULT_API_PORT: 8765
-      NEXOR_VAULT_ALLOW_REMOTE: "true"
-      NEXOR_VAULT_API_TOKEN: ${MEMORY_VAULT_API_TOKEN:?Set MEMORY_VAULT_API_TOKEN in the root .env file}
-      NEXOR_VAULT_MULTIUSER: "true"
-      NEXOR_VAULT_ROOT: /var/lib/nexor/users
+      MEMTY_VAULT_API_HOST: 0.0.0.0
+      MEMTY_VAULT_API_PORT: 8765
+      MEMTY_VAULT_ALLOW_REMOTE: "true"
+      MEMTY_VAULT_API_TOKEN: ${MEMORY_VAULT_API_TOKEN:?Set MEMORY_VAULT_API_TOKEN in the root .env file}
+      MEMTY_VAULT_MULTIUSER: "true"
+      MEMTY_VAULT_ROOT: /var/lib/memty/users
     volumes:
-      - memory-vault-data:/var/lib/nexor
+      - memory-vault-data:/var/lib/memty
     expose:
       - "8765"
     restart: unless-stopped

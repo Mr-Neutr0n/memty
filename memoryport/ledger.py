@@ -158,7 +158,7 @@ class MemoryLedger:
                 db.execute("ALTER TABLE ledger_events ADD COLUMN source_quote TEXT")
             version = db.execute("SELECT value FROM vault_meta WHERE key='schema_version'").fetchone()
             if version is not None and int(version[0]) > SCHEMA_VERSION:
-                raise ValueError("This vault was created by a newer MemoryPort version")
+                raise ValueError("This vault was created by a newer Memty version")
             db.execute("INSERT OR REPLACE INTO vault_meta(key,value) VALUES('schema_version',?)", (str(SCHEMA_VERSION),))
             db.execute("INSERT OR REPLACE INTO vault_meta(key,value) VALUES('format',?)", (self.FORMAT,))
 
@@ -492,7 +492,7 @@ class MemoryLedger:
             raise ValueError("token_budget must be between 1 and 100000")
         timestamp = _normalize_timestamp(as_of) if as_of else _utc_now()
         records = self._records_at(timestamp, _utc_now()) if as_of else self.list()
-        local_provider = provider.casefold() in {"local", "ollama", "local_ollama", "nexor_local"}
+        local_provider = provider.casefold() in {"local", "ollama", "local_ollama", "memty_local", "nexor_local"}
         eligible = []
         query_terms = _terms(query)
         for record in records:

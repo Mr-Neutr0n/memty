@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexorAI — One Universe. Every Intelligence.</title>
+    <title>Memty — One Universe. Every Intelligence.</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -148,8 +148,8 @@
 
 <nav>
     <a class="nav-logo" href="/">
-        <div class="nav-logo-img"><img src="/static/assets/NexorSplash.png" alt="N"></div>
-        <span class="nav-logo-text">NexorAI</span>
+        <div class="nav-logo-img"><img src="/static/assets/MemtySplash.png" alt="N"></div>
+        <span class="nav-logo-text">Memty</span>
     </a>
     <div class="nav-links">
         <a href="#solar">Models</a>
@@ -189,7 +189,7 @@
 <!-- FEATURES -->
 <section id="features">
     <div class="features-inner">
-        <p class="section-label" style="text-align:center;">Why NexorAI</p>
+        <p class="section-label" style="text-align:center;">Why Memty</p>
         <h2 class="section-title" style="text-align:center;">Everything you need, in one space</h2>
         <div class="features-grid">
             <div class="feat-card"><div class="feat-icon" style="background:rgba(108,99,255,0.15)">🧠</div><h3>Multi-Model Freedom</h3><p>Switch seamlessly between leading AI providers — Gemini, Grok AI, Claude, and Llama — without leaving your workspace.</p></div>
@@ -197,7 +197,7 @@
             <div class="feat-card"><div class="feat-icon" style="background:rgba(16,185,129,0.15)">💻</div><h3>Code & Debug</h3><p>Advanced syntax highlighting, smart code explanations, and step-by-step debugging assistance.</p></div>
             <div class="feat-card"><div class="feat-icon" style="background:rgba(245,158,11,0.15)">🔬</div><h3>Deep Research</h3><p>Long-context reasoning for complex research workflows, document analysis, and structured outputs.</p></div>
             <div class="feat-card"><div class="feat-icon" style="background:rgba(239,68,68,0.15)">🗂️</div><h3>Conversation History</h3><p>Every conversation is saved and searchable. Pick up right where you left off, any time.</p></div>
-            <div class="feat-card"><div class="feat-icon" style="background:rgba(168,85,247,0.15)">🚀</div><h3>Growing Ecosystem</h3><p>New AI models join the NexorAI universe regularly. Stay ahead with the latest intelligence.</p></div>
+            <div class="feat-card"><div class="feat-icon" style="background:rgba(168,85,247,0.15)">🚀</div><h3>Growing Ecosystem</h3><p>New AI models join the Memty universe regularly. Stay ahead with the latest intelligence.</p></div>
         </div>
     </div>
 </section>
@@ -214,8 +214,8 @@
 <!-- FOOTER -->
 <footer>
     <div class="foot-logo">
-        <div class="foot-logo-img"><img src="/static/assets/NexorSplash.png" alt="N"></div>
-        <span class="foot-logo-text">NexorAI</span>
+        <div class="foot-logo-img"><img src="/static/assets/MemtySplash.png" alt="N"></div>
+        <span class="foot-logo-text">Memty</span>
     </div>
     <div class="foot-links">
         <a href="#solar">Models</a>
@@ -224,7 +224,7 @@
         <a href="#">Privacy</a>
         <a href="#">Terms</a>
     </div>
-    <p class="foot-copy">© 2026 NexorAI. All rights reserved.</p>
+    <p class="foot-copy">© 2026 Memty. All rights reserved.</p>
 </footer>
 
 <!-- Galaxy hero background -->
@@ -258,7 +258,7 @@
 
     /* ---------- Image loading ---------- */
     const SRC = {
-        nexor:  '/static/assets/NexorSplash.png',
+        memty:  '/static/assets/MemtySplash.png',
         claude: '/static/assets/claude.png',
         meta:   '/static/assets/meta.png',
         gemini: '/static/assets/gemini.png',
@@ -400,7 +400,7 @@
     /* ---------- Draw sun ---------- */
     function drawSun() {
         const r = 33;
-        const img = IMGS.nexor;
+        const img = IMGS.memty;
 
         /* Radial glow halo */
         const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 3);
@@ -422,7 +422,7 @@
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        /* NexorSplash inside circle */
+        /* MemtySplash inside circle */
         if (img) {
             ctx.beginPath();
             ctx.arc(cx, cy, r - 1, 0, Math.PI * 2);

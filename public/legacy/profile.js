@@ -12,7 +12,7 @@ export function setupProfile({ getUser, onUpdated }) {
     overlay.innerHTML = `
         <section class="profile-dialog" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
             <aside class="profile-rail">
-                <div class="profile-rail-brand"><span class="profile-brand-mark">N</span><span>NexorAI</span></div>
+                <div class="profile-rail-brand"><span class="profile-brand-mark">N</span><span>Memty</span></div>
                 <div class="profile-rail-account">
                     <div class="profile-avatar" id="profileAvatar">U</div>
                     <div><strong id="profileRailName">Your account</strong><span id="profileRailEmail"></span></div>
@@ -33,7 +33,7 @@ export function setupProfile({ getUser, onUpdated }) {
                 </header>
                 <div class="profile-status" id="profileStatus" role="status" aria-live="polite"></div>
                 <section class="profile-panel" data-profile-panel="profile">
-                    <div class="profile-welcome-card"><div><span class="profile-welcome-kicker">YOUR NEXORAI SPACE</span><h3>Make it yours.</h3><p>Personalize your account details and the way NexorAI recognizes you.</p></div><div class="profile-orbit">✦</div></div>
+                    <div class="profile-welcome-card"><div><span class="profile-welcome-kicker">YOUR MEMTY SPACE</span><h3>Make it yours.</h3><p>Personalize your account details and the way Memty recognizes you.</p></div><div class="profile-orbit">✦</div></div>
                     <form id="profileForm" class="profile-form">
                         <div class="profile-photo-row">
                             <div class="profile-avatar profile-avatar-large" id="profilePhotoPreview">U</div>
@@ -50,7 +50,7 @@ export function setupProfile({ getUser, onUpdated }) {
                     </form>
                 </section>
                 <section class="profile-panel" data-profile-panel="billing" hidden>
-                    <div class="billing-heading"><div><span class="profile-welcome-kicker">NEXORAI BILLING</span><h3>Plan and payments</h3><p>Manage your plan and choose how you’d prefer to pay when Pro launches.</p></div></div>
+                    <div class="billing-heading"><div><span class="profile-welcome-kicker">MEMTY BILLING</span><h3>Plan and payments</h3><p>Manage your plan and choose how you’d prefer to pay when Pro launches.</p></div></div>
                     <article class="billing-plan-card"><div class="billing-plan-icon">✦</div><div class="billing-plan-copy"><span class="billing-plan-label">CURRENT PLAN</span><h4 id="billingPlanName">Free plan</h4><p>Pro subscriptions are being prepared and are not available yet.</p></div><span class="billing-plan-status">ACTIVE</span></article>
                     <div class="billing-section-title"><div><h4>Preferred payment method</h4><p>This saves a preference only. No payment details are collected.</p></div><span class="billing-soon-pill">CHECKOUT SOON</span></div>
                     <div class="billing-methods" role="radiogroup" aria-label="Preferred payment method">

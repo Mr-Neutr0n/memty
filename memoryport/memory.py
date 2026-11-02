@@ -117,7 +117,7 @@ class PortableMemoryStore:
 
 
 class MongoSyncedMemoryStore(PortableMemoryStore):
-    """User-scoped adapter for NexorAI's existing MongoDB memory collection.
+    """User-scoped adapter for Memty's existing MongoDB memory collection.
 
     MongoDB remains canonical. Every public read refreshes the JSON mirror;
     writes go to MongoDB first and then refresh the mirror. Install pymongo to
@@ -132,9 +132,9 @@ class MongoSyncedMemoryStore(PortableMemoryStore):
             from bson import ObjectId
             from pymongo import MongoClient
         except ImportError as error:
-            raise RuntimeError("Install the optional dependency with: pip install 'nexorai-smart-auto[mongodb]'") from error
+            raise RuntimeError("Install the optional dependency with: pip install 'memty[mongodb]'") from error
         if not ObjectId.is_valid(user_id):
-            raise ValueError("user_id must be the authenticated NexorAI MongoDB ObjectId")
+            raise ValueError("user_id must be the authenticated Memty MongoDB ObjectId")
         super().__init__(path)
         self._object_id = ObjectId(user_id)
         self._client = MongoClient(uri, serverSelectionTimeoutMS=5000)
@@ -167,9 +167,9 @@ class MongoSyncedMemoryStore(PortableMemoryStore):
             importance: float = 0.5, source: str = "") -> dict[str, Any]:
         text = str(fact).strip()
         if not 4 <= len(text) <= 500:
-            raise ValueError("NexorAI memory fact must contain 4 to 500 characters")
+            raise ValueError("Memty memory fact must contain 4 to 500 characters")
         if kind not in {"semantic", "style"}:
-            raise ValueError("NexorAI memory type must be semantic or style")
+            raise ValueError("Memty memory type must be semantic or style")
         existing = self._collection.find_one({"userId": self._object_id, "status": "active", "type": kind,
                                                "fact": {"$regex": f"^{re.escape(text)}$", "$options": "i"}})
         if existing:
@@ -190,7 +190,7 @@ class MongoSyncedMemoryStore(PortableMemoryStore):
 
     def import_data(self, payload: dict[str, Any], *, replace: bool = False) -> int:
         if replace:
-            raise ValueError("Mongo synced imports are additive; use the NexorAI memory dashboard to delete records")
+            raise ValueError("Mongo synced imports are additive; use the Memty memory dashboard to delete records")
         if payload.get("format") != self.FORMAT or not isinstance(payload.get("memories"), list):
             raise ValueError("Unsupported portable-memory file format")
         for item in payload["memories"]:

@@ -1,4 +1,4 @@
-"""MCP bridge for delegating prompts to the locally configured NexorAI SDK."""
+"""MCP bridge for delegating prompts to the locally configured Memty SDK."""
 
 from __future__ import annotations
 
@@ -6,20 +6,20 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .sdk import NexorAI, load_client
+from .sdk import Memty, load_client
 
 
-def create_server(client: NexorAI):
+def create_server(client: Memty):
     try:
         from mcp.server.mcpserver import MCPServer
     except ImportError as error:
-        raise RuntimeError("MCP support requires Python 3.11+ and: pip install 'nexorai-smart-auto[mcp]'") from error
+        raise RuntimeError("MCP support requires Python 3.11+ and: pip install 'memty[mcp]'") from error
 
-    server = MCPServer("NexorAI Model Router", instructions=(
-        "This local server can recommend or call a model from the user's configured NexorAI catalog. "
+    server = MCPServer("Memty Model Router", instructions=(
+        "This local server can recommend or call a model from the user's configured Memty catalog. "
         "A delegate_prompt call sends its prompt and chat history to the selected provider. "
         "Do not claim this changes the host agent's own model; it delegates a separate request. "
-        "The shared MemoryPort vault is available to every configured assistant on this device. "
+        "The shared Memty vault is available to every configured assistant on this device. "
         "Only save or forget facts when the user explicitly asks; do not import a host transcript silently. "
         "Never include secrets in prompts or ask tools to reveal credentials."
     ))
@@ -50,7 +50,7 @@ def create_server(client: NexorAI):
 
     @server.tool()
     def search_memory(query: str, model_id: str = "auto") -> dict[str, Any]:
-        """Search shared provider-filtered facts from the local MemoryPort vault."""
+        """Search shared provider-filtered facts from the local Memty vault."""
         result = client.recall(query, model_id=model_id, chat_id="mcp-memory-search")
         result.pop("redactions", None)
         return result
@@ -71,7 +71,7 @@ def create_server(client: NexorAI):
 
 
 def main() -> None:
-    config = Path(os.getenv("NEXORAI_CONFIG", Path.home() / ".nexorai" / "models.json"))
+    config = Path(os.getenv("MEMTY_CONFIG", os.getenv("NEXORAI_CONFIG", Path.home() / ".memty" / "models.json")))
     load = load_client(config)
     create_server(load).run(transport="stdio")
 

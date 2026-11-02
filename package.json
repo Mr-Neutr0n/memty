@@ -1,8 +1,8 @@
 {
-  "name": "nexorai",
+  "name": "memty",
   "version": "2.0.0",
   "private": true,
-  "description": "NexorAI multi-model AI workspace.",
+  "description": "Memty multi-model AI workspace and portable memory vault.",
   "main": "server.js",
   "scripts": {
     "dev": "next dev -p 3001",

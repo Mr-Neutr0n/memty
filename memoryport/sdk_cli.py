@@ -1,4 +1,4 @@
-"""Command-line interface for the NexorAI local model SDK."""
+"""Model-routing and chat commands for the Memty CLI."""
 
 from __future__ import annotations
 
@@ -8,30 +8,34 @@ import os
 import sys
 from pathlib import Path
 
-from .sdk import ConfigurationError, NexorAI, load_client
+from .sdk import ConfigurationError, Memty, load_client
 
 
 def _config_arg(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--config", default=os.getenv("NEXORAI_CONFIG", str(Path.home() / ".nexorai" / "models.json")),
-                        help="model catalog JSON (default: ~/.nexorai/models.json)")
+    default_config = Path.home() / ".memty" / "models.json"
+    legacy_config = Path.home() / ".nexorai" / "models.json"
+    if not default_config.exists() and legacy_config.exists():
+        default_config = legacy_config
+    parser.add_argument("--config", default=os.getenv("MEMTY_CONFIG", os.getenv("NEXORAI_CONFIG", str(default_config))),
+                        help="model catalog JSON (default: ~/.memty/models.json)")
 
 
 def _integration(client: str) -> str:
-    command = f'"{sys.executable}" -m memoryport.sdk_mcp'
+    command = f'"{sys.executable}" -m memty.router_mcp'
     if client == "codex":
-        return f"codex mcp add nexorai -- {command}"
+        return f"codex mcp add memty -- {command}"
     if client == "claude-code":
-        return f"claude mcp add --scope user nexorai -- {command}"
-    return json.dumps({"servers": {"nexorai": {"type": "stdio", "command": sys.executable,
-                                                 "args": ["-m", "memoryport.sdk_mcp"]}}}, indent=2)
+        return f"claude mcp add --scope user memty -- {command}"
+    return json.dumps({"servers": {"memty": {"type": "stdio", "command": sys.executable,
+                                                 "args": ["-m", "memty.router_mcp"]}}}, indent=2)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="nexorai", description="Route prompts across local and cloud model providers.")
+    parser = argparse.ArgumentParser(prog="memty", description="Route prompts across configured local and cloud model providers.")
     commands = parser.add_subparsers(dest="command", required=True)
 
     init = commands.add_parser("init", help="write a sample local model catalog")
-    init.add_argument("--path", default=str(Path.home() / ".nexorai" / "models.json"))
+    init.add_argument("--path", default=str(Path.home() / ".memty" / "models.json"))
 
     models = commands.add_parser("models", help="list configured models and credential readiness")
     _config_arg(models)
@@ -55,7 +59,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         if args.command == "init":
-            print(NexorAI.default_config(args.path))
+            print(Memty.default_config(args.path))
             return
         if args.command == "integration":
             print(_integration(args.client))
@@ -70,7 +74,7 @@ def main() -> None:
             return
         if args.command == "chat":
             if args.interactive:
-                print("NexorAI local chat. Enter /exit to quit, /clear to clear this chat.")
+                print("Memty chat. Enter /exit to quit, /clear to clear this chat.")
                 while True:
                     try:
                         prompt = input("you> ").strip()
@@ -96,7 +100,7 @@ def main() -> None:
             print(response.text)
             return
     except (ConfigurationError, OSError, ValueError, RuntimeError) as error:
-        print(f"nexorai: {error}", file=sys.stderr)
+        print(f"memty: {error}", file=sys.stderr)
         raise SystemExit(2) from None
 
 

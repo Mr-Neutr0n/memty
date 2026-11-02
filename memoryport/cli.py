@@ -1,4 +1,4 @@
-"""Manage a local Nexor memory vault without a web account or model API."""
+"""Manage a local Memty temporal vault without a web account or model API."""
 
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ from .vault import export_nxvault, import_nxvault
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="nexor-vault")
+    parser = argparse.ArgumentParser(prog="memty vault")
     parser.add_argument("--db", default=str(default_vault_path()))
-    parser.add_argument("--user", default=os.getenv("NEXORAI_MEMORY_USER", os.getenv("NEXOR_VAULT_USER", "local")))
+    parser.add_argument("--user", default=os.getenv("MEMTY_MEMORY_USER", os.getenv("NEXORAI_MEMORY_USER", os.getenv("MEMTY_VAULT_USER", os.getenv("NEXOR_VAULT_USER", "local")))))
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("list", help="list active and historical memories")
     add = commands.add_parser("add", help="save a user-confirmed fact")

@@ -46,7 +46,7 @@ Files:
 
 ## Routing behavior
 
-Auto routes by task signals: deep reasoning, long context, code/debug, structured output, memory-backed synthesis, and general chat. It prefers configured providers in each task class, then uses the registry's ordered fallback list if a request fails. Compare mode makes a separate call to the requested second model without fallback. The optional Python package in `memoryport/` adds a capability-constrained LinUCB learner and portable JSON memory store for Python integrations; it is not required to run the Next.js app.
+Auto routes by task signals: deep reasoning, long context, code/debug, structured output, memory-backed synthesis, and general chat. It prefers configured providers in each task class, then uses the registry's ordered fallback list if a request fails. Compare mode makes a separate call to the requested second model without fallback. The optional Python package in `memty/` adds a capability-constrained LinUCB learner and portable JSON memory store for Python integrations; it is not required to run the Next.js app.
 
 This is heuristic routing, not a quality benchmark or guaranteed best-model selection. If no requested/fallback provider is configured, the chat API returns an error. Responses are currently non-streaming. The registry lists capability metadata; it should not be read as a guarantee that the present UI forwards every modality (for example, vision) to each provider.
 
@@ -55,8 +55,8 @@ This is heuristic routing, not a quality benchmark or guaranteed best-model sele
 For an estimate, set both rate variables for a model ID, in USD per million input/output tokens. Example for Gemini:
 
 ```env
-NEXOR_GEMINI_FLASH_INPUT_USD_PER_MILLION=0.1
-NEXOR_GEMINI_FLASH_OUTPUT_USD_PER_MILLION=0.4
+MEMTY_GEMINI_FLASH_INPUT_USD_PER_MILLION=0.1
+MEMTY_GEMINI_FLASH_OUTPUT_USD_PER_MILLION=0.4
 ```
 
 Estimates are based on provider-reported token counts where available and operator-entered rates. They do not charge users and are not a billing ledger. Keep rates current with provider pricing.

@@ -43,20 +43,20 @@ if ! command -v git >/dev/null 2>&1; then
   exit 1
 fi
 
-install_root="${NEXORAI_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/nexorai}"
+install_root="${MEMTY_HOME:-${NEXORAI_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/memty}}"
 venv="$install_root/venv"
 mkdir -p "$install_root"
 "$python_bin" -m venv "$venv"
 "$venv/bin/python" -m pip install --upgrade pip
 
-package="nexorai-smart-auto"
+package="memty"
 if ((${#extras[@]})); then
   extras_csv="$(IFS=,; printf '%s' "${extras[*]}")"
   package+="[$extras_csv]"
 fi
-"$venv/bin/python" -m pip install --upgrade "$package @ git+https://github.com/RohanNK86/Open_AI_Bot.git@main"
+"$venv/bin/python" -m pip install --upgrade "$package @ git+https://github.com/RohanNK86/memty.git@main"
 
-echo "MemoryPort and SmartRouter installed in: $venv"
-echo "Vault database default: $HOME/.nexorai/memory.sqlite3"
-echo "CLI: $venv/bin/nexor-vault --help"
+echo "Memty installed in: $venv"
+echo "Vault database default: $HOME/.memty/ledger.sqlite3"
+echo "CLI: $venv/bin/memty --help"
 

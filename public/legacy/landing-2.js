@@ -21,7 +21,7 @@
 
     /* ---------- Image loading ---------- */
     const SRC = {
-        nexor:  '/static/assets/NexorSplash.png',
+        memty:  '/static/assets/MemtySplash.png',
         claude: '/static/assets/claude.png',
         meta:   '/static/assets/meta.png',
         gemini: '/static/assets/gemini.png',
@@ -253,7 +253,7 @@
     /* ---------- Draw sun ---------- */
     function drawSun() {
         const r = 33;
-        const img = IMGS.nexor;
+        const img = IMGS.memty;
 
         /* Radial glow halo */
         const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 3);
@@ -275,7 +275,7 @@
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        /* NexorSplash inside circle */
+        /* MemtySplash inside circle */
         if (img) {
             ctx.beginPath();
             ctx.arc(cx, cy, r - 1, 0, Math.PI * 2);
