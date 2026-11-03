@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memty"
-version = "0.2.0"
-description = "Memty: portable memory, smart model routing, and multi-provider chat"
+version = "0.1.1"
+description = "Memty: a user-owned local memory vault for AI assistants"
 readme = "memty/README.md"
 requires-python = ">=3.10"
-dependencies = []
-keywords = ["memty", "portable-memory", "vector-memory", "model-routing", "linucb", "mcp", "openai-compatible"]
+dependencies = ["mcp>=1.9,<2"]
+keywords = ["memty", "portable-memory", "ai-memory", "local-first", "mcp", "sqlite"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python :: 3",
@@ -27,11 +27,12 @@ Documentation = "https://github.com/RohanNK86/memty/tree/main/memty"
 [project.optional-dependencies]
 mongodb = ["pymongo>=4.6"]
 crypto = ["cryptography>=43.0"]
-mcp = ["mcp>=2.0,<3; python_version >= '3.11'"]
+mcp = []
 server = ["fastapi>=0.115", "uvicorn>=0.30"]
 
 [project.scripts]
 memty = "memty.cli:main"
+memtyd = "memty.daemon:main"
 memty-mcp = "memty.mcp_server:main"
 memty-legacy-vault = "memty.legacy_vault:main"
 memty-legacy-mcp = "memty.legacy_mcp:main"

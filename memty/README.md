@@ -1,8 +1,8 @@
 # Memty
 
-Memty is the public product and Python distribution for smart model routing, multi-provider chat, and a user-owned portable memory vault. Its CLI supports both model tasks and the atomic vault. The deterministic context compiler uses canonical slots, logical constraints, capped summaries, and an explicit raw drill-down archive.
+Memty is a user-owned, local memory vault for AI assistants. It stores atomic facts, decisions, and summaries in SQLite and compiles compact context capsules. Its MCP bridge and CLI share a local background daemon, so supported clients can work with the same ledger.
 
-Week 1 is the storage and retrieval engine. It is standard-library only, local-first, and makes no model or network calls.
+Memty is in alpha and the roadmap is still being developed. Version 0.1 provides the atomic ledger, local daemon, CLI, and MCP bridge. A browser bridge for web assistants, automatic capture, and other roadmap integrations are not yet provided by this release. MCP clients decide when to read resources or call tools; automatic context injection is not guaranteed.
 
 ## What Week 1 ships
 
@@ -17,9 +17,9 @@ Week 1 is the storage and retrieval engine. It is standard-library only, local-f
 | User can restore a deleted slot | `verification_state="USER_CONFIRMED"` (or `SPEC_LOCKED`) |
 | Rolling namespace summaries | `rolling_summaries`, capped at 150 tokens, optional float32 embedding |
 | Raw text is never injected | `raw_drilldown` is only returned by an explicit `drill_down()` call |
-| Deterministic context under 600 tokens | Three-section compiler: slots ≤250, summary ≤200, semantic ≤150 |
+| Deterministic context under 600 tokens | Three-section compiler with slot, summary, and semantic sections |
 | FTS5 keyword retrieval with SQL fallback | `atomic_facts_fts` and `rolling_summaries_fts`, created when SQLite supports FTS5 |
-| SECRET facts cannot leave the device | `LocalRoutingRequired` forces the caller to switch to local `ollama` |
+| SECRET facts in cloud context | The compiler raises `LocalRoutingRequired` when a matching SECRET fact requires local processing |
 | CONFIDENTIAL facts can be masked | `<MEMTY_REDACTED_SLOT_N>` placeholders plus `rehydrate()` in the response path |
 | Provider allow/block lists | Per-fact `allowed_providers` / `blocked_providers` |
 
@@ -29,8 +29,7 @@ The four functional tables are `atomic_facts`, `logical_constraints`, `rolling_s
 
 ```shell
 python -m pip install memty
-# optional MCP server
-pip install "memty[mcp]"
+# MCP support is included
 ```
 
 The vault lives at `~/.memty/ledger.sqlite3` by default. Override it with `MEMTY_VAULT_PATH` or `--db`.
@@ -40,7 +39,6 @@ The vault lives at `~/.memty/ledger.sqlite3` by default. Override it with `MEMTY
 After installing the package, the following commands create a complete local namespace:
 
 ```powershell
-python -m pip install -e .
 memty remember project.api cache_engine "DragonflyDB" --verification USER_CONFIRMED
 memty remember project.api rate_limiter "Token Bucket via Lua, 500 req/min" --verification SPEC_LOCKED
 memty rule project.api database_queries "writing database queries" "always use async Motor and project only needed fields"
@@ -50,29 +48,6 @@ memty stats
 ```
 
 Use `memty list`, `memty rules`, `memty history`, `memty forget`, `memty raw-add`, and `memty raw-get` to inspect and manage the vault. The default database is `~/.memty/ledger.sqlite3`; use `--db` or `MEMTY_VAULT_PATH` for another location.
-
-## Model routing and chat SDK
-
-The same package provides prompt-aware routing, provider adapters, and a local chat client. Generate a model catalog, set provider credentials in your environment, and use:
-
-```shell
-memty init
-memty models
-memty route "Review this Python function"
-memty chat --interactive --chat-id work
-```
-
-```python
-from memty import Memty, ModelConfig, load_client
-
-client = load_client()  # reads ~/.memty/models.json
-answer = client.chat("Review this Python function", chat_id="code-review")
-print(answer.model_id, answer.text)
-```
-
-`Memty` supports configured OpenAI-compatible providers, Anthropic, Gemini Interactions, local Ollama, and custom adapters. Routing can use task rules, cost, latency, or adaptive feedback. The catalog uses operator-supplied capability, context, cost, and latency metadata; it does not fetch provider catalogs. Chat transcripts remain in process memory by default. Existing temporal-vault files are reused when found; the atomic CLI vault and web account memory keep their established storage boundaries.
-
-The distribution metadata is named `memty`. Once a release is published on PyPI, install it with `python -m pip install memty`; until then, install the project checkout or use the GitHub installer linked in the root guide. PyPI publishing still needs to be completed.
 
 `memty recall` prints a deterministic `<memty_state>` capsule. It never includes archived raw source text. A matching `SECRET` fact exits with status 2 and reports that the request must use a local provider.
 
@@ -164,15 +139,25 @@ memty migrate ~/.memty/memory.sqlite3
 
 `memty recall` exits with status 2 and prints a `local_routing_required` payload when a SECRET fact matches a cloud provider.
 
-## Optional MCP bridge
+## MCP bridge and client setup
+
+Install Memty with `pip install memty`, then run `memty connect`. It detects existing Claude Desktop, Claude Code, Cursor, and Windsurf configuration locations and adds a `memty` server while preserving other settings. Restart the clients after connecting. Invalid JSON is reported without being overwritten. Clients that are not detected are skipped; launch them once and rerun the command.
+
+The clients start `memty mcp` over stdio. The server exposes `memty_sync` (`recall`, `remember`, or `forget`) and the resource template `memty://capsule/{namespace}`. The compiled capsule is limited to 120 estimated tokens. MCP results are treated as an external provider by default, so the ledger's sensitivity rules apply. `MEMTY_PROVIDER` can select another provider identity; choose a local identity only when the receiving model is actually local. Database path and user overrides are `MEMTY_VAULT_PATH` (or `MEMTY_DB`) and `MEMTY_USER`.
+
+The MCP servers and atomic-vault CLI automatically start and share one `memtyd` process for each database path. The daemon serializes their ledger operations and holds a SQLite connection. It uses authenticated loopback connections; its endpoint and secret are stored beside the database, so keep that directory private. The SDK and other applications may still access SQLite directly. WAL and a 5-second busy timeout reduce contention with those external connections, but a lock held longer than the timeout can still cause an error.
 
 ```shell
-memty-mcp
+memtyd status
+memtyd start
+memtyd stop
+# For a non-default database, add --db PATH to each command.
+# Equivalent: memty daemon status
 ```
 
-Tools: `memty_recall`, `memty_remember`, `memty_forget`, `memty_drill_down`, `memty_list`, `memty_stats`. The recall tool removes the `redactions` map so an external agent never receives masked values.
+The daemon persists until stopped or the computer exits. It restarts automatically when a client next needs it. Run `memtyd serve` in the foreground to diagnose startup failures.
 
-## Guarantees and verification
+## Verification
 
 The Week 1 acceptance suite covers the schema, logical constraints, 40-token enforcement, versioning/audit, tombstones, raw isolation, budgets, semantic snippets, summaries, allow/block lists, SECRET routing, and CONFIDENTIAL rehydration:
 
@@ -195,4 +180,4 @@ Only the newest event for each `(namespace, slot)` is considered, so superseded 
 
 ## Scope of the atomic vault release
 
-The atomic vault CLI and compiler are dependency-free and local-first. Model routing, multi-provider chat, the optional HTTP and MCP bridges, MongoDB support, and encrypted exports are provided through the same Memty distribution as separate integrations and optional extras.
+The local ledger and compiler use the Python standard library. The distribution includes the MCP dependency. The existing package also contains legacy routing and chat integrations; these are not the focus of the Memty memory-vault roadmap. Browser integration and automatic capture remain future work.
