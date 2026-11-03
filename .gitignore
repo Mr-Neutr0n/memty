@@ -53,6 +53,7 @@ memory-data/
 # Python build and runtime artifacts
 __pycache__/
 *.py[cod]
+PYPL_API_KEY
 *.egg-info/
 .venv/
 venv/
@@ -80,3 +81,7 @@ Desktop.ini
 postman/
 node_modules
 
+
+# Memty daemon runtime credentials and locks
+*.daemon.json
+*.daemon.lock

@@ -17,10 +17,20 @@ def _print(value) -> None:
 
 def _ledger(args) -> MemtyLedger:
     trusted = [item.strip() for item in (args.trusted_provider or []) if item.strip()]
-    return MemtyLedger(args.db, args.user, trusted_providers=trusted)
+    from .daemon import DaemonLedger
+    return DaemonLedger(args.db, args.user, trusted_providers=trusted)
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "daemon":
+        from .daemon import main as daemon_main
+        sys.argv = [sys.argv[0], *sys.argv[2:]]
+        daemon_main()
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "mcp":
+        from .mcp_server import main as mcp_main
+        mcp_main()
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "vault":
         from .legacy_vault import main as legacy_vault_main
         sys.argv = [sys.argv[0], *sys.argv[2:]]
@@ -101,6 +111,7 @@ def main() -> None:
     rule_delete.add_argument("rule_id")
 
     commands.add_parser("stats", help="show vault counters and paths")
+    commands.add_parser("connect", help="configure detected MCP clients")
 
     raw_add = commands.add_parser("raw-add", help="archive raw text without changing facts")
     raw_add.add_argument("namespace")
@@ -117,6 +128,13 @@ def main() -> None:
     migrate.add_argument("path")
 
     args = parser.parse_args()
+    if args.command == "connect":
+        from .connect import connect_clients
+        results = connect_clients()
+        _print(results)
+        if any(item["status"] == "error" for item in results.values()):
+            raise SystemExit(1)
+        return
     ledger = _ledger(args)
 
     if args.command == "remember":

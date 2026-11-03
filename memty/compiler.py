@@ -57,7 +57,8 @@ class ContextCompiler:
     def compile(self, query: str, *, provider: str, token_budget: int = DEFAULT_BUDGET,
                 namespace: str | None = None,
                 semantic_scores: dict[str, float] | None = None,
-                query_embedding: list[float] | None = None) -> dict[str, Any]:
+                query_embedding: list[float] | None = None,
+                strict_namespace: bool = False) -> dict[str, Any]:
         provider = str(provider or "").strip()
         if not _PROVIDER.fullmatch(provider):
             raise ValueError("provider is required and must be a provider identifier")
@@ -77,7 +78,7 @@ class ContextCompiler:
             ranked: list[tuple[float, dict[str, Any], sqlite3.Row]] = []
             for row in rows:
                 fact = self.ledger._fact(row, include_embedding=False)
-                if fact["tombstone"] or not self._provider_allowed(fact, provider_key, trusted):
+                if (strict_namespace and fact["namespace"] != namespace) or fact["tombstone"] or not self._provider_allowed(fact, provider_key, trusted):
                     continue
                 overlap = (len(query_terms & _terms(
                     f"{fact['namespace']} {fact['slot']} {fact['value']}")) / len(query_terms)
@@ -111,6 +112,8 @@ class ContextCompiler:
 
             summary = self._select_summary(db, query_terms, namespace, query_embedding,
                                            provider_key, trusted)
+            if strict_namespace and summary is not None and summary["namespace"] != namespace:
+                summary = None
             sensitive_summary = False
             if summary is not None and not trusted:
                 sensitive_summary = self.ledger.namespace_has_sensitive(db, summary["namespace"])

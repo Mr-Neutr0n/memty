@@ -295,7 +295,9 @@ class MemtyLedger:
                 END;
             """)
             return True
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as error:
+            if "no such module: fts5" not in str(error).lower():
+                raise
             # Some minimal Python builds omit FTS5.  Every query has a
             # deterministic SQL fallback, so the vault still works.
             return False
@@ -795,12 +797,14 @@ class MemtyLedger:
     def context(self, query: str, *, provider: str, token_budget: int = DEFAULT_CONTEXT_BUDGET,
                 namespace: str | None = None,
                 semantic_scores: dict[str, float] | None = None,
-                query_embedding: list[float] | None = None) -> dict[str, Any]:
+                query_embedding: list[float] | None = None,
+                strict_namespace: bool = False) -> dict[str, Any]:
         """Compile a deterministic ``<memty_state>`` block within ``token_budget``."""
         from .compiler import ContextCompiler
         return ContextCompiler(self).compile(
             query, provider=provider, token_budget=token_budget, namespace=namespace,
-            semantic_scores=semantic_scores, query_embedding=query_embedding)
+            semantic_scores=semantic_scores, query_embedding=query_embedding,
+            strict_namespace=strict_namespace)
 
     def rehydrate(self, text: str, redactions: dict[str, str]) -> str:
         """Put redacted values back into provider output before showing the user."""
