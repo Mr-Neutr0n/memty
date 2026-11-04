@@ -36,6 +36,8 @@ The vault lives at `~/.memty/ledger.sqlite3` by default. Override it with `MEMTY
 
 ## Quick start: CLI
 
+Run `memty` to see the welcome screen and suggested commands. Use `memty --help` to explore the CLI or `memty --version` to check the installed version.
+
 After installing the package, the following commands create a complete local namespace:
 
 ```powershell

@@ -1,0 +1,41 @@
+"""CLI welcome behavior and backwards-compatible command output."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+
+
+class WelcomeTests(unittest.TestCase):
+    def test_no_arguments_welcomes_without_creating_vault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / "untouched" / "ledger.sqlite3"
+            env = dict(os.environ, MEMTY_VAULT_PATH=str(db), MEMTY_DB=str(db))
+            result = subprocess.run([sys.executable, "-m", "memty"], env=env,
+                                    capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Local memory for AI assistants", result.stdout)
+            self.assertIn("user-owned local vault", result.stdout)
+            self.assertIn("memty connect", result.stdout)
+            self.assertIn("memty --help", result.stdout)
+            self.assertFalse(db.parent.exists())
+
+    def test_help_version_and_connect_remain_machine_usable(self):
+        def run(*args):
+            return subprocess.run([sys.executable, "-m", "memty", *args],
+                                  capture_output=True, text=True, timeout=15)
+        help_result = run("--help")
+        self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        self.assertIn("usage: memty", help_result.stdout)
+        version = run("--version")
+        self.assertEqual(version.returncode, 0, version.stderr)
+        self.assertTrue(version.stdout.startswith("memty "))
+        connect = run("connect")
+        self.assertEqual(connect.returncode, 0, connect.stderr)
+        self.assertEqual(json.loads(connect.stdout)["status"], "instructions_only")
+
+
+if __name__ == "__main__":
+    unittest.main()
