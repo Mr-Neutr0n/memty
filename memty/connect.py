@@ -1,60 +1,34 @@
-"""Install Memty's stdio MCP entry into detected client configurations."""
+﻿"""Show connection instructions without reading or changing client settings."""
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
+import shlex
 import sys
-import tempfile
 
 
-def client_paths(home: Path | None = None) -> dict[str, Path]:
-    home = home or Path.home()
-    if sys.platform == "win32":
-        desktop = Path(os.environ.get("APPDATA", str(home / "AppData" / "Roaming"))) / "Claude"
-    elif sys.platform == "darwin":
-        desktop = home / "Library" / "Application Support" / "Claude"
-        # Create the directory if it doesn't exist
-        #desktop.mkdir(parents=True, exists_ok=True)
-    else:
-        desktop = Path(os.environ.get("XDG_CONFIG_HOME", str(home / ".config"))) / "Claude"
+def _claude_command(executable: str) -> str:
+    args = ["claude", "mcp", "add", "--scope", "user", "memty", "--",
+            executable, "-m", "memty", "mcp"]
+    if os.name == "nt":
+        # PowerShell single-quoted strings treat two quotes as one literal quote.
+        return " ".join("'" + arg.replace("'", "''") + "'" if index >= 6 else arg
+                        for index, arg in enumerate(args))
+    return shlex.join(args)
+
+
+def connect_clients() -> dict:
+    """Return setup information; never inspect or modify client configuration."""
+    server = {"command": sys.executable, "args": ["-m", "memty", "mcp"]}
     return {
-        "Claude Desktop": desktop / "claude_desktop_config.json",
-        "Claude Code": home / ".claude.json",
-        "Cursor": home / ".cursor" / "mcp.json",
-        "Windsurf": home / ".codeium" / "windsurf" / "mcp_config.json",
+        "status": "instructions_only",
+        "message": "No client configuration was read or changed. Choose a client below to connect Memty.",
+        "server_entry": {"memty": server},
+        "claude_code": {
+            "command": _claude_command(sys.executable),
+            "documentation": "https://code.claude.com/docs/en/mcp",
+        },
+        "claude_desktop": {"documentation": "https://modelcontextprotocol.io/quickstart/user"},
+        "cursor": {"documentation": "https://docs.cursor.com/context/model-context-protocol"},
+        "windsurf": {"documentation": "https://docs.windsurf.com/windsurf/cascade/mcp"},
+        "note": "For client settings that accept JSON, add server_entry under mcpServers using the client's documented setup. Keep existing entries.",
     }
-
-
-def connect_clients(paths: dict[str, Path] | None = None) -> dict:
-    results = {}
-    for name, path in (paths if paths is not None else client_paths()).items():
-        path = Path(path)
-        # Claude Code's config lives directly in the home directory; a home
-        # directory alone is not evidence that Claude Code is installed.
-        detected = path.exists() or (name != "Claude Code" and path.parent.is_dir())
-        if not detected:
-            results[name] = {"status": "not_detected", "path": str(path)}
-            continue
-        temp_name = None
-        try:
-            config = json.loads(path.read_text(encoding="utf-8-sig")) if path.exists() else {}
-            if not isinstance(config, dict):
-                raise ValueError("configuration must be a JSON object")
-            servers = config.setdefault("mcpServers", {})
-            if not isinstance(servers, dict):
-                raise ValueError("mcpServers must be a JSON object")
-            servers["memty"] = {"command": sys.executable, "args": ["-m", "memty", "mcp"]}
-            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                                             delete=False, newline="\n") as tmp:
-                temp_name = tmp.name
-                json.dump(config, tmp, ensure_ascii=False, indent=2)
-                tmp.write("\n")
-            os.replace(temp_name, path)
-            results[name] = {"status": "connected", "path": str(path)}
-        except (OSError, ValueError) as error:
-            results[name] = {"status": "error", "path": str(path), "error": str(error)}
-        finally:
-            if temp_name and os.path.exists(temp_name):
-                os.unlink(temp_name)
-    return results

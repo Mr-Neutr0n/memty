@@ -111,7 +111,7 @@ def main() -> None:
     rule_delete.add_argument("rule_id")
 
     commands.add_parser("stats", help="show vault counters and paths")
-    commands.add_parser("connect", help="configure detected MCP clients")
+    commands.add_parser("connect", help="show safe MCP client setup instructions")
 
     raw_add = commands.add_parser("raw-add", help="archive raw text without changing facts")
     raw_add.add_argument("namespace")
@@ -132,8 +132,6 @@ def main() -> None:
         from .connect import connect_clients
         results = connect_clients()
         _print(results)
-        if any(item["status"] == "error" for item in results.values()):
-            raise SystemExit(1)
         return
     ledger = _ledger(args)
 
