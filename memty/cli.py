@@ -4,11 +4,56 @@ from __future__ import annotations
 
 import argparse
 import json
+from importlib import metadata
 import sys
 
 from .compiler import LocalRoutingRequired
 from .factory import default_user_id, default_vault_path
 from .ledger import MemtyLedger
+
+
+def _version() -> str:
+    """Read the installed distribution version without starting the vault."""
+    try:
+        return metadata.version("memty")
+    except metadata.PackageNotFoundError:
+        return "development"
+
+
+def _welcome() -> None:
+    """Show a portable, read-only introduction when no command is supplied."""
+    wordmark = r"""
+   __  __  _____  __  __  _____ __   __
+  |  \/  || ____||  \/  ||_   _|\ \ / /
+  | |\/| ||  _|  | |\/| |  | |   \ V /
+  | |  | || |___ | |  | |  | |    | |
+  |_|  |_||_____||_|  |_|  |_|    |_|
+""".strip("\n")
+    print(wordmark)
+    print(f"""
+  Local memory for AI assistants  |  v{_version()}
+  ------------------------------------------------------------
+
+  Memty keeps your facts, decisions, and context in a
+  user-owned local vault. Connect supported assistants to
+  share relevant memory through the MCP bridge.
+
+  GET STARTED
+
+  memty connect      View assistant setup instructions
+  memty remember     Save a fact to your vault
+  memty recall       Retrieve relevant context
+  memty stats        View vault statistics
+  memty --help       See all commands
+
+  TRY IT
+
+  memty remember project.demo editor "VS Code"
+  memty recall "editor" --namespace project.demo
+
+  ------------------------------------------------------------
+  Your memory stays under your control.
+""".strip("\n"))
 
 
 def _print(value) -> None:
@@ -22,6 +67,9 @@ def _ledger(args) -> MemtyLedger:
 
 
 def main() -> None:
+    if len(sys.argv) == 1:
+        _welcome()
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "daemon":
         from .daemon import main as daemon_main
         sys.argv = [sys.argv[0], *sys.argv[2:]]
@@ -54,9 +102,10 @@ def main() -> None:
         return
     parser = argparse.ArgumentParser(
         prog="memty",
-        description="Memty model routing, chat, and user-owned memory tools",
+        description="Memty: a user-owned local memory vault for AI assistants",
         epilog="Also available: init, models, route, chat, integration, vault, api, router-mcp, vault-mcp.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
     parser.add_argument("--db", default=str(default_vault_path()))
     parser.add_argument("--user", default=default_user_id())
     parser.add_argument("--trusted-provider", action="append", default=[],
