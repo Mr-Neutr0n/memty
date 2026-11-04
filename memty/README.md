@@ -141,7 +141,9 @@ memty migrate ~/.memty/memory.sqlite3
 
 ## MCP bridge and client setup
 
-Install Memty with `pip install memty`, then run `memty connect`. It detects existing Claude Desktop, Claude Code, Cursor, and Windsurf configuration locations and adds a `memty` server while preserving other settings. Restart the clients after connecting. Invalid JSON is reported without being overwritten. Clients that are not detected are skipped; launch them once and rerun the command.
+Install Memty with `pip install memty`, then run `memty connect`. It prints connection details and links to the clients' setup instructions. It does not read, create, or edit client configuration files. Choose the client you want to configure and use its supported setup flow. Claude Code users can run the displayed `claude mcp add` command; this command is run by the user and updates Claude Code's settings. For clients that accept JSON, add the displayed `server_entry` under `mcpServers`, keeping existing settings and server entries. Restart the client if its documentation requires it.
+
+Older versions of `memty connect` wrote directly to client configuration files and did not create a backup. If a client stopped working after running an older version, use that client's recovery instructions or an existing backup; do not delete its entire configuration file. This version does not modify or restore earlier changes.
 
 The clients start `memty mcp` over stdio. The server exposes `memty_sync` (`recall`, `remember`, or `forget`) and the resource template `memty://capsule/{namespace}`. The compiled capsule is limited to 120 estimated tokens. MCP results are treated as an external provider by default, so the ledger's sensitivity rules apply. `MEMTY_PROVIDER` can select another provider identity; choose a local identity only when the receiving model is actually local. Database path and user overrides are `MEMTY_VAULT_PATH` (or `MEMTY_DB`) and `MEMTY_USER`.
 

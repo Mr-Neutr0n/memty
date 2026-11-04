@@ -97,19 +97,40 @@ with MemtyLedger(sys.argv[1]) as ledger:
             finally:
                 stop(path)
 
-    def test_connect_preserves_existing_config_and_rejects_bad_json(self):
+    def test_connect_is_instructions_only_and_never_reads_or_writes_configs(self):
+        from unittest.mock import patch
+        with patch("pathlib.Path.read_text", side_effect=AssertionError("read config")), \
+             patch("pathlib.Path.write_text", side_effect=AssertionError("write config")), \
+             patch("os.replace", side_effect=AssertionError("replace config")):
+            result = connect_clients()
+        self.assertEqual(result["status"], "instructions_only")
+        self.assertEqual(result["server_entry"]["memty"]["args"], ["-m", "memty", "mcp"])
+        self.assertIn("claude mcp add", result["claude_code"]["command"])
+
+    def test_connect_cli_leaves_all_client_files_unchanged(self):
+        import os, subprocess, sys
         with tempfile.TemporaryDirectory() as tmp:
-            good, bad = Path(tmp) / "good.json", Path(tmp) / "bad.json"
-            good.write_text(json.dumps({"theme": "dark", "mcpServers": {"other": {"command": "x"}}}))
-            bad.write_text("{bad json")
-            result = connect_clients({"Claude Code": good, "Cursor": bad})
-            self.assertEqual(result["Claude Code"]["status"], "connected")
-            data = json.loads(good.read_text())
-            self.assertEqual(data["theme"], "dark")
-            self.assertIn("other", data["mcpServers"])
-            self.assertEqual(data["mcpServers"]["memty"]["args"], ["-m", "memty", "mcp"])
-            self.assertEqual(result["Cursor"]["status"], "error")
-            self.assertEqual(bad.read_text(), "{bad json")
+            home = Path(tmp)
+            files = [home / ".claude.json", home / ".cursor" / "mcp.json",
+                     home / ".codeium" / "windsurf" / "mcp_config.json",
+                     home / "appdata" / "Claude" / "claude_desktop_config.json"]
+            # Include invalid JSON and non-ASCII bytes: no client settings should
+            # be parsed, overwritten, echoed, or created by the command.
+            content = [b'{"secret": "do-not-print"}', b'{invalid',
+                       b'\xef\xbb\xbf{"mcpServers":{}}', b'{"other":true}']
+            for path, data in zip(files, content):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            before = {path: (path.read_bytes(), path.stat().st_mode) for path in files}
+            env = dict(os.environ, HOME=tmp, USERPROFILE=tmp,
+                       APPDATA=str(home / "appdata"), XDG_CONFIG_HOME=str(home / "appdata"))
+            result = subprocess.run([sys.executable, "-m", "memty", "connect"], env=env,
+                                    capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["status"], "instructions_only")
+            self.assertNotIn("do-not-print", result.stdout)
+            self.assertEqual(before, {path: (path.read_bytes(), path.stat().st_mode) for path in files})
+            self.assertEqual(set(home.rglob("*")), set(files) | {home / ".cursor", home / ".codeium", home / ".codeium" / "windsurf", home / "appdata", home / "appdata" / "Claude"})
 
     def test_real_mcp_stdio_session(self):
         import os, sys
