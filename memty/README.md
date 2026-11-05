@@ -143,32 +143,25 @@ memty migrate ~/.memty/memory.sqlite3
 
 ## MCP bridge and client setup
 
-Install Memty with `pip install memty`, then run `memty connect`. It detects the supported clients and registers a `memty` entry under `mcpServers` for each one, so you never have to edit JSON by hand:
+Install Memty with `pip install memty`, then run `memty connect`. **Memty never creates, edits, or deletes another application's settings file.** A bad write to a client's config can stop that client from starting, so each change goes through the client's own installer, or through you:
 
-| Client | Settings file |
+| Client | How `memty connect` connects it |
 | --- | --- |
-| Claude Desktop | `claude_desktop_config.json` (`%APPDATA%\Claude`, `~/Library/Application Support/Claude`, or `~/.config/Claude`) |
-| Claude Code | `~/.claude.json`, through `claude mcp add --scope user` when the `claude` CLI is on PATH |
-| Cursor | `~/.cursor/mcp.json` |
-| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| Claude Code | Runs Claude Code's official `claude mcp add --scope user memty -- <python> -m memty mcp`. Claude Code validates and saves its own settings. |
+| Cursor | Opens Cursor's official MCP install link (`cursor://anysphere.cursor-deeplink/mcp/install?...`). Cursor asks you to confirm before it adds the server. |
+| Claude Desktop | Prints the exact entry and steps: Settings > Developer > Edit Config, add the entry under `mcpServers`, restart. |
+| Windsurf | Prints the exact entry and steps for Windsurf's MCP settings. |
 
 ```shell
-memty connect --dry-run            # show what would change, write nothing
+memty connect --dry-run            # show the plan; run and open nothing
 memty connect                      # connect every detected client
-memty connect --client Cursor      # connect only one client (repeatable)
+memty connect --no-open            # print the Cursor link instead of opening it
+memty connect --client Cursor      # only one client (repeatable)
 ```
 
-Safeguards:
+Client settings files are only read, to report `already_connected`. Their contents are never printed. A client counts as detected when its settings file or settings folder exists. Claude Code also counts when the `claude` CLI is installed. When an installer fails, the command exits with status 1 and prints the manual command. The output always includes `server_entry` and a ready-to-run `claude mcp add` command. Restart each client after connecting it.
 
-- Every other setting and server entry is kept. Only the `memty` key is added or updated.
-- Before a file is changed, it is copied to `<file>.memty-backup-<timestamp>`. To undo, restore that copy.
-- Files that are not valid JSON, or whose `mcpServers` is not an object, are reported as `error` and left untouched. The command then exits with status 1.
-- Writes are atomic and keep the file's permissions. If the entry is already up to date, nothing is written.
-- A client counts as detected when its settings file or settings folder exists. Claude Code also counts when the `claude` CLI is installed. Clients that are not installed are skipped.
-
-Restart each connected client afterwards. The output also includes `server_entry` and a ready-to-run `claude mcp add` command for manual setup.
-
-Note: versions before 0.1.2 wrote these files without a backup. If a client broke after an older version ran, use that client's recovery steps. Do not delete its whole configuration file.
+Note: Memty 0.1.0 and 0.1.1 could write these files directly. If a client broke after one of those versions ran, use that client's recovery steps. Do not delete its whole configuration file.
 
 The clients start `memty mcp` over stdio. The server exposes `memty_sync` (`recall`, `remember`, or `forget`) and the resource template `memty://capsule/{namespace}`. The compiled capsule is limited to 120 estimated tokens. MCP results are treated as an external provider by default, so the ledger's sensitivity rules apply. `MEMTY_PROVIDER` can select another provider identity; choose a local identity only when the receiving model is actually local. Database path and user overrides are `MEMTY_VAULT_PATH` (or `MEMTY_DB`) and `MEMTY_USER`.
 

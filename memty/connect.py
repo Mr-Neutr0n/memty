@@ -1,32 +1,30 @@
-﻿"""Connect Memty's stdio MCP server to detected AI clients, safely.
+﻿"""Connect Memty to AI clients without ever writing their settings files.
 
-``memty connect`` registers a ``memty`` entry under ``mcpServers`` for every
-detected client so the user never has to edit JSON by hand. Each write is
-guarded:
+Editing another application's config file is risky: a bad write, an
+encoding mismatch, or a race with the running app can leave the client unable
+to start. ``memty connect`` therefore never creates, modifies, or deletes any
+client file. It only hands the change to each client's own supported installer:
 
-* invalid or unexpected JSON is reported and left untouched;
-* every other key and server entry is preserved;
-* an identical entry is a no-op (no write, no backup);
-* the original file is copied to a timestamped ``.memty-backup`` first;
-* the new file is written atomically and keeps the original permissions;
-* ``dry_run`` reports the planned change without touching anything.
+* **Claude Code**: runs Claude Code's official ``claude mcp add`` command,
+  so Claude Code validates and saves its own settings.
+* **Cursor**: opens Cursor's official MCP install link. Cursor asks the user
+  to confirm before it adds the server.
+* **Claude Desktop / Windsurf**: these have no supported installer Memty can
+  call, so Memty prints the exact entry and where to add it.
 
-Claude Code rewrites ``~/.claude.json`` while it runs, so when the ``claude``
-CLI is available Memty registers through ``claude mcp add`` instead of editing
-that file directly.
+Client files are only *read*, to report whether Memty is already connected.
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 from pathlib import Path
 import shlex
 import shutil
-import stat
 import subprocess
 import sys
-import tempfile
-import time
+from urllib.parse import quote
 
 SERVER_NAME = "memty"
 CLIENTS = ("Claude Desktop", "Claude Code", "Cursor", "Windsurf")
@@ -79,104 +77,31 @@ def _matches(current, entry: dict) -> bool:
     return isinstance(current, dict) and all(current.get(key) == value for key, value in entry.items())
 
 
-def _load(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    config = json.loads(path.read_text(encoding="utf-8-sig"))
-    if not isinstance(config, dict):
-        raise ValueError("configuration must be a JSON object")
-    servers = config.get("mcpServers", {})
-    if not isinstance(servers, dict):
-        raise ValueError("mcpServers must be a JSON object")
-    return config
-
-
-def _backup(path: Path) -> Path:
-    stamp = time.strftime("%Y%m%d-%H%M%S")
-    backup = path.with_name(f"{path.name}.memty-backup-{stamp}")
-    counter = 1
-    while backup.exists():
-        backup = path.with_name(f"{path.name}.memty-backup-{stamp}-{counter}")
-        counter += 1
-    shutil.copy2(path, backup)
-    return backup
-
-
-def _atomic_write(path: Path, config: dict) -> None:
-    mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else None
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_name = None
+def _current_entry(path: Path):
+    """Read-only lookup of an existing memty entry; never raises, never writes."""
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                                         prefix=f".{path.name}.", suffix=".tmp",
-                                         delete=False, newline="\n") as tmp:
-            temp_name = tmp.name
-            json.dump(config, tmp, ensure_ascii=False, indent=2)
-            tmp.write("\n")
-        if mode is not None:
-            os.chmod(temp_name, mode)
-        os.replace(temp_name, path)
-        temp_name = None
-    finally:
-        if temp_name and os.path.exists(temp_name):
-            os.unlink(temp_name)
-
-
-def _connect_json(path: Path, entry: dict, dry_run: bool) -> dict:
-    result = {"path": str(path), "method": "config_file"}
-    try:
-        config = _load(path)
-    except (OSError, ValueError) as error:
-        return {**result, "status": "error",
-                "error": f"{error}; the file was not changed. Fix it or add server_entry manually."}
-    servers = config.get("mcpServers", {})
-    current = servers.get(SERVER_NAME)
-    if _matches(current, entry):
-        return {**result, "status": "already_connected"}
-    action = "update" if current is not None else "add"
-    if dry_run:
-        return {**result, "status": "would_" + action}
-    try:
-        backup = _backup(path) if path.exists() else None
-        config = {**config, "mcpServers": {**servers, SERVER_NAME: entry}}
-        _atomic_write(path, config)
-    except OSError as error:
-        return {**result, "status": "error", "error": str(error)}
-    status = "updated" if action == "update" else "connected"
-    return {**result, "status": status, "backup": str(backup) if backup else None}
-
-
-def _run_claude(claude_cli: str, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run([claude_cli, "mcp", *args], capture_output=True, text=True,
-                          timeout=60, stdin=subprocess.DEVNULL)
-
-
-def _connect_claude_code(path: Path, entry: dict, claude_cli: str | None, dry_run: bool) -> dict:
-    if claude_cli is None:
-        return _connect_json(path, entry, dry_run)
-    result = {"path": str(path), "method": "claude mcp add"}
-    current = None
-    try:
-        # Read only, to decide whether an add, a replace, or nothing is needed.
-        current = _load(path).get("mcpServers", {}).get(SERVER_NAME)
+        config = json.loads(path.read_text(encoding="utf-8-sig"))
+        servers = config.get("mcpServers") if isinstance(config, dict) else None
+        return servers.get(SERVER_NAME) if isinstance(servers, dict) else None
     except (OSError, ValueError):
-        pass
-    if _matches(current, entry):
-        return {**result, "status": "already_connected"}
-    action = "update" if current is not None else "add"
-    if dry_run:
-        return {**result, "status": "would_" + action}
-    try:
-        if current is not None:
-            _run_claude(claude_cli, "remove", "--scope", "user", SERVER_NAME)
-        proc = _run_claude(claude_cli, "add", "--scope", "user", SERVER_NAME, "--",
-                           entry["command"], *entry["args"])
-    except (OSError, subprocess.SubprocessError) as error:
-        return {**result, "status": "error", "error": str(error)}
-    if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout).strip()
-        return {**result, "status": "error", "error": detail or f"claude exited with {proc.returncode}"}
-    return {**result, "status": "updated" if action == "update" else "connected"}
+        return None
+
+
+def cursor_install_link(entry: dict) -> str:
+    """Cursor's documented install link: name plus base64 of the server JSON."""
+    payload = base64.b64encode(json.dumps(entry, separators=(",", ":")).encode("utf-8")).decode("ascii")
+    return ("cursor://anysphere.cursor-deeplink/mcp/install?name=" + quote(SERVER_NAME)
+            + "&config=" + quote(payload, safe=""))
+
+
+def _open_url(url: str) -> None:
+    """Hand a URL to the operating system, which routes it to the owning app."""
+    if sys.platform == "win32":
+        os.startfile(url)  # type: ignore[attr-defined]
+    elif sys.platform == "darwin":
+        subprocess.run(["open", url], check=True, timeout=30)
+    else:
+        subprocess.run(["xdg-open", url], check=True, timeout=30)
 
 
 def _claude_command(executable: str) -> str:
@@ -189,16 +114,76 @@ def _claude_command(executable: str) -> str:
     return shlex.join(args)
 
 
+def _manual(name: str, path: Path, entry: dict) -> dict:
+    steps = {
+        "Claude Desktop": "In Claude Desktop open Settings > Developer > Edit Config, add the "
+                          "entry under mcpServers (keep existing entries), save, and restart Claude.",
+        "Windsurf": "In Windsurf open the MCP settings and choose the option to view or edit the "
+                    "raw config, add the entry under mcpServers (keep existing entries), then refresh.",
+    }[name]
+    return {"status": "manual_step", "path": str(path), "steps": steps,
+            "entry": {"mcpServers": {SERVER_NAME: entry}}}
+
+
+def _connect_claude_code(path: Path, entry: dict, claude_cli: str | None, dry_run: bool) -> dict:
+    manual = _claude_command(entry["command"])
+    result = {"path": str(path), "method": "claude mcp add"}
+    current = _current_entry(path)
+    if _matches(current, entry):
+        return {**result, "status": "already_connected"}
+    if claude_cli is None:
+        return {"status": "manual_step", "path": str(path),
+                "steps": "Install the Claude Code CLI, or run this command where it is available.",
+                "command": manual}
+    action = "update" if current is not None else "add"
+    if dry_run:
+        return {**result, "status": "would_" + action}
+    try:
+        # Claude Code's own CLI validates and saves its settings; Memty never edits the file.
+        if current is not None:
+            subprocess.run([claude_cli, "mcp", "remove", "--scope", "user", SERVER_NAME],
+                           capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+        proc = subprocess.run([claude_cli, "mcp", "add", "--scope", "user", SERVER_NAME, "--",
+                               entry["command"], *entry["args"]],
+                              capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError) as error:
+        return {**result, "status": "error", "error": str(error), "command": manual}
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip() or f"claude exited with {proc.returncode}"
+        return {**result, "status": "error", "error": detail, "command": manual}
+    return {**result, "status": "updated" if action == "update" else "connected"}
+
+
+def _connect_cursor(path: Path, entry: dict, dry_run: bool, open_links: bool) -> dict:
+    link = cursor_install_link(entry)
+    result = {"path": str(path), "method": "cursor install link", "link": link}
+    if _matches(_current_entry(path), entry):
+        return {"path": str(path), "method": "cursor install link", "status": "already_connected"}
+    if dry_run:
+        return {**result, "status": "would_open_install_prompt"}
+    if not open_links:
+        return {**result, "status": "manual_step",
+                "steps": "Open the link; Cursor asks you to confirm the install."}
+    try:
+        _open_url(link)
+    except (OSError, subprocess.SubprocessError) as error:
+        return {**result, "status": "manual_step", "error": str(error),
+                "steps": "Could not open Cursor automatically. Open the link; Cursor asks you to confirm."}
+    return {**result, "status": "install_prompt_opened",
+            "steps": "Confirm the install in Cursor."}
+
+
 def connect_clients(paths: dict[str, Path] | None = None, *, dry_run: bool = False,
                     clients: list[str] | None = None, claude_cli: str | None | bool = True,
-                    executable: str | None = None) -> dict:
-    """Register Memty with every detected client and report what happened.
+                    executable: str | None = None, open_links: bool = True) -> dict:
+    """Connect detected clients through their own installers; never write their files.
 
     ``claude_cli=True`` looks the ``claude`` executable up on PATH; pass a path
-    to use a specific one, or ``None`` to always edit ``~/.claude.json``.
+    to use a specific one, or ``None`` to skip running it.
     """
     if claude_cli is True:
         claude_cli = shutil.which("claude")
+    claude_cli = claude_cli or None
     entry = server_entry(executable)
     wanted = {name.casefold() for name in clients} if clients else None
     results = {}
@@ -206,21 +191,26 @@ def connect_clients(paths: dict[str, Path] | None = None, *, dry_run: bool = Fal
         if wanted is not None and name.casefold() not in wanted:
             continue
         path = Path(path)
-        if not _detected(name, path, claude_cli or None):
+        if not _detected(name, path, claude_cli):
             results[name] = {"status": "not_detected", "path": str(path)}
         elif name == "Claude Code":
-            results[name] = _connect_claude_code(path, entry, claude_cli or None, dry_run)
+            results[name] = _connect_claude_code(path, entry, claude_cli, dry_run)
+        elif name == "Cursor":
+            results[name] = _connect_cursor(path, entry, dry_run, open_links)
+        elif _matches(_current_entry(path), entry):
+            results[name] = {"status": "already_connected", "path": str(path)}
         else:
-            results[name] = _connect_json(path, entry, dry_run)
+            results[name] = _manual(name, path, entry)
+
     statuses = {r["status"] for r in results.values()}
-    if statuses & {"connected", "updated"}:
-        next_step = "Restart the connected clients to load Memty."
-    elif statuses & {"would_add", "would_update"}:
+    if "error" in statuses:
+        next_step = "A client installer reported an error; see its entry above."
+    elif dry_run and statuses & {"would_add", "would_update", "would_open_install_prompt"}:
         next_step = "Run memty connect without --dry-run to apply."
-    elif "error" in statuses:
-        next_step = "Fix the files reported above, or add server_entry under mcpServers manually."
+    elif statuses & {"connected", "updated", "install_prompt_opened", "manual_step"}:
+        next_step = "Finish any manual steps above, then restart the connected clients."
     elif statuses <= {"not_detected"}:
-        next_step = "No supported client was detected. Install one, or add server_entry manually."
+        next_step = "No supported client was detected. Add server_entry using your client's MCP settings."
     else:
         next_step = "Memty is already connected; no changes were needed."
     return {
@@ -228,5 +218,6 @@ def connect_clients(paths: dict[str, Path] | None = None, *, dry_run: bool = Fal
         "clients": results,
         "server_entry": {SERVER_NAME: entry},
         "manual_claude_code_command": _claude_command(entry["command"]),
+        "note": "Memty never writes client settings files. Changes are made by each client's own installer or by you.",
         "next_step": next_step,
     }

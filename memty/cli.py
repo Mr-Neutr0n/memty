@@ -161,10 +161,13 @@ def main() -> None:
 
     commands.add_parser("stats", help="show vault counters and paths")
     connect = commands.add_parser(
-        "connect", help="register Memty with Claude Desktop, Claude Code, Cursor, and Windsurf",
-        description="Add Memty to each detected client's MCP settings. Existing entries are kept, "
-                    "a timestamped backup is made before any change, and invalid files are left untouched.")
-    connect.add_argument("--dry-run", action="store_true", help="show planned changes without writing")
+        "connect", help="connect Memty to Claude Desktop, Claude Code, Cursor, and Windsurf",
+        description="Connect Memty through each client's own installer. Memty never writes client "
+                    "settings files: Claude Code uses 'claude mcp add', Cursor shows its install prompt, "
+                    "and Claude Desktop and Windsurf get exact manual steps.")
+    connect.add_argument("--dry-run", action="store_true", help="show the plan without running anything")
+    connect.add_argument("--no-open", action="store_true",
+                         help="print the Cursor install link instead of opening it")
     connect.add_argument("--client", action="append", choices=["Claude Desktop", "Claude Code", "Cursor", "Windsurf"],
                          help="only connect this client (repeatable)")
 
@@ -185,7 +188,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "connect":
         from .connect import connect_clients
-        results = connect_clients(dry_run=args.dry_run, clients=args.client)
+        results = connect_clients(dry_run=args.dry_run, clients=args.client,
+                                  open_links=not args.no_open)
         _print(results)
         if any(item["status"] == "error" for item in results["clients"].values()):
             raise SystemExit(1)
