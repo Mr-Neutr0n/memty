@@ -143,9 +143,32 @@ memty migrate ~/.memty/memory.sqlite3
 
 ## MCP bridge and client setup
 
-Install Memty with `pip install memty`, then run `memty connect`. It prints connection details and links to the clients' setup instructions. It does not read, create, or edit client configuration files. Choose the client you want to configure and use its supported setup flow. Claude Code users can run the displayed `claude mcp add` command; this command is run by the user and updates Claude Code's settings. For clients that accept JSON, add the displayed `server_entry` under `mcpServers`, keeping existing settings and server entries. Restart the client if its documentation requires it.
+Install Memty with `pip install memty`, then run `memty connect`. It detects the supported clients and registers a `memty` entry under `mcpServers` for each one, so you never have to edit JSON by hand:
 
-Older versions of `memty connect` wrote directly to client configuration files and did not create a backup. If a client stopped working after running an older version, use that client's recovery instructions or an existing backup; do not delete its entire configuration file. This version does not modify or restore earlier changes.
+| Client | Settings file |
+| --- | --- |
+| Claude Desktop | `claude_desktop_config.json` (`%APPDATA%\Claude`, `~/Library/Application Support/Claude`, or `~/.config/Claude`) |
+| Claude Code | `~/.claude.json`, through `claude mcp add --scope user` when the `claude` CLI is on PATH |
+| Cursor | `~/.cursor/mcp.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+
+```shell
+memty connect --dry-run            # show what would change, write nothing
+memty connect                      # connect every detected client
+memty connect --client Cursor      # connect only one client (repeatable)
+```
+
+Safeguards:
+
+- Every other setting and server entry is kept. Only the `memty` key is added or updated.
+- Before a file is changed, it is copied to `<file>.memty-backup-<timestamp>`. To undo, restore that copy.
+- Files that are not valid JSON, or whose `mcpServers` is not an object, are reported as `error` and left untouched. The command then exits with status 1.
+- Writes are atomic and keep the file's permissions. If the entry is already up to date, nothing is written.
+- A client counts as detected when its settings file or settings folder exists. Claude Code also counts when the `claude` CLI is installed. Clients that are not installed are skipped.
+
+Restart each connected client afterwards. The output also includes `server_entry` and a ready-to-run `claude mcp add` command for manual setup.
+
+Note: versions before 0.1.2 wrote these files without a backup. If a client broke after an older version ran, use that client's recovery steps. Do not delete its whole configuration file.
 
 The clients start `memty mcp` over stdio. The server exposes `memty_sync` (`recall`, `remember`, or `forget`) and the resource template `memty://capsule/{namespace}`. The compiled capsule is limited to 120 estimated tokens. MCP results are treated as an external provider by default, so the ledger's sensitivity rules apply. `MEMTY_PROVIDER` can select another provider identity; choose a local identity only when the receiving model is actually local. Database path and user overrides are `MEMTY_VAULT_PATH` (or `MEMTY_DB`) and `MEMTY_USER`.
 

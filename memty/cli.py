@@ -40,7 +40,7 @@ def _welcome() -> None:
 
   GET STARTED
 
-  memty connect      View assistant setup instructions
+  memty connect      Connect your AI assistants
   memty remember     Save a fact to your vault
   memty recall       Retrieve relevant context
   memty stats        View vault statistics
@@ -160,7 +160,13 @@ def main() -> None:
     rule_delete.add_argument("rule_id")
 
     commands.add_parser("stats", help="show vault counters and paths")
-    commands.add_parser("connect", help="show safe MCP client setup instructions")
+    connect = commands.add_parser(
+        "connect", help="register Memty with Claude Desktop, Claude Code, Cursor, and Windsurf",
+        description="Add Memty to each detected client's MCP settings. Existing entries are kept, "
+                    "a timestamped backup is made before any change, and invalid files are left untouched.")
+    connect.add_argument("--dry-run", action="store_true", help="show planned changes without writing")
+    connect.add_argument("--client", action="append", choices=["Claude Desktop", "Claude Code", "Cursor", "Windsurf"],
+                         help="only connect this client (repeatable)")
 
     raw_add = commands.add_parser("raw-add", help="archive raw text without changing facts")
     raw_add.add_argument("namespace")
@@ -179,8 +185,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "connect":
         from .connect import connect_clients
-        results = connect_clients()
+        results = connect_clients(dry_run=args.dry_run, clients=args.client)
         _print(results)
+        if any(item["status"] == "error" for item in results["clients"].values()):
+            raise SystemExit(1)
         return
     ledger = _ledger(args)
 
