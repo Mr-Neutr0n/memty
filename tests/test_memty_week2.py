@@ -97,40 +97,143 @@ with MemtyLedger(sys.argv[1]) as ledger:
             finally:
                 stop(path)
 
-    def test_connect_is_instructions_only_and_never_reads_or_writes_configs(self):
-        from unittest.mock import patch
-        with patch("pathlib.Path.read_text", side_effect=AssertionError("read config")), \
-             patch("pathlib.Path.write_text", side_effect=AssertionError("write config")), \
-             patch("os.replace", side_effect=AssertionError("replace config")):
-            result = connect_clients()
-        self.assertEqual(result["status"], "instructions_only")
-        self.assertEqual(result["server_entry"]["memty"]["args"], ["-m", "memty", "mcp"])
-        self.assertIn("claude mcp add", result["claude_code"]["command"])
+    def _client_home(self, tmp):
+        home = Path(tmp)
+        paths = {
+            "Claude Desktop": home / "appdata" / "Claude" / "claude_desktop_config.json",
+            "Claude Code": home / ".claude.json",
+            "Cursor": home / ".cursor" / "mcp.json",
+            "Windsurf": home / ".codeium" / "windsurf" / "mcp_config.json",
+        }
+        return home, paths
 
-    def test_connect_cli_leaves_all_client_files_unchanged(self):
+    @staticmethod
+    def _snapshot(root):
+        return {p: (p.read_bytes() if p.is_file() else None, p.stat().st_mtime_ns)
+                for p in Path(root).rglob("*")}
+
+    def test_connect_never_writes_any_client_file(self):
+        from unittest.mock import patch
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            _, paths = self._client_home(tmp)
+            # Valid, invalid, BOM, and wrong-shaped files: none may be touched.
+            content = {"Claude Desktop": b'{"mcpServers": {"other": {"command": "node"}}}',
+                       "Claude Code": b'{"secret": "do-not-print"}',
+                       "Cursor": b'\xef\xbb\xbf{"mcpServers": {}}',
+                       "Windsurf": b"{invalid"}
+            for name, data in content.items():
+                paths[name].parent.mkdir(parents=True, exist_ok=True)
+                paths[name].write_bytes(data)
+            before = self._snapshot(tmp)
+            opened = []
+            with patch("memty.connect.subprocess.run",
+                       side_effect=lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, "", "")), \
+                 patch("memty.connect._open_url", side_effect=opened.append), \
+                 patch("os.replace", side_effect=AssertionError("replace config")), \
+                 patch("pathlib.Path.write_text", side_effect=AssertionError("write config")), \
+                 patch("pathlib.Path.write_bytes", side_effect=AssertionError("write config")):
+                report = connect_clients(paths, claude_cli="claude", executable="/py")
+            self.assertEqual(before, self._snapshot(tmp))
+            self.assertNotIn("do-not-print", json.dumps(report))
+            result = report["clients"]
+            self.assertEqual(result["Claude Code"]["status"], "connected")
+            self.assertEqual(result["Cursor"]["status"], "install_prompt_opened")
+            self.assertEqual(opened, [result["Cursor"]["link"]])
+            for name in ("Claude Desktop", "Windsurf"):
+                self.assertEqual(result[name]["status"], "manual_step")
+                self.assertEqual(result[name]["entry"]["mcpServers"]["memty"],
+                                 {"command": "/py", "args": ["-m", "memty", "mcp"]})
+            self.assertIn("Memty never writes", report["note"])
+
+    def test_cursor_link_matches_documented_format(self):
+        import base64
+        from urllib.parse import parse_qs, urlsplit
+        from memty.connect import cursor_install_link
+        link = cursor_install_link({"command": "C:\\Py 3\\python.exe", "args": ["-m", "memty", "mcp"]})
+        parts = urlsplit(link)
+        self.assertEqual((parts.scheme, parts.netloc, parts.path),
+                         ("cursor", "anysphere.cursor-deeplink", "/mcp/install"))
+        query = parse_qs(parts.query)
+        self.assertEqual(query["name"], ["memty"])
+        self.assertEqual(json.loads(base64.b64decode(query["config"][0])),
+                         {"command": "C:\\Py 3\\python.exe", "args": ["-m", "memty", "mcp"]})
+
+    def test_connect_uses_claude_cli_and_reports_existing_entries(self):
+        from unittest.mock import patch
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            _, paths = self._client_home(tmp)
+            paths["Claude Code"].write_text(json.dumps({"mcpServers": {"memty": {
+                "type": "stdio", "command": "/old", "args": ["-m", "memty", "mcp"], "env": {}}}}),
+                encoding="utf-8")
+            paths["Cursor"].parent.mkdir()
+            paths["Cursor"].write_text(json.dumps({"mcpServers": {"memty": {
+                "command": "/py", "args": ["-m", "memty", "mcp"]}}}), encoding="utf-8")
+            calls = []
+
+            def fake_run(cmd, **kwargs):
+                calls.append(cmd)
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            with patch("memty.connect.subprocess.run", side_effect=fake_run), \
+                 patch("memty.connect._open_url", side_effect=AssertionError("opened")):
+                result = connect_clients(paths, claude_cli="claude", executable="/py",
+                                         clients=["claude code", "Cursor"])["clients"]
+            self.assertEqual(set(result), {"Claude Code", "Cursor"})
+            self.assertEqual(result["Claude Code"]["status"], "updated")
+            self.assertEqual(result["Cursor"]["status"], "already_connected")
+            self.assertEqual(calls, [
+                ["claude", "mcp", "remove", "--scope", "user", "memty"],
+                ["claude", "mcp", "add", "--scope", "user", "memty", "--", "/py", "-m", "memty", "mcp"],
+            ])
+
+            calls.clear()
+            with patch("memty.connect.subprocess.run", side_effect=fake_run):
+                same = connect_clients(paths, claude_cli="claude", executable="/old",
+                                       clients=["Claude Code"])["clients"]
+                plan = connect_clients(paths, claude_cli="claude", executable="/new",
+                                       clients=["Claude Code"], dry_run=True)
+            self.assertEqual(same["Claude Code"]["status"], "already_connected")
+            self.assertEqual(plan["clients"]["Claude Code"]["status"], "would_update")
+            self.assertEqual(calls, [])
+
+            failing = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, "", "boom")
+            with patch("memty.connect.subprocess.run", side_effect=failing):
+                broken = connect_clients(paths, claude_cli="claude", executable="/new",
+                                         clients=["Claude Code"])["clients"]["Claude Code"]
+            self.assertEqual((broken["status"], broken["error"]), ("error", "boom"))
+            self.assertIn("claude mcp add", broken["command"])
+
+    def test_connect_cli_end_to_end_leaves_home_unchanged(self):
         import os, subprocess, sys
         with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
-            files = [home / ".claude.json", home / ".cursor" / "mcp.json",
-                     home / ".codeium" / "windsurf" / "mcp_config.json",
-                     home / "appdata" / "Claude" / "claude_desktop_config.json"]
-            # Include invalid JSON and non-ASCII bytes: no client settings should
-            # be parsed, overwritten, echoed, or created by the command.
-            content = [b'{"secret": "do-not-print"}', b'{invalid',
-                       b'\xef\xbb\xbf{"mcpServers":{}}', b'{"other":true}']
-            for path, data in zip(files, content):
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(data)
-            before = {path: (path.read_bytes(), path.stat().st_mode) for path in files}
-            env = dict(os.environ, HOME=tmp, USERPROFILE=tmp,
-                       APPDATA=str(home / "appdata"), XDG_CONFIG_HOME=str(home / "appdata"))
-            result = subprocess.run([sys.executable, "-m", "memty", "connect"], env=env,
-                                    capture_output=True, text=True, timeout=15)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(json.loads(result.stdout)["status"], "instructions_only")
-            self.assertNotIn("do-not-print", result.stdout)
-            self.assertEqual(before, {path: (path.read_bytes(), path.stat().st_mode) for path in files})
-            self.assertEqual(set(home.rglob("*")), set(files) | {home / ".cursor", home / ".codeium", home / ".codeium" / "windsurf", home / "appdata", home / "appdata" / "Claude"})
+            home, paths = self._client_home(tmp)
+            for name in ("Cursor", "Windsurf"):
+                paths[name].parent.mkdir(parents=True)
+                paths[name].write_text('{"mcpServers": {"keep": {"command": "x"}}}', encoding="utf-8")
+            empty_bin = home / "bin"
+            empty_bin.mkdir()  # no `claude` on PATH, so nothing outside tmp can run
+            env = dict(os.environ, HOME=tmp, USERPROFILE=tmp, PATH=str(empty_bin),
+                       APPDATA=str(home / "appdata"), LOCALAPPDATA=str(home / "local"),
+                       XDG_CONFIG_HOME=str(home / "appdata"))
+            before = self._snapshot(tmp)
+
+            def run(*args):
+                return subprocess.run([sys.executable, "-m", "memty", "connect", *args], env=env,
+                                      capture_output=True, text=True, timeout=15)
+            dry = run("--dry-run")
+            self.assertEqual(dry.returncode, 0, dry.stderr)
+            self.assertEqual(json.loads(dry.stdout)["clients"]["Cursor"]["status"],
+                             "would_open_install_prompt")
+            done = run("--no-open")
+            self.assertEqual(done.returncode, 0, done.stderr)
+            report = json.loads(done.stdout)["clients"]
+            self.assertEqual(report["Cursor"]["status"], "manual_step")
+            self.assertTrue(report["Cursor"]["link"].startswith("cursor://"))
+            self.assertEqual(report["Windsurf"]["status"], "manual_step")
+            self.assertEqual(report["Claude Code"]["status"], "not_detected")
+            self.assertEqual(report["Claude Desktop"]["status"], "not_detected")
+            self.assertEqual(before, self._snapshot(tmp))
 
     def test_real_mcp_stdio_session(self):
         import os, sys

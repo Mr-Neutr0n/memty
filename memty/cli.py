@@ -40,7 +40,7 @@ def _welcome() -> None:
 
   GET STARTED
 
-  memty connect      View assistant setup instructions
+  memty connect      Connect your AI assistants
   memty remember     Save a fact to your vault
   memty recall       Retrieve relevant context
   memty stats        View vault statistics
@@ -160,7 +160,16 @@ def main() -> None:
     rule_delete.add_argument("rule_id")
 
     commands.add_parser("stats", help="show vault counters and paths")
-    commands.add_parser("connect", help="show safe MCP client setup instructions")
+    connect = commands.add_parser(
+        "connect", help="connect Memty to Claude Desktop, Claude Code, Cursor, and Windsurf",
+        description="Connect Memty through each client's own installer. Memty never writes client "
+                    "settings files: Claude Code uses 'claude mcp add', Cursor shows its install prompt, "
+                    "and Claude Desktop and Windsurf get exact manual steps.")
+    connect.add_argument("--dry-run", action="store_true", help="show the plan without running anything")
+    connect.add_argument("--no-open", action="store_true",
+                         help="print the Cursor install link instead of opening it")
+    connect.add_argument("--client", action="append", choices=["Claude Desktop", "Claude Code", "Cursor", "Windsurf"],
+                         help="only connect this client (repeatable)")
 
     raw_add = commands.add_parser("raw-add", help="archive raw text without changing facts")
     raw_add.add_argument("namespace")
@@ -179,8 +188,11 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "connect":
         from .connect import connect_clients
-        results = connect_clients()
+        results = connect_clients(dry_run=args.dry_run, clients=args.client,
+                                  open_links=not args.no_open)
         _print(results)
+        if any(item["status"] == "error" for item in results["clients"].values()):
+            raise SystemExit(1)
         return
     ledger = _ledger(args)
 

@@ -32,9 +32,14 @@ class WelcomeTests(unittest.TestCase):
         version = run("--version")
         self.assertEqual(version.returncode, 0, version.stderr)
         self.assertTrue(version.stdout.startswith("memty "))
-        connect = run("connect")
+        # --dry-run: this runs against the real home directory and must not edit it.
+        connect = run("connect", "--dry-run")
         self.assertEqual(connect.returncode, 0, connect.stderr)
-        self.assertEqual(json.loads(connect.stdout)["status"], "instructions_only")
+        report = json.loads(connect.stdout)
+        self.assertTrue(report["dry_run"])
+        self.assertEqual(report["server_entry"]["memty"]["args"], ["-m", "memty", "mcp"])
+        self.assertFalse(any(item["status"] in {"connected", "updated"}
+                             for item in report["clients"].values()))
 
 
 if __name__ == "__main__":

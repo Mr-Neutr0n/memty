@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memty"
-version = "0.1.1"
+version = "0.1.2"
 description = "Memty: a user-owned local memory vault for AI assistants"
 readme = "memty/README.md"
 requires-python = ">=3.10"

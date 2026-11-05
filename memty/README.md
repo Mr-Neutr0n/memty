@@ -143,9 +143,25 @@ memty migrate ~/.memty/memory.sqlite3
 
 ## MCP bridge and client setup
 
-Install Memty with `pip install memty`, then run `memty connect`. It prints connection details and links to the clients' setup instructions. It does not read, create, or edit client configuration files. Choose the client you want to configure and use its supported setup flow. Claude Code users can run the displayed `claude mcp add` command; this command is run by the user and updates Claude Code's settings. For clients that accept JSON, add the displayed `server_entry` under `mcpServers`, keeping existing settings and server entries. Restart the client if its documentation requires it.
+Install Memty with `pip install memty`, then run `memty connect`. **Memty never creates, edits, or deletes another application's settings file.** A bad write to a client's config can stop that client from starting, so each change goes through the client's own installer, or through you:
 
-Older versions of `memty connect` wrote directly to client configuration files and did not create a backup. If a client stopped working after running an older version, use that client's recovery instructions or an existing backup; do not delete its entire configuration file. This version does not modify or restore earlier changes.
+| Client | How `memty connect` connects it |
+| --- | --- |
+| Claude Code | Runs Claude Code's official `claude mcp add --scope user memty -- <python> -m memty mcp`. Claude Code validates and saves its own settings. |
+| Cursor | Opens Cursor's official MCP install link (`cursor://anysphere.cursor-deeplink/mcp/install?...`). Cursor asks you to confirm before it adds the server. |
+| Claude Desktop | Prints the exact entry and steps: Settings > Developer > Edit Config, add the entry under `mcpServers`, restart. |
+| Windsurf | Prints the exact entry and steps for Windsurf's MCP settings. |
+
+```shell
+memty connect --dry-run            # show the plan; run and open nothing
+memty connect                      # connect every detected client
+memty connect --no-open            # print the Cursor link instead of opening it
+memty connect --client Cursor      # only one client (repeatable)
+```
+
+Client settings files are only read, to report `already_connected`. Their contents are never printed. A client counts as detected when its settings file or settings folder exists. Claude Code also counts when the `claude` CLI is installed. When an installer fails, the command exits with status 1 and prints the manual command. The output always includes `server_entry` and a ready-to-run `claude mcp add` command. Restart each client after connecting it.
+
+Note: Memty 0.1.0 and 0.1.1 could write these files directly. If a client broke after one of those versions ran, use that client's recovery steps. Do not delete its whole configuration file.
 
 The clients start `memty mcp` over stdio. The server exposes `memty_sync` (`recall`, `remember`, or `forget`) and the resource template `memty://capsule/{namespace}`. The compiled capsule is limited to 120 estimated tokens. MCP results are treated as an external provider by default, so the ledger's sensitivity rules apply. `MEMTY_PROVIDER` can select another provider identity; choose a local identity only when the receiving model is actually local. Database path and user overrides are `MEMTY_VAULT_PATH` (or `MEMTY_DB`) and `MEMTY_USER`.
 
