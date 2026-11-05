@@ -19,7 +19,7 @@ Use your local Memty vault in Perplexity, ChatGPT, Claude.ai, and Gemini. The ex
 ## Install (one time)
 
 1. In a terminal, run `memty serve --autostart`. This starts the bridge now and every time you log in, so you never run it again. You can undo it with `memty serve --no-autostart`.
-2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and choose this `browser-extension` folder.
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and choose the folder that `memty extension` prints.
 
 That's all. There's no token to copy and no settings to fill in:
 
@@ -41,7 +41,7 @@ Click **☰** on the pill, or the extension icon, to open **Your Memty facts**. 
 ## Privacy and security
 
 - The bridge only listens on `127.0.0.1`. It refuses requests from web pages, and every data request needs the pairing token.
-- Pairing is trust on first use. The first browser extension that asks the bridge for the token is remembered, and every other extension and every web page is refused. To pair a different browser, run `memty serve --new-token` and restart the bridge, or paste `memty serve --show-token` under **Advanced** in the options.
+- Pairing is trust on first use. The first browser extension that asks the bridge for the token is remembered, and every other extension and every web page is refused. To connect another browser, or an extension you reinstalled, run `memty pair` and click **Try again**.
 - Only the extension's background worker holds the token. The scripts that run inside chat sites never see it.
 - Each site counts as a cloud provider (`perplexity`, `openai`, `anthropic`, `google`). The extension derives the provider from the tab's real URL. CONFIDENTIAL values are redacted, and a namespace with a matching SECRET fact is refused.
 - Saved facts are stored as `EXTRACTED`, with confidence 0.7. They never overwrite facts you confirmed yourself, and they never bring back slots you deleted.

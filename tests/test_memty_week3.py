@@ -14,7 +14,8 @@ from unittest.mock import patch
 from memty.extract import extract_facts, extract_heuristic
 from memty.ledger import MemtyLedger
 from memty.tokens import estimate_tokens
-from memty.web_bridge import BridgeServer, load_or_create_token, paired_origins, token_path
+from memty.web_bridge import (BridgeServer, load_or_create_token, open_pairing, paired_origins,
+                               token_path)
 
 EXT = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 
@@ -258,8 +259,16 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(status, 200)
         other = "chrome-extension://zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
         status, body, _ = self.request("POST", "/pair", {}, token=False, origin=other)
-        self.assertEqual((status, body["error"]), (403, "already_paired"))
+        self.assertEqual((status, body["error"]), (403, "pairing_required"))
+        self.assertIn("memty pair", body["message"])
         self.assertNotIn(self.token, json.dumps(body))
+        open_pairing(self.ledger.path, 60)  # `memty pair`: the next browser may join
+        status, body, _ = self.request("POST", "/pair", {}, token=False, origin=other)
+        self.assertEqual((status, body["token"]), (200, self.token))
+        self.assertEqual(paired_origins(self.ledger.path), [EXT, other])
+        third = "chrome-extension://yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+        status, _, _ = self.request("POST", "/pair", {}, token=False, origin=third)
+        self.assertEqual(status, 403)  # the window closes after one browser joins
         for origin in ("https://evil.example", None):  # web pages and non-browser callers
             status, body, _ = self.request("POST", "/pair", {}, token=False, origin=origin)
             self.assertEqual(status, 403)
@@ -396,6 +405,25 @@ class ClipTests(unittest.TestCase):
         self.assertEqual(args[1:3], ["-m", "memty"])
         self.assertEqual(args[-4:], ["local", "serve", "--port", "8765"])
         self.assertTrue(Path(args[4]).is_absolute())
+
+    def test_extension_installs_from_the_package_and_never_clobbers_other_folders(self):
+        from memty import extension
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "ext"
+            result = extension.install(target)
+            manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(result["version"], manifest["version"])
+            for name in ["background.js", "content.js", "options.html", "options.js", "icons/icon128.png"]:
+                self.assertTrue((target / name).exists(), name)
+            (target / "stale.js").write_text("old", encoding="utf-8")
+            extension.install(target)  # upgrade replaces the folder cleanly
+            self.assertFalse((target / "stale.js").exists())
+            other = Path(tmp) / "mine"
+            other.mkdir()
+            (other / "notes.txt").write_text("keep", encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                extension.install(other)
+            self.assertEqual((other / "notes.txt").read_text(encoding="utf-8"), "keep")
 
     def test_copy_text_uses_platform_tool(self):
         from memty import clipboard

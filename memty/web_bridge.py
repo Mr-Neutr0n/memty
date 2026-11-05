@@ -67,21 +67,45 @@ def paired_path(db: str | Path) -> Path:
     return db.with_name(db.name + ".web-paired.json")
 
 
-def paired_origins(db: str | Path) -> list[str]:
+PAIR_WINDOW_SECONDS = 120
+MAX_PAIRED = 5
+
+
+def _read_paired(db: str | Path) -> dict:
     try:
         value = json.loads(paired_path(db).read_text(encoding="utf-8"))
-        return [str(item) for item in value.get("origins", [])]
-    except (OSError, ValueError, AttributeError):
-        return []
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        return {}
 
 
-def _write_paired(db: str | Path, origins: list[str]) -> None:
+def paired_origins(db: str | Path) -> list[str]:
+    return [str(item) for item in _read_paired(db).get("origins", [])]
+
+
+def pairing_open(db: str | Path) -> bool:
+    return float(_read_paired(db).get("open_until", 0)) > time.time()
+
+
+def _write_paired(db: str | Path, origins: list[str], open_until: float = 0) -> None:
     path = paired_path(db)
+    path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(path.name + f".{os.getpid()}.tmp")
     fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as stream:
-        json.dump({"origins": origins}, stream)
+        json.dump({"origins": origins, "open_until": open_until}, stream)
     os.replace(temp, path)
+
+
+def open_pairing(db: str | Path, seconds: int = PAIR_WINDOW_SECONDS) -> float:
+    """Let one more browser extension pair during the next ``seconds`` (``memty pair``).
+
+    Needs a local terminal, so a web page or another extension can't open it.
+    The running bridge reads this file on every pairing request: no restart needed.
+    """
+    until = time.time() + seconds
+    _write_paired(db, paired_origins(db), until)
+    return until
 
 
 def load_or_create_token(db: str | Path, *, rotate: bool = False) -> str:
@@ -295,11 +319,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
         with self.server.pair_lock:
             origins = paired_origins(self.server.db)
             if origins and origin not in origins:
-                self._error(HTTPStatus.FORBIDDEN, "already_paired",
-                            "Memty is paired with another browser extension. To switch, run "
-                            "`memty serve --new-token`, or paste `memty serve --show-token` in the options.")
-                return
-            if not origins:
+                if not pairing_open(self.server.db):
+                    self._error(HTTPStatus.FORBIDDEN, "pairing_required",
+                                "This browser isn't connected to Memty yet. In a terminal, run: "
+                                "memty pair. Then click Try again.")
+                    return
+                # The user opened a pairing window: add this browser, then close the window.
+                _write_paired(self.server.db, (origins + [origin])[-MAX_PAIRED:])
+            elif not origins:
                 _write_paired(self.server.db, [origin])
         self._send(HTTPStatus.OK, {"token": self.server.token, "port": self.server.port})
 

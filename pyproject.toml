@@ -1,15 +1,19 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "memty"
-version = "0.1.2"
-description = "Memty: a user-owned local memory vault for AI assistants"
+version = "0.2.0"
+description = "User-owned, local-first memory for AI assistants: one private vault for Claude, ChatGPT, Gemini, Perplexity, Cursor, and any MCP client"
 readme = "memty/README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "RohanNK86" }]
 dependencies = ["mcp>=1.9,<2"]
-keywords = ["memty", "portable-memory", "ai-memory", "local-first", "mcp", "sqlite"]
+keywords = ["memty", "ai-memory", "portable-memory", "local-first", "privacy", "mcp", "model-context-protocol",
+            "llm", "chatgpt", "claude", "gemini", "perplexity", "browser-extension", "sqlite"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python :: 3",
@@ -18,11 +22,19 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Operating System :: OS Independent",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Utilities",
 ]
 
 [project.urls]
+Homepage = "https://github.com/RohanNK86/memty"
 Repository = "https://github.com/RohanNK86/memty"
-Documentation = "https://github.com/RohanNK86/memty/tree/main/memty"
+Documentation = "https://github.com/RohanNK86/memty/tree/main/memty#readme"
+Issues = "https://github.com/RohanNK86/memty/issues"
+Changelog = "https://github.com/RohanNK86/memty/blob/main/memty/CHANGELOG.md"
 
 [project.optional-dependencies]
 mongodb = ["pymongo>=4.6"]
@@ -41,3 +53,9 @@ memty-router-mcp = "memty.router_mcp:main"
 
 [tool.setuptools]
 packages = ["memty", "memoryport"]
+include-package-data = false
+
+[tool.setuptools.package-data]
+# The Memty Bridge browser extension ships inside the wheel; `memty extension` installs it.
+memty = ["browser_extension/*.js", "browser_extension/*.json", "browser_extension/*.html",
+         "browser_extension/*.md", "browser_extension/icons/*.png"]
