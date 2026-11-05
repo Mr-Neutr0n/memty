@@ -4,8 +4,10 @@
 server is reachable by *every* web page the user opens, so it is locked down:
 
 * **Pairing token**: every data route needs ``Authorization: Bearer <token>``.
-  The token lives beside the vault (``<db>.web-token``, owner-only) and is
-  pasted once into the extension's options page.
+  The token lives beside the vault (``<db>.web-token``, owner-only). The
+  extension pairs itself through ``POST /pair`` (trust on first use): the first
+  browser-extension origin to ask is remembered, and only that origin can fetch
+  the token again. ``memty serve --new-token`` rotates the token and forgets it.
 * **Origin allow-list**: requests from web pages (``https://...``) are refused;
   only browser-extension origins (or an explicit ``--allow-origin``) are accepted.
 * **Host check**: the ``Host`` header must be ``127.0.0.1``/``localhost`` on our
@@ -20,6 +22,7 @@ are refused, and redaction maps are never sent to the browser.
 from __future__ import annotations
 
 import hmac
+import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -33,12 +36,17 @@ import time
 from urllib import request as urlrequest
 from urllib.parse import parse_qs, urlsplit
 
-from .compiler import LocalRoutingRequired
+from .compiler import LocalRoutingRequired, render_plain
 from .extract import MAX_INPUT_CHARS, extract_facts
 from .ledger import LockedSlot, TombstonedSlot
+from .tokens import estimate_tokens
 
 DEFAULT_PORT = 8765
-WEB_CAPSULE_TOKENS = 200
+WEB_CAPSULE_TOKENS = 350
+# Compile with headroom, then trim the readable text to the real budget, so the
+# compiler's XML section caps never hide facts that would fit as plain lines.
+TEXT_COMPILE_BUDGET = 1500
+PRIVATE = {"CONFIDENTIAL", "SECRET"}
 MAX_BODY = 256 * 1024
 MAX_SAVE = 25
 EXTENSION_SCHEMES = ("chrome-extension://", "moz-extension://", "safari-web-extension://")
@@ -54,6 +62,28 @@ def state_path(db: str | Path) -> Path:
     return db.with_name(db.name + ".web-bridge.json")
 
 
+def paired_path(db: str | Path) -> Path:
+    db = Path(db).expanduser()
+    return db.with_name(db.name + ".web-paired.json")
+
+
+def paired_origins(db: str | Path) -> list[str]:
+    try:
+        value = json.loads(paired_path(db).read_text(encoding="utf-8"))
+        return [str(item) for item in value.get("origins", [])]
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
+def _write_paired(db: str | Path, origins: list[str]) -> None:
+    path = paired_path(db)
+    temp = path.with_name(path.name + f".{os.getpid()}.tmp")
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        json.dump({"origins": origins}, stream)
+    os.replace(temp, path)
+
+
 def load_or_create_token(db: str | Path, *, rotate: bool = False) -> str:
     """Return the pairing token, creating an owner-only token file if needed."""
     path = token_path(db)
@@ -66,6 +96,11 @@ def load_or_create_token(db: str | Path, *, rotate: bool = False) -> str:
         except OSError:
             pass
     token = secrets.token_urlsafe(32)
+    if rotate:  # a new token also forgets which extension was paired
+        try:
+            paired_path(db).unlink()
+        except OSError:
+            pass
     temp = path.with_name(path.name + f".{os.getpid()}.tmp")
     fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as stream:
@@ -79,9 +114,12 @@ class BridgeServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
     def __init__(self, ledger, token: str, *, port: int = DEFAULT_PORT,
-                 allowed_origins: list[str] | None = None, quiet: bool = True):
+                 allowed_origins: list[str] | None = None, quiet: bool = True,
+                 db: str | Path | None = None):
         self.ledger = ledger
         self.token = token
+        self.db = db or getattr(ledger, "path", None)
+        self.pair_lock = threading.Lock()
         self.allowed_origins = {o.rstrip("/") for o in (allowed_origins or [])}
         self.quiet = quiet
         # Never configurable: the bridge must not be reachable from the network.
@@ -158,6 +196,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
         except ValueError:
             length = -1
         if length < 0 or length > MAX_BODY:
+            # Drain (bounded) so Windows does not reset the socket before the 413 arrives.
+            remaining = min(max(length, 0), 16 * MAX_BODY)
+            while remaining > 0 and (chunk := self.rfile.read(min(remaining, 65536))):
+                remaining -= len(chunk)
+            self.close_connection = True
             self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "too_large", "Request body is too large.")
             return None
         try:
@@ -198,9 +241,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
         try:
             if url.path == "/capsule":
                 self._capsule(query)
+            elif url.path == "/facts":
+                self._list_facts(query)
             elif url.path == "/namespaces":
-                facts = self.server.ledger.list()
-                self._send(HTTPStatus.OK, {"namespaces": sorted({f["namespace"] for f in facts})})
+                counts: dict[str, int] = {}
+                for fact in self.server.ledger.list():
+                    counts[fact["namespace"]] = counts.get(fact["namespace"], 0) + 1
+                self._send(HTTPStatus.OK, {"namespaces": sorted(counts), "counts": counts})
             else:
                 self._error(HTTPStatus.NOT_FOUND, "not_found", "Unknown route.")
         except ValueError as error:
@@ -208,6 +255,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         url = urlsplit(self.path)
+        if url.path == "/pair":
+            if self._guard(auth=False):
+                self._pair()
+            return
         if not self._guard():
             return
         body = self._json_body()
@@ -221,12 +272,37 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._send(HTTPStatus.OK, extract_facts(text))
             elif url.path == "/facts":
                 self._save(body)
+            elif url.path == "/facts/update":
+                self._update(body)
+            elif url.path == "/facts/delete":
+                self._delete(body)
             else:
                 self._error(HTTPStatus.NOT_FOUND, "not_found", "Unknown route.")
         except ValueError as error:
             self._error(HTTPStatus.BAD_REQUEST, "invalid_request", str(error))
 
     # -- routes ---------------------------------------------------------
+    def _pair(self) -> None:
+        """Hand the token to the browser extension without copy-pasting (trust on first use)."""
+        origin = (self.headers.get("Origin") or "").rstrip("/")
+        if not origin.startswith(EXTENSION_SCHEMES):
+            self._error(HTTPStatus.FORBIDDEN, "origin_not_allowed", "Only a browser extension can pair.")
+            return
+        if self.server.db is None:
+            self._error(HTTPStatus.CONFLICT, "pairing_unavailable",
+                        "Pair manually: paste `memty serve --show-token` into the extension options.")
+            return
+        with self.server.pair_lock:
+            origins = paired_origins(self.server.db)
+            if origins and origin not in origins:
+                self._error(HTTPStatus.FORBIDDEN, "already_paired",
+                            "Memty is paired with another browser extension. To switch, run "
+                            "`memty serve --new-token`, or paste `memty serve --show-token` in the options.")
+                return
+            if not origins:
+                _write_paired(self.server.db, [origin])
+        self._send(HTTPStatus.OK, {"token": self.server.token, "port": self.server.port})
+
     def _capsule(self, query: dict) -> None:
         namespace = query.get("namespace", "").strip()
         if not namespace:
@@ -235,34 +311,109 @@ class BridgeHandler(BaseHTTPRequestHandler):
         if not 1 <= tokens <= 600:
             raise ValueError("tokens must be between 1 and 600")
         provider = query.get("provider", "web").strip() or "web"
+        style = query.get("format", "text")
+        if style not in {"text", "xml"}:
+            raise ValueError("format must be text or xml")
         try:
-            result = self.server.ledger.context(query.get("query", ""), provider=provider,
-                                                namespace=namespace, token_budget=tokens,
-                                                strict_namespace=True)
+            result = self.server.ledger.context(
+                query.get("query", ""), provider=provider, namespace=namespace,
+                token_budget=TEXT_COMPILE_BUDGET if style == "text" else tokens, strict_namespace=True)
         except LocalRoutingRequired as error:
             self._error(HTTPStatus.CONFLICT, "local_routing_required",
                         "A SECRET fact matched; it cannot be sent to a web assistant.",
                         namespace=error.namespace, slot=error.slot)
             return
+        # Chat assistants read plain "Title: value" lines far better than XML slots.
+        text = (render_plain(result, namespace, tokens) if style == "text" and result["text"]
+                else result["text"])
+        lines = [line for line in text.splitlines() if not line.startswith("Summary:")]
         # Redaction maps hold the real CONFIDENTIAL values: never send them to a browser.
-        self._send(HTTPStatus.OK, {"text": result["text"], "approx_tokens": result["approx_tokens"],
+        self._send(HTTPStatus.OK, {"text": text, "approx_tokens": estimate_tokens(text),
                                    "namespace": namespace, "provider": provider,
-                                   "redacted": len(result.get("redactions") or {})})
+                                   "facts": len(lines) if style == "text" else result.get("injected_count", 0),
+                                   "redacted": (text.count("[private]") if style == "text" else
+                                                len(result.get("redactions") or {}))})
+
+    # -- user-controlled fact management (view, edit, delete) -----------
+    @staticmethod
+    def _namespace(value) -> str:
+        namespace = str(value or "").strip()
+        if not namespace:
+            raise ValueError("namespace is required")
+        return namespace
+
+    def _list_facts(self, query: dict) -> None:
+        namespace = self._namespace(query.get("namespace"))
+        facts = []
+        for fact in self.server.ledger.list(namespace=namespace):
+            private = fact["sensitivity"] in PRIVATE
+            facts.append({
+                "slot": fact["slot"],
+                # Private values never reach the browser; they can still be replaced or deleted.
+                "value": None if private else fact["value"],
+                "private": private, "sensitivity": fact["sensitivity"],
+                "source": "you" if fact["verification_state"] != "EXTRACTED" else "saved from chat",
+                "updated_at": fact["updated_at"],
+            })
+        facts.sort(key=lambda item: -int(item["updated_at"] or 0))
+        self._send(HTTPStatus.OK, {"namespace": namespace, "facts": facts})
+
+    def _update(self, body: dict) -> None:
+        """A user edit: written as USER_CONFIRMED, so chat extraction never overwrites it."""
+        namespace = self._namespace(body.get("namespace"))
+        slot = str(body.get("slot", "")).strip()
+        new_slot = str(body.get("new_slot") or slot).strip()
+        value = body.get("value")
+        current = next((f for f in self.server.ledger.list(namespace=namespace) if f["slot"] == slot), None)
+        if value is None or not str(value).strip():
+            if current is None:
+                raise ValueError("value is required")
+            value = current["value"]  # rename or privacy change: keep the stored value server-side
+        if "private" in body:
+            sensitivity = "CONFIDENTIAL" if body["private"] else "PUBLIC"
+        else:
+            sensitivity = current["sensitivity"] if current else "PUBLIC"
+        record = self.server.ledger.record(namespace, new_slot, str(value), confidence=1.0,
+                                           verification_state="USER_CONFIRMED", sensitivity=sensitivity)
+        if current is not None and record["slot"] != slot:
+            self.server.ledger.forget(namespace, slot)  # renamed: remove the old title
+        self._send(HTTPStatus.OK, {"namespace": namespace, "slot": record["slot"],
+                                   "version": record.get("version"),
+                                   "private": record["sensitivity"] in PRIVATE})
+
+    def _delete(self, body: dict) -> None:
+        namespace = self._namespace(body.get("namespace"))
+        slot = str(body.get("slot", "")).strip()
+        if not slot:
+            raise ValueError("slot is required")
+        # forget() tombstones the slot and purges its history; chat extraction can't bring it back.
+        result = self.server.ledger.forget(namespace, slot)
+        self._send(HTTPStatus.OK, {"namespace": namespace, "slot": slot, "deleted": result is not None})
 
     def _save(self, body: dict) -> None:
         namespace = str(body.get("namespace", "")).strip()
         facts = body.get("facts")
         if not namespace or not isinstance(facts, list) or not 1 <= len(facts) <= MAX_SAVE:
             raise ValueError(f"namespace and 1-{MAX_SAVE} facts are required")
+        # confirmed: the user reviewed (and possibly edited) each fact and clicked Save,
+        # so it is their own statement and replaces an older value for the same title.
+        # Without it, facts stay EXTRACTED: they never overwrite user-confirmed slots
+        # and never resurrect slots the user forgot.
+        confirmed = body.get("confirmed") is True
+        existing = ({f["slot"]: f["sensitivity"] for f in self.server.ledger.list(namespace=namespace)}
+                    if confirmed else {})
         saved, skipped = [], []
         for item in facts:
             slot = str(item.get("slot", "")) if isinstance(item, dict) else ""
             value = str(item.get("value", "")) if isinstance(item, dict) else ""
             try:
-                # EXTRACTED: AI-derived facts never overwrite user-confirmed slots
-                # and never resurrect slots the user forgot.
-                record = self.server.ledger.record(namespace, slot, value, confidence=0.7,
-                                                   verification_state="EXTRACTED")
+                if confirmed:  # keep a private fact private when its value is updated
+                    record = self.server.ledger.record(
+                        namespace, slot, value, confidence=1.0, verification_state="USER_CONFIRMED",
+                        sensitivity=existing.get(slot.strip().casefold(), "PUBLIC"))
+                else:
+                    record = self.server.ledger.record(namespace, slot, value, confidence=0.7,
+                                                       verification_state="EXTRACTED")
                 saved.append({"slot": record["slot"], "version": record.get("version")})
             except (LockedSlot, TombstonedSlot) as error:
                 skipped.append({"slot": slot, "reason": type(error).__name__, "message": str(error)})
@@ -284,7 +435,8 @@ def serve(db, user_id, *, port: int = DEFAULT_PORT, allowed_origins=None, quiet=
     from .daemon import DaemonLedger
     token = load_or_create_token(db)
     ledger = DaemonLedger(db, user_id)  # Shares the one memtyd process with MCP and CLI.
-    with BridgeServer(ledger, token, port=port, allowed_origins=allowed_origins, quiet=quiet) as server:
+    with BridgeServer(ledger, token, port=port, allowed_origins=allowed_origins, quiet=quiet,
+                      db=db) as server:
         state_path(db).write_text(json.dumps({"pid": os.getpid(), "port": server.port}), encoding="utf-8")
         try:
             server.serve_forever()

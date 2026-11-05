@@ -216,6 +216,7 @@ The bridge is built so that other websites cannot read or change your vault:
 memty clip work.project                    # copy the capsule; paste into any AI
 memty clip work.project --query "deploy"   # rank facts for a question
 memty clip work.project --print            # print to stdout instead
+memty clip work.project --format xml       # the <memty_state> block instead of readable bullets
 ```
 
 The clipboard counts as a cloud destination. CONFIDENTIAL values are redacted, and the command exits with status 2 if a SECRET fact matches. Use `--provider local` only when the paste goes to a local model. Memty uses the operating system's own clipboard tool: `clip` on Windows, `pbcopy` on macOS, and `wl-copy`, `xclip` or `xsel` on Linux.

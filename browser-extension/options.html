@@ -2,27 +2,69 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Memty Bridge options</title>
+  <title>Memty: your facts</title>
+  <link rel="icon" type="image/png" href="icons/icon32.png">
   <style>
-    body { font: 14px/1.5 system-ui, sans-serif; max-width: 520px; margin: 32px auto; padding: 0 16px; color: #111827; }
-    label { display: block; margin-top: 14px; font-weight: 600; }
-    input { width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; font: inherit; }
-    button { margin-top: 18px; padding: 8px 14px; font: inherit; cursor: pointer; }
+    :root { --brand: #4f46e5; --line: #e5e7eb; --muted: #6b7280; }
+    * { box-sizing: border-box; }
+    body { font: 14px/1.5 system-ui, sans-serif; max-width: 860px; margin: 28px auto; padding: 0 20px; color: #111827; }
+    h1 { margin: 0; font-size: 22px; }
+    h1.brand { display: flex; align-items: center; gap: 10px; }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .status { padding: 4px 10px; border-radius: 999px; font-size: 12px; background: #f3f4f6; white-space: pre-wrap; }
+    .status.ok { background: #ecfdf5; color: #065f46; }
+    .status.bad { background: #fef2f2; color: #991b1b; border-radius: 8px; padding: 8px 12px; }
+    .bar { display: flex; gap: 8px; align-items: center; margin: 18px 0 10px; flex-wrap: wrap; }
+    select, input, textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; color: inherit; }
+    input:focus, textarea:focus, select:focus { outline: 2px solid #a5b4fc; border-color: #a5b4fc; }
+    #search { flex: 1; min-width: 180px; }
+    button { font: inherit; padding: 7px 12px; border-radius: 8px; border: 1px solid #c7d2fe; background: #eef2ff; cursor: pointer; }
+    button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+    button.danger { background: #fff; color: #b91c1c; border-color: #fecaca; }
+    button:disabled { opacity: .5; cursor: default; }
+    .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+    .fact { display: grid; grid-template-columns: 200px 1fr auto; gap: 8px; align-items: start;
+            padding: 10px 0; border-top: 1px solid var(--line); }
+    .fact textarea { width: 100%; resize: vertical; min-height: 38px; }
+    .fact .title { font-weight: 600; width: 100%; }
+    .fact .meta { grid-column: 1 / -1; display: flex; gap: 14px; color: var(--muted); font-size: 12px; margin-top: -2px; }
+    .fact .actions { display: flex; gap: 6px; align-items: center; }
+    .fact.new { background: #f9fafb; border-radius: 10px; padding: 10px; border: 1px dashed #c7d2fe; }
+    label.private { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; color: #374151; }
+    .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+    details { margin-top: 32px; color: #374151; }
+    details label { display: block; margin-top: 10px; font-weight: 600; }
+    details input { width: 100%; margin-top: 4px; }
     code { background: #f3f4f6; padding: 1px 4px; border-radius: 4px; }
-    #status { margin-top: 14px; white-space: pre-wrap; }
   </style>
 </head>
 <body>
-  <h1>Memty Bridge</h1>
-  <p>1. Run <code>memty serve --background</code>.<br>
-     2. Run <code>memty serve --show-token</code> and paste the token below.<br>
-     3. Pick the namespace to share, e.g. <code>work.project</code>.</p>
-  <label>Pairing token <input id="token" type="password" autocomplete="off"></label>
-  <label>Namespace <input id="namespace" list="namespaces" placeholder="work.project"></label>
-  <datalist id="namespaces"></datalist>
-  <label>Port <input id="port" type="number" min="1" max="65535" value="8765"></label>
-  <button id="save">Save and test connection</button>
-  <div id="status"></div>
+  <div class="top">
+    <h1 class="brand"><img src="icons/icon48.png" alt="" width="32" height="32">Your Memty facts</h1>
+    <span id="status" class="status">Checking Memty…</span>
+  </div>
+
+  <div class="bar">
+    <label for="namespace">Namespace</label>
+    <select id="namespace"></select>
+    <input id="search" type="search" placeholder="Search facts">
+    <button id="add" class="primary">＋ Add fact</button>
+  </div>
+  <p class="hint">These are the facts <b>⚡ Memty</b> adds to your chats as plain <code>Title: value</code> lines.
+    Edit them, delete them, or mark them <b>Private</b>. Private values are never shown here or sent to a chat AI,
+    which only sees <code>[private]</code>. Everything stays on this computer.</p>
+
+  <div id="list"></div>
+
+  <details>
+    <summary>Advanced: connection</summary>
+    <p>The extension pairs with Memty on this computer automatically. If Memty isn't running, run
+      <code>memty serve --autostart</code> once in a terminal.</p>
+    <label>Pairing token (from <code>memty serve --show-token</code>)
+      <input id="token" type="password" autocomplete="off" placeholder="filled in automatically"></label>
+    <label>Port <input id="port" type="number" min="1" max="65535" value="8765"></label>
+    <button id="saveConn">Save and reconnect</button>
+  </details>
   <script src="options.js"></script>
 </body>
 </html>
