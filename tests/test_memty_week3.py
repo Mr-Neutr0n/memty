@@ -43,6 +43,30 @@ class ExtractTests(unittest.TestCase):
             for fact in facts:  # every proposed slot/value is accepted by the ledger
                 ledger.record("work.project", fact["slot"], fact["value"])
 
+    def test_code_from_answers_is_not_saved_as_facts(self):
+        # Regression: Gemini answers produced conn="sqlite3.connect(...)" and namespace="str".
+        answer = """Here is how to fix it:
+def open(self, namespace: str):
+    conn = sqlite3.connect(self.dbpath, timeout=5.0)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    return conn
+namespace: str
+items: list[str] | None = None
+db_path: os.path.join(home, ".memty")
+const port = 8765;
+// comment: not a fact
+```python
+x: int
+```
+- Timeout: 5 seconds avoids lock errors
+- Database: PostgreSQL 16 (Neon)
+- Use connect() with a timeout
+"""
+        facts = {f["slot"]: f["value"] for f in extract_heuristic(answer)}
+        self.assertEqual(facts.pop("timeout"), "5 seconds avoids lock errors")
+        self.assertEqual(facts.pop("database"), "PostgreSQL 16 (Neon)")
+        self.assertEqual(list(facts.values()), ["Use connect() with a timeout"])
+
     def test_prose_fallback_and_caps(self):
         facts = extract_heuristic("Paris is the capital of France. It has about two million residents. Ok.")
         self.assertEqual(len(facts), 2)

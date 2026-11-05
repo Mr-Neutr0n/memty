@@ -144,7 +144,14 @@
     if (selected) return selected;
     const selector = ANSWERS[location.hostname];
     const nodes = selector ? [...document.querySelectorAll(selector)].filter(visible) : [];
-    return nodes.length ? nodes[nodes.length - 1].innerText.trim() : "";
+    if (!nodes.length) return "";
+    const answer = nodes[nodes.length - 1];
+    // Code samples are not facts: drop rendered code blocks before extracting.
+    let text = answer.innerText;
+    for (const block of answer.querySelectorAll("pre, code-block")) {
+      if (block.innerText.trim()) text = text.replace(block.innerText, "\n");
+    }
+    return text.trim();
   }
 
   function review(facts) {
