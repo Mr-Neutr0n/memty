@@ -397,6 +397,25 @@ class ClipTests(unittest.TestCase):
         self.assertEqual(args[-4:], ["local", "serve", "--port", "8765"])
         self.assertTrue(Path(args[4]).is_absolute())
 
+    def test_extension_installs_from_the_package_and_never_clobbers_other_folders(self):
+        from memty import extension
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "ext"
+            result = extension.install(target)
+            manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(result["version"], manifest["version"])
+            for name in ["background.js", "content.js", "options.html", "options.js", "icons/icon128.png"]:
+                self.assertTrue((target / name).exists(), name)
+            (target / "stale.js").write_text("old", encoding="utf-8")
+            extension.install(target)  # upgrade replaces the folder cleanly
+            self.assertFalse((target / "stale.js").exists())
+            other = Path(tmp) / "mine"
+            other.mkdir()
+            (other / "notes.txt").write_text("keep", encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                extension.install(other)
+            self.assertEqual((other / "notes.txt").read_text(encoding="utf-8"), "keep")
+
     def test_copy_text_uses_platform_tool(self):
         from memty import clipboard
         with patch("memty.clipboard.subprocess.run") as run:

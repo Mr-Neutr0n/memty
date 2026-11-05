@@ -1,156 +1,164 @@
 # Memty
 
-Memty is a user-owned, local memory vault for AI assistants. It stores atomic facts, decisions, and summaries in SQLite and compiles compact context capsules. Its MCP bridge and CLI share a local background daemon, so supported clients can work with the same ledger.
+**Your AI memory, owned by you.** Memty keeps the facts, decisions, and preferences you share with AI assistants in one private vault on your own computer. It brings that memory to Claude, ChatGPT, Gemini, Perplexity, Cursor, Windsurf, and any MCP client, so you stop repeating yourself every time you open a new chat or switch to a different assistant.
 
-Memty is in alpha and the roadmap is still being developed. Version 0.1 provides the atomic ledger, local daemon, CLI, and MCP bridge. A browser bridge for web assistants, automatic capture, and other roadmap integrations are not yet provided by this release. MCP clients decide when to read resources or call tools; automatic context injection is not guaranteed.
+[![PyPI](https://img.shields.io/pypi/v/memty.svg)](https://pypi.org/project/memty/)
+[![Python](https://img.shields.io/pypi/pyversions/memty.svg)](https://pypi.org/project/memty/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/RohanNK86/memty/blob/main/LICENSE)
 
-## What Week 1 ships
+- **Local-first.** The vault is a single SQLite file in `~/.memty/`. There are no accounts, no cloud sync, and no telemetry.
+- **Works everywhere.** It connects to MCP clients (Claude Desktop, Claude Code, Cursor, Windsurf), to chat websites through a browser extension, and to anything else through the clipboard.
+- **Under your control.** You can view, edit, delete, and mark any fact private. Deleted facts stay deleted, and AI extraction can never bring them back.
+- **Private by design.** Private values are hidden from cloud AIs and appear only as `[private]`. Secrets never leave your machine.
+- **Small and fast.** Capsules stay under a fixed token budget, and the core uses only the Python standard library.
 
-| Requirement | Implementation |
-| --- | --- |
-| Atomic facts, one value per slot | `atomic_facts` with `UNIQUE(user_id, namespace, slot)` |
-| Logical constraints per namespace | `logical_constraints` with replaceable `rule_id`, condition, and constraint |
-| No contradictory memories | Superseding increments `version`, writes the old value to `atomic_fact_audit`, then overwrites the active slot |
-| Facts capped at 40 tokens | `record()` rejects anything longer |
-| Delete is durable | `forget()` tombstones the slot and purges its plaintext/audit history |
-| Automatic extraction cannot resurrect deleted memory | `record(..., verification_state="EXTRACTED")` raises `TombstonedSlot` |
-| User can restore a deleted slot | `verification_state="USER_CONFIRMED"` (or `SPEC_LOCKED`) |
-| Rolling namespace summaries | `rolling_summaries`, capped at 150 tokens, optional float32 embedding |
-| Raw text is never injected | `raw_drilldown` is only returned by an explicit `drill_down()` call |
-| Deterministic context under 600 tokens | Three-section compiler with slot, summary, and semantic sections |
-| FTS5 keyword retrieval with SQL fallback | `atomic_facts_fts` and `rolling_summaries_fts`, created when SQLite supports FTS5 |
-| SECRET facts in cloud context | The compiler raises `LocalRoutingRequired` when a matching SECRET fact requires local processing |
-| CONFIDENTIAL facts can be masked | `<MEMTY_REDACTED_SLOT_N>` placeholders plus `rehydrate()` in the response path |
-| Provider allow/block lists | Per-fact `allowed_providers` / `blocked_providers` |
+> Memty is in alpha (0.x). The storage format is stable and covered by tests, but commands and options may still change between minor versions. See the [changelog](https://github.com/RohanNK86/memty/blob/main/memty/CHANGELOG.md).
 
-The four functional tables are `atomic_facts`, `logical_constraints`, `rolling_summaries`, and `raw_drilldown`. A small `atomic_fact_audit` table preserves superseded values and is purged on forget.
+---
 
-## Install
+## Quick start (about 3 minutes)
 
 ```shell
-python -m pip install memty
-# MCP support is included
+pip install memty
+
+memty serve --autostart   # 1. start the local bridge now and at every login (one time)
+memty extension           # 2. install the browser extension folder and show where it is
+memty connect             # 3. optional: connect Claude Desktop, Claude Code, Cursor, Windsurf
 ```
 
-The vault lives at `~/.memty/ledger.sqlite3` by default. Override it with `MEMTY_VAULT_PATH` or `--db`.
+Then load the extension once. Open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked**, and choose the folder that `memty extension` printed. There's no token to copy and nothing to configure: the extension pairs itself with Memty on your computer.
 
-## Quick start: CLI
+In any chat on ChatGPT, Claude.ai, Gemini, or Perplexity:
 
-Run `memty` to see the welcome screen and suggested commands. Use `memty --help` to explore the CLI or `memty --version` to check the installed version.
+- **Select text → ＋ Save to Memty.** Memty proposes short, atomic facts. You edit or untick them, then save.
+- **⚡ Memty (or Alt+M).** Your saved facts are added to the top of the prompt, newest first, where you can see and edit them before sending:
 
-After installing the package, the following commands create a complete local namespace:
+  ```
+  Company: MEMTY
+  Category: Portable AI Memory Infrastructure
+  Memory store: Memty Vault
+  Client: [private]
+  ```
 
-```powershell
-memty remember project.api cache_engine "DragonflyDB" --verification USER_CONFIRMED
-memty remember project.api rate_limiter "Token Bucket via Lua, 500 req/min" --verification SPEC_LOCKED
-memty rule project.api database_queries "writing database queries" "always use async Motor and project only needed fields"
-memty summary project.api --set "FastAPI backend with JWT auth and MongoDB Atlas sync."
-memty recall "Which cache and rate limiter should I use?" --provider claude --namespace project.api
-memty stats
-```
+- **☰ (or the extension icon).** Opens **Your Memty facts**, where you can view, search, edit, add, delete, or mark facts private.
 
-Use `memty list`, `memty rules`, `memty history`, `memty forget`, `memty raw-add`, and `memty raw-get` to inspect and manage the vault. The default database is `~/.memty/ledger.sqlite3`; use `--db` or `MEMTY_VAULT_PATH` for another location.
-
-`memty recall` prints a deterministic `<memty_state>` capsule. It never includes archived raw source text. A matching `SECRET` fact exits with status 2 and reports that the request must use a local provider.
-
-## Python API
-
-```python
-from memty import open_ledger
-
-vault = open_ledger()  # ~/.memty/ledger.sqlite3, user "local"
-
-vault.record("work.preferences", "editor", "VS Code", verification_state="USER_CONFIRMED")
-vault.record("repo.memty", "primary_db", "Postgres 16", verification_state="USER_CONFIRMED")
-vault.set_summary("repo.memty", "Memty uses Postgres and a local context compiler.")
-vault.set_constraint("repo.memty", "database_queries",
-                     "writing database queries",
-                     "always use async Motor and project only needed fields")
-
-compiled = vault.context("Which editor and database do I use?", provider="claude", token_budget=600)
-print(compiled["text"])
-print(compiled["approx_tokens"], compiled["sections"])
-```
-
-Typical output:
-
-```xml
-<memty_state v="1" provider="claude">
-<slots>
-repo.memty.primary_db="Postgres 16"
-work.preferences.editor="VS Code"
-</slots>
-<summary ns="repo.memty">Memty uses Postgres and a local context compiler.</summary>
-<semantic>
-repo.memty.primary_db="Postgres 16"
-</semantic>
-</memty_state>
-```
-
-The compiler returns `citations`, `redactions`, `approx_tokens`, `eligible_count`, `injected_count`, and per-section counts. The final text is checked against the budget with a conservative token estimator and trimmed if necessary.
-
-## Privacy gate
-
-```python
-from memty import LocalRoutingRequired
-
-vault.record("user.vault", "api_key", "...", sensitivity="SECRET",
-             verification_state="USER_CONFIRMED")
-
-try:
-    vault.context("api key", provider="claude")
-except LocalRoutingRequired as exc:
-    print(exc.as_dict())  # suggests ollama; no secret value is included
-
-# CONFIDENTIAL facts are masked for untrusted providers.
-vault.record("repo.memty", "internal_host", "db.internal.example",
-             sensitivity="CONFIDENTIAL", verification_state="USER_CONFIRMED")
-compiled = vault.context("internal host", provider="claude")
-answer = vault.rehydrate(model_output, compiled["redactions"])
-# For streamed output, use vault.rehydrate_stream(chunks, compiled["redactions"]).
-```
-
-A provider is trusted when it is local (`local`, `ollama`, `local_ollama`, `memty_local`), was passed to `MemtyLedger(..., trusted_providers=[...])`, or is named in that fact's `allowed_providers`.
-
-## Raw drill-down
-
-```python
-fact = vault.record("repo.memty", "deployment_host", "db.internal.example",
-                    verification_state="USER_CONFIRMED",
-                    source_raw="full transcript or log excerpt ...")
-
-vault.context("deployment host", provider="local")   # raw text is absent
-vault.drill_down(fact_id=fact["id"])                 # explicit fetch only
-```
-
-## CLI
+Prefer the terminal?
 
 ```shell
-memty --db ~/.memty/ledger.sqlite3 remember work.preferences editor "VS Code"
-memty recall "Which editor do I use?" --provider claude --tokens 600
-memty list
-memty history work.preferences editor
-memty summary repo.memty --set "Memty uses Postgres and a local context compiler."
-memty forget work.preferences editor --purge-raw
-memty stats
-memty rule repo.memty database_queries "writing database queries" "always use async Motor and project only needed fields"
-memty rules --namespace repo.memty
-memty rule-delete repo.memty database_queries
-memty migrate ~/.memty/memory.sqlite3
+memty remember work.project editor "VS Code"
+memty recall "Which editor do I use?" --namespace work.project
+memty clip work.project            # copy your facts to the clipboard for any AI
 ```
 
-`memty recall` exits with status 2 and prints a `local_routing_required` payload when a SECRET fact matches a cloud provider.
+---
 
-## MCP bridge and client setup
+## How it works
 
-Install Memty with `pip install memty`, then run `memty connect`. **Memty never creates, edits, or deletes another application's settings file.** A bad write to a client's config can stop that client from starting, so each change goes through the client's own installer, or through you:
+```
+ ChatGPT · Claude.ai · Gemini · Perplexity          Claude Desktop · Claude Code · Cursor · Windsurf
+                │  browser extension                               │  MCP (stdio)
+                ▼                                                  ▼
+     memty serve  (127.0.0.1 only, paired token)          memty mcp
+                └──────────────────────┬───────────────────────────┘
+                                       ▼
+                        memtyd  (one local daemon per vault)
+                                       ▼
+                ~/.memty/ledger.sqlite3   (your vault: SQLite, on your disk)
+```
 
-| Client | How `memty connect` connects it |
+1. **Atomic facts.** Memory is stored as small `namespace.slot = value` facts, for example `work.project.editor = "VS Code"`. There is one value per slot and each fact is at most 40 tokens. Saving a new value replaces the old one and keeps an audit trail, so memory never contradicts itself.
+2. **Namespaces** keep contexts apart (`work.project`, `personal`, `client.acme`). A chat only receives the namespace you choose.
+3. **The compiler** builds a small capsule for each request. Without a question it lists the newest facts first. With a question it ranks facts by relevance. Either way the capsule stays within a hard token budget.
+4. **The privacy gate** runs on every capsule:
+   - **PUBLIC** facts are shared.
+   - **CONFIDENTIAL** (private) facts appear only as `[private]` to cloud assistants.
+   - **SECRET** facts stop the request and ask for a local model instead.
+5. **You stay in control.** Facts saved from chats are proposals until you approve them. Facts you confirm can't be overwritten by automatic extraction. Deleting a fact removes it and its history, and it can't be brought back automatically.
+
+---
+
+## Browser extension (Chrome, Edge, Brave)
+
+The **Memty Bridge** extension ships inside this package.
+
+```shell
+memty extension          # copies it to ~/.memty/browser-extension and prints the steps
+memty extension --open   # also opens the folder
+```
+
+After `pip install -U memty`, run `memty extension` again and click reload on the extension in `chrome://extensions`. Open chat tabs pick up the new version without a refresh.
+
+| Feature | What it does |
 | --- | --- |
-| Claude Code | Runs Claude Code's official `claude mcp add --scope user memty -- <python> -m memty mcp`. Claude Code validates and saves its own settings. |
-| Cursor | Opens Cursor's official MCP install link (`cursor://anysphere.cursor-deeplink/mcp/install?...`). Cursor asks you to confirm before it adds the server. |
-| Claude Desktop | Prints the exact entry and steps: Settings > Developer > Edit Config, add the entry under `mcpServers`, restart. |
-| Windsurf | Prints the exact entry and steps for Windsurf's MCP settings. |
+| ⚡ Memty / Alt+M | Adds your facts to the prompt as plain `Title: value` lines (up to about 350 tokens, newest first) |
+| Select text → ＋ Save to Memty | Proposes atomic facts from the selection. You edit titles and values, then save. |
+| ＋ Save | The same, for your selection or the latest answer |
+| ☰ Your facts | View, search, edit, add, delete, and mark facts private |
+| Draggable pill | Drag the ⋮⋮ grip anywhere. Each site remembers the position, and a double-click resets it. |
+
+How facts are extracted, all on your machine:
+
+- Headings, questions, and Memty blocks you pasted earlier are skipped.
+- Bare file paths are grouped into one `files` fact.
+- Code is never stored. Each code block becomes one summary, such as `JavaScript code in content.js defines saveFacts`.
+- Set `MEMTY_OLLAMA_MODEL` (for example `llama3.1`) to extract with a local Ollama model. If Ollama doesn't respond, Memty falls back to its built-in rules.
+
+### Bridge commands
+
+```shell
+memty serve --autostart        # start now and at every login (Windows, macOS, Linux; per-user, no admin)
+memty serve --no-autostart     # stop it and remove the login item
+memty serve --background       # start quietly once
+memty serve --stop
+memty serve --new-token        # revoke access: new token, forget the paired extension (restart the bridge)
+memty serve --show-token       # for manual pairing (extension options > Advanced)
+```
+
+### Security model
+
+The bridge runs on your computer, so it's built so that websites can't read or change your vault:
+
+- It binds only to `127.0.0.1`, and the address can't be configured.
+- Every data route needs `Authorization: Bearer <token>`. The token is stored owner-only in `<db>.web-token`.
+- **Pairing is trust on first use.** `POST /pair` only answers browser-extension origins, and the first extension to ask is remembered. Web pages and other extensions are refused (`403`).
+- Requests from web-page origins are refused, and the `Host` header must be `127.0.0.1` or `localhost`, which blocks DNS rebinding. Writes must be `application/json`.
+- Capsules are compiled for each site as a cloud provider. Private values are never sent to the browser, not even to the facts page, and redaction maps never leave the bridge.
+- The extension's background worker is the only part that holds the token. Scripts running inside chat sites never see it.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /health` | Liveness check (no token, no data) |
+| `POST /pair` | Token for the paired extension only |
+| `GET /capsule?namespace=&provider=&query=&tokens=350&format=text\|xml` | The capsule for a chat |
+| `GET /namespaces` | Namespace names and fact counts |
+| `GET /facts?namespace=` | Facts, newest first; private values are `null` |
+| `POST /extract` `{"text"}` | Proposed facts. Writes nothing. |
+| `POST /facts` `{"namespace", "facts": [{"slot", "value"}], "confirmed"}` | Saves reviewed facts |
+| `POST /facts/update` `{"namespace", "slot", "new_slot", "value", "private"}` | Edits, renames, or changes privacy (saved as user-confirmed) |
+| `POST /facts/delete` `{"namespace", "slot"}` | Forgets a fact and its history |
+
+---
+
+## Clipboard: any AI, any app
+
+```shell
+memty clip work.project                    # copy your facts as Title: value lines
+memty clip work.project --query "deploy"   # rank facts for a question
+memty clip work.project --print            # print instead of copying
+memty clip work.project --format xml       # the <memty_state> block for agents and tools
+```
+
+The clipboard counts as a cloud destination: private values are redacted, and the command exits with status 2 if a SECRET fact matches. Use `--provider local` only when the paste goes to a local model. Memty uses the operating system's own clipboard tool: `clip` on Windows, `pbcopy` on macOS, and `wl-copy`, `xclip`, or `xsel` on Linux.
+
+To bind it to a hotkey:
+
+- **Windows**: create a shortcut whose target is `pythonw -m memty clip work.project`, then set a **Shortcut key** in its properties.
+- **macOS**: in Shortcuts, add *Run Shell Script* with `memty clip work.project` and assign a shortcut.
+- **Linux**: bind the command in your desktop's keyboard settings.
+
+---
+
+## MCP clients: Claude Desktop, Claude Code, Cursor, Windsurf
 
 ```shell
 memty connect --dry-run            # show the plan; run and open nothing
@@ -159,95 +167,122 @@ memty connect --no-open            # print the Cursor link instead of opening it
 memty connect --client Cursor      # only one client (repeatable)
 ```
 
-Client settings files are only read, to report `already_connected`. Their contents are never printed. A client counts as detected when its settings file or settings folder exists. Claude Code also counts when the `claude` CLI is installed. When an installer fails, the command exits with status 1 and prints the manual command. The output always includes `server_entry` and a ready-to-run `claude mcp add` command. Restart each client after connecting it.
+**Memty never creates, edits, or deletes another application's settings file.** Each change goes through the client's own installer, or through you:
 
-Note: Memty 0.1.0 and 0.1.1 could write these files directly. If a client broke after one of those versions ran, use that client's recovery steps. Do not delete its whole configuration file.
+| Client | How `memty connect` connects it |
+| --- | --- |
+| Claude Code | Runs Claude Code's official `claude mcp add --scope user memty -- <python> -m memty mcp` |
+| Cursor | Opens Cursor's official MCP install link, and Cursor asks you to confirm |
+| Claude Desktop | Prints the exact entry and steps (Settings > Developer > Edit Config) |
+| Windsurf | Prints the exact entry and steps for Windsurf's MCP settings |
 
-The clients start `memty mcp` over stdio. The server exposes `memty_sync` (`recall`, `remember`, or `forget`) and the resource template `memty://capsule/{namespace}`. The compiled capsule is limited to 120 estimated tokens. MCP results are treated as an external provider by default, so the ledger's sensitivity rules apply. `MEMTY_PROVIDER` can select another provider identity; choose a local identity only when the receiving model is actually local. Database path and user overrides are `MEMTY_VAULT_PATH` (or `MEMTY_DB`) and `MEMTY_USER`.
+Restart each client after connecting it. The server exposes the `memty_sync` tool (`recall`, `remember`, or `forget`) and the resource template `memty://capsule/{namespace}`. MCP capsules are limited to 120 tokens, and MCP clients are treated as cloud providers, so the privacy gate applies. Set `MEMTY_PROVIDER` to choose another identity; choose a local one only when the model really runs locally.
 
-The MCP servers and atomic-vault CLI automatically start and share one `memtyd` process for each database path. The daemon serializes their ledger operations and holds a SQLite connection. It uses authenticated loopback connections; its endpoint and secret are stored beside the database, so keep that directory private. The SDK and other applications may still access SQLite directly. WAL and a 5-second busy timeout reduce contention with those external connections, but a lock held longer than the timeout can still cause an error.
+Note: Memty 0.1.0 and 0.1.1 could write client settings files directly. If a client broke after one of those versions ran, use that client's recovery steps. Don't delete its whole configuration file.
+
+---
+
+## CLI reference
+
+```shell
+memty remember work.preferences editor "VS Code" --verification USER_CONFIRMED
+memty recall "Which editor do I use?" --provider claude --tokens 600
+memty list                                   # active facts
+memty history work.preferences editor        # superseded versions
+memty forget work.preferences editor --purge-raw
+memty summary repo.memty --set "Memty uses Postgres and a local context compiler."
+memty rule repo.memty database_queries "writing database queries" "always use async Motor"
+memty rules --namespace repo.memty
+memty rule-delete repo.memty database_queries
+memty stats
+memty migrate ~/.memty/memory.sqlite3        # import from an earlier Memty vault
+memty --version
+```
+
+`memty recall` prints a deterministic `<memty_state>` capsule and never includes archived raw source text. If a SECRET fact matches a cloud provider, it exits with status 2 and prints a `local_routing_required` payload.
+
+### Configuration
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `--db` / `MEMTY_VAULT_PATH` (or `MEMTY_DB`) | `~/.memty/ledger.sqlite3` | Vault location |
+| `--user` / `MEMTY_USER` | `local` | User ID inside the vault |
+| `MEMTY_PROVIDER` | external | Identity used by MCP capsules |
+| `MEMTY_OLLAMA_MODEL`, `MEMTY_OLLAMA_HOST` | not set, `http://127.0.0.1:11434` | Local model for fact extraction |
+
+### The local daemon
+
+The MCP servers, the CLI, and the web bridge share one `memtyd` process for each vault. It starts automatically when it's needed and keeps one SQLite connection. It uses authenticated loopback connections, and its endpoint and secret are stored beside the database, so keep that folder private.
 
 ```shell
 memtyd status
 memtyd start
-memtyd stop
-# For a non-default database, add --db PATH to each command.
-# Equivalent: memty daemon status
+memtyd stop     # add --db PATH for a non-default vault
 ```
 
-The daemon persists until stopped or the computer exits. It restarts automatically when a client next needs it. Run `memtyd serve` in the foreground to diagnose startup failures.
+---
 
-## Web assistants: Perplexity, ChatGPT, Claude.ai, Gemini
+## Python API
 
-Browser tabs can't launch a stdio process, so Memty offers two other ways in. Both use the same vault.
+```python
+from memty import open_ledger, LocalRoutingRequired
 
-### Way A: localhost bridge and browser extension
+vault = open_ledger()  # ~/.memty/ledger.sqlite3, user "local"
 
-```shell
-memty serve --background          # 127.0.0.1:8765, quiet; uses the shared memtyd
-memty serve --show-token          # pairing token for the extension
-memty serve --stop
-memty serve --port 8765           # foreground, Ctrl+C to stop
+vault.record("work.preferences", "editor", "VS Code", verification_state="USER_CONFIRMED")
+vault.record("repo.memty", "primary_db", "Postgres 16", verification_state="USER_CONFIRMED")
+vault.set_summary("repo.memty", "Memty uses Postgres and a local context compiler.")
+
+compiled = vault.context("Which editor and database do I use?", provider="claude", token_budget=600)
+print(compiled["text"])                   # <memty_state> capsule within the budget
+print(compiled["approx_tokens"], compiled["sections"])
+
+# Privacy gate
+vault.record("user.vault", "api_key", "...", sensitivity="SECRET", verification_state="USER_CONFIRMED")
+try:
+    vault.context("api key", provider="claude")
+except LocalRoutingRequired as exc:
+    print(exc.as_dict())                  # suggests a local provider; no secret value included
+
+vault.record("repo.memty", "internal_host", "db.internal.example",
+             sensitivity="CONFIDENTIAL", verification_state="USER_CONFIRMED")
+compiled = vault.context("internal host", provider="claude")   # value masked as a placeholder
+answer = vault.rehydrate(model_output, compiled["redactions"]) # put it back locally
 ```
 
-Load the extension in [`browser-extension/`](../browser-extension/README.md). It adds a **⚡ Memty** pill (or Alt+M) that puts the namespace capsule, at most 200 tokens, at the top of the prompt. A **+ Save Facts** button extracts facts from the latest answer on your machine and saves the ones you approve.
+A provider is trusted when it is local (`local`, `ollama`, `local_ollama`, `memty_local`), was passed to `MemtyLedger(..., trusted_providers=[...])`, or is named in the fact's `allowed_providers`.
 
-The bridge is built so that other websites cannot read or change your vault:
+Archived raw text is never injected into a capsule. You can only read it back with an explicit call:
 
-- It binds only to `127.0.0.1`. The address can't be configured.
-- Every data route needs `Authorization: Bearer <token>`. The token is stored in `<db>.web-token`, owner-only.
-- Requests from web-page origins are refused. Only browser-extension origins are accepted, or only the origins you pass with `--allow-origin`.
-- The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>`, which blocks DNS rebinding.
-- Writes must be `application/json`.
-- Capsules are compiled for the site as a cloud provider. CONFIDENTIAL values are redacted, SECRET matches return `409 local_routing_required`, and redaction maps never leave the bridge.
-- Saved facts are `EXTRACTED`, so they can't overwrite user-confirmed slots or bring back deleted ones.
+```python
+fact = vault.record("repo.memty", "deployment_host", "db.internal.example",
+                    verification_state="USER_CONFIRMED", source_raw="full log excerpt ...")
+vault.drill_down(fact_id=fact["id"])
+```
 
-| Route | Purpose |
+### Guarantees
+
+| Guarantee | How |
 | --- | --- |
-| `GET /health` | Liveness check. No token, no data. |
-| `GET /capsule?namespace=&provider=&query=&tokens=200` | Compiled capsule text and its token count |
-| `GET /namespaces` | Namespace names in the vault |
-| `POST /extract` `{"text"}` | Proposed facts. Writes nothing. Uses heuristics, or a local Ollama model when `MEMTY_OLLAMA_MODEL` is set. |
-| `POST /facts` `{"namespace", "facts": [{"slot", "value"}]}` | Saves the reviewed facts |
+| One value per slot, no contradictions | `UNIQUE(user_id, namespace, slot)`; superseded values move to `atomic_fact_audit` |
+| Facts stay small | `record()` rejects values over 40 tokens |
+| Deletion is permanent | `forget()` tombstones the slot and purges its plaintext and audit history |
+| Extraction can't undo you | `EXTRACTED` writes can't overwrite user-confirmed slots or restore deleted ones |
+| Bounded context | The compiler enforces `estimate_tokens(text) <= token_budget` |
+| Fast | Warm compile median about 3 ms with 300 facts and a 600-token budget |
+| Search works everywhere | FTS5 when SQLite supports it, with a SQL fallback otherwise |
 
-### Way B: clipboard (`memty clip`)
+---
 
-```shell
-memty clip work.project                    # copy the capsule; paste into any AI
-memty clip work.project --query "deploy"   # rank facts for a question
-memty clip work.project --print            # print to stdout instead
-memty clip work.project --format xml       # the <memty_state> block instead of readable bullets
-```
-
-The clipboard counts as a cloud destination. CONFIDENTIAL values are redacted, and the command exits with status 2 if a SECRET fact matches. Use `--provider local` only when the paste goes to a local model. Memty uses the operating system's own clipboard tool: `clip` on Windows, `pbcopy` on macOS, and `wl-copy`, `xclip` or `xsel` on Linux.
-
-To bind it to a hotkey:
-
-- **Windows**: create a desktop shortcut whose target is `pythonw -m memty clip work.project`. Then open its Properties and set a **Shortcut key**.
-- **macOS**: in Shortcuts, add a *Run Shell Script* action that runs `memty clip work.project`, then assign a keyboard shortcut.
-- **Linux**: bind the command in your desktop's keyboard settings.
-
-## Verification
-
-The Week 1 acceptance suite covers the schema, logical constraints, 40-token enforcement, versioning/audit, tombstones, raw isolation, budgets, semantic snippets, summaries, allow/block lists, SECRET routing, and CONFIDENTIAL rehydration:
+## Uninstall
 
 ```shell
-python -m pytest tests/test_memty_week1.py -q
-python scripts/test_memty_week1.py
+memty serve --no-autostart      # stop the bridge and remove the login item
+pip uninstall memty
 ```
 
-The performance test builds 200 facts and asserts a warm compiler median below 6 ms on the local machine; the measured median on the development machine is about 3.2 ms (p95 ~4.8 ms) with a 600-token budget and 300 facts. The compiler also enforces a hard `estimate_tokens(text) <= token_budget` check, so larger inputs cannot silently exceed the ceiling.
+Remove the extension from `chrome://extensions`. Your vault stays in `~/.memty/` until you delete that folder yourself.
 
-## Migration from an earlier Memty vault
+## License
 
-The SDK can continue reading its previous temporal-vault database format. To copy its latest active facts into the atomic vault:
-
-```shell
-memty migrate ~/.memty/memory.sqlite3
-```
-
-Only the newest event for each `(namespace, slot)` is considered, so superseded values are not re-imported and deleted slots stay deleted. Facts longer than 40 tokens are skipped and reported rather than truncated.
-
-## Scope of the atomic vault release
-
-The local ledger and compiler use the Python standard library. The distribution includes the MCP dependency. The existing package also contains legacy routing and chat integrations; these are not the focus of the Memty memory-vault roadmap. Browser integration and automatic capture remain future work.
+MIT. See [LICENSE](https://github.com/RohanNK86/memty/blob/main/LICENSE).

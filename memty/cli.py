@@ -47,6 +47,7 @@ def _welcome() -> None:
   memty recall       Retrieve relevant context
   memty clip NS      Copy a namespace capsule for any AI
   memty serve        Bridge browser assistants (--autostart once)
+  memty extension    Install the browser extension folder
   memty stats        View vault statistics
   memty --help       See all commands
 
@@ -100,6 +101,26 @@ def _serve(args) -> None:
                          quiet=not args.verbose)
     except OSError as error:
         raise SystemExit(f"Could not listen on 127.0.0.1:{args.port}: {error}")
+
+
+def _extension(args) -> None:
+    from . import extension
+    try:
+        result = extension.install(args.dir)
+    except (OSError, RuntimeError) as error:
+        raise SystemExit(f"Could not install the browser extension: {error}")
+    print(f"Memty Bridge v{result['version']} is ready in:")
+    print(f"  {result['path']}")
+    print()
+    print("Load it once (Chrome, Edge, or Brave):")
+    print("  1. Open chrome://extensions (edge://extensions in Edge)")
+    print("  2. Turn on Developer mode")
+    print("  3. Click Load unpacked and choose the folder above")
+    print()
+    print("After upgrading memty, run `memty extension` again and click reload on the extension.")
+    print("The bridge must be running: memty serve --autostart (one time).")
+    if args.open:
+        extension.open_folder(result["path"])
 
 
 def _clip(args, ledger) -> None:
@@ -253,6 +274,10 @@ def main() -> None:
                        help="replace the pairing token and forget the paired extension (restart the bridge after)")
     serve.add_argument("--verbose", action="store_true", help="log request paths (never bodies)")
 
+    ext = commands.add_parser("extension", help="install the Memty Bridge browser extension folder")
+    ext.add_argument("--dir", help="where to put it (default: ~/.memty/browser-extension)")
+    ext.add_argument("--open", action="store_true", help="open the folder afterwards")
+
     clip = commands.add_parser("clip", help="copy a namespace capsule to the clipboard for any AI")
     clip.add_argument("namespace")
     clip.add_argument("--query", default="", help="rank facts for this question")
@@ -289,6 +314,9 @@ def main() -> None:
         return
     if args.command == "serve":
         _serve(args)
+        return
+    if args.command == "extension":
+        _extension(args)
         return
     ledger = _ledger(args)
     if args.command == "clip":

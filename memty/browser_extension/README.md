@@ -19,7 +19,7 @@ Use your local Memty vault in Perplexity, ChatGPT, Claude.ai, and Gemini. The ex
 ## Install (one time)
 
 1. In a terminal, run `memty serve --autostart`. This starts the bridge now and every time you log in, so you never run it again. You can undo it with `memty serve --no-autostart`.
-2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and choose this `browser-extension` folder.
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and choose the folder that `memty extension` prints.
 
 That's all. There's no token to copy and no settings to fill in:
 
