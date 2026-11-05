@@ -50,6 +50,29 @@ PRIVATE = {"CONFIDENTIAL", "SECRET"}
 MAX_BODY = 256 * 1024
 MAX_SAVE = 25
 EXTENSION_SCHEMES = ("chrome-extension://", "moz-extension://", "safari-web-extension://")
+SAVE_BATCH_PREFIX = "save_"
+# Saves made before batch ids existed: facts written this close to the newest one
+# count as the same save.
+LEGACY_BATCH_WINDOW_MS = 5_000
+
+
+def latest_batch(facts: list[dict]) -> list[dict]:
+    """The facts from the most recent save.
+
+    One Save click comes back in the order it was saved; facts without a batch id
+    (older saves, CLI writes) come back newest first, so trimming drops the oldest.
+    """
+    if not facts:
+        return []
+    when = lambda f: int(f["updated_at"] or 0)  # noqa: E731
+    newest = max(facts, key=when)
+    source = str(newest.get("source_id") or "")
+    if source.startswith(SAVE_BATCH_PREFIX):
+        return sorted((f for f in facts if f.get("source_id") == source), key=when)
+    cutoff = when(newest) - LEGACY_BATCH_WINDOW_MS
+    return sorted((f for f in facts if when(f) >= cutoff
+                   and not str(f.get("source_id") or "").startswith(SAVE_BATCH_PREFIX)),
+                  key=when, reverse=True)
 
 
 def token_path(db: str | Path) -> Path:
@@ -341,15 +364,31 @@ class BridgeHandler(BaseHTTPRequestHandler):
         style = query.get("format", "text")
         if style not in {"text", "xml"}:
             raise ValueError("format must be text or xml")
+        question = query.get("query", "").strip()
+        # With no question to rank by, hand over only the most recent save: mixing
+        # every earlier save into one paste confuses the chat assistant.
+        scope = query.get("scope", "latest" if style == "text" and not question else "all")
+        if scope not in {"latest", "all"}:
+            raise ValueError("scope must be latest or all")
+        if scope == "latest" and style != "text":
+            raise ValueError("scope=latest needs format=text")
         try:
             result = self.server.ledger.context(
-                query.get("query", ""), provider=provider, namespace=namespace,
+                question, provider=provider, namespace=namespace,
                 token_budget=TEXT_COMPILE_BUDGET if style == "text" else tokens, strict_namespace=True)
         except LocalRoutingRequired as error:
             self._error(HTTPStatus.CONFLICT, "local_routing_required",
                         "A SECRET fact matched; it cannot be sent to a web assistant.",
                         namespace=error.namespace, slot=error.slot)
             return
+        if scope == "latest" and result["text"]:
+            # Keep the compiler's privacy decisions (redacted values, refused facts),
+            # just narrowed to the latest save and shown in the order it was saved.
+            order = {f["id"]: i for i, f in enumerate(latest_batch(
+                self.server.ledger.list(namespace=namespace)))}
+            kept = sorted((c for c in result["citations"] if c.get("id") in order),
+                          key=lambda c: order[c["id"]])
+            result = {**result, "citations": kept, "text": result["text"] if kept else ""}
         # Chat assistants read plain "Title: value" lines far better than XML slots.
         text = (render_plain(result, namespace, tokens) if style == "text" and result["text"]
                 else result["text"])
@@ -429,6 +468,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
         confirmed = body.get("confirmed") is True
         existing = ({f["slot"]: f["sensitivity"] for f in self.server.ledger.list(namespace=namespace)}
                     if confirmed else {})
+        # Every fact from one Save click shares a batch id, so the capsule can hand
+        # the chat just the latest save instead of mixing it with older ones.
+        batch = SAVE_BATCH_PREFIX + secrets.token_hex(8)
         saved, skipped = [], []
         for item in facts:
             slot = str(item.get("slot", "")) if isinstance(item, dict) else ""
@@ -437,10 +479,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if confirmed:  # keep a private fact private when its value is updated
                     record = self.server.ledger.record(
                         namespace, slot, value, confidence=1.0, verification_state="USER_CONFIRMED",
-                        sensitivity=existing.get(slot.strip().casefold(), "PUBLIC"))
+                        sensitivity=existing.get(slot.strip().casefold(), "PUBLIC"), source_id=batch)
                 else:
                     record = self.server.ledger.record(namespace, slot, value, confidence=0.7,
-                                                       verification_state="EXTRACTED")
+                                                       verification_state="EXTRACTED", source_id=batch)
                 saved.append({"slot": record["slot"], "version": record.get("version")})
             except (LockedSlot, TombstonedSlot) as error:
                 skipped.append({"slot": slot, "reason": type(error).__name__, "message": str(error)})
