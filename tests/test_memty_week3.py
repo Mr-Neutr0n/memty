@@ -302,6 +302,31 @@ class BridgeTests(unittest.TestCase):
         self.assertLessEqual(estimate_tokens(body["text"]), 350)
         self.assertGreater(body["facts"], 10)
 
+    def test_capsule_pastes_only_the_latest_save(self):
+        # Regression: two separate saves (an algorithm note, then a paper review)
+        # were pasted into the chat together, so the assistant mixed both topics.
+        status, _, _ = self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True, "facts": [
+            {"slot": "space_complexity", "value": "O(1)"},
+            {"slot": "time_complexity", "value": "O(n x m)"}]})
+        self.assertEqual(status, 200)
+        time.sleep(0.02)
+        status, _, _ = self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True, "facts": [
+            {"slot": "hurt_publication_prospects", "value": "Missing dataset details"},
+            {"slot": "make_it_stronger", "value": "Ablations with statistical support"},
+            {"slot": "client", "value": "Globex"}]})
+        self.assertEqual(status, 200)
+        status, body, _ = self.request("GET", "/capsule?namespace=work.project&provider=openai")
+        self.assertEqual(status, 200, body)
+        self.assertEqual(body["text"].splitlines(), [  # saved order, nothing from the earlier save
+            "Hurt publication prospects: Missing dataset details",
+            "Make it stronger: Ablations with statistical support",
+            "Client: [private]"])                       # still private: it was CONFIDENTIAL
+        self.assertEqual((body["facts"], body["redacted"]), (3, 1))
+        status, body, _ = self.request("GET", "/capsule?namespace=work.project&provider=openai&scope=all")
+        self.assertIn("Space complexity: O(1)", body["text"])  # everything, as before, when asked
+        status, body, _ = self.request("GET", "/capsule?namespace=work.project&scope=newest")
+        self.assertEqual(status, 400)
+
     def test_user_can_view_edit_and_delete_facts(self):
         status, body, _ = self.request("GET", "/facts?namespace=work.project")
         self.assertEqual(status, 200)
