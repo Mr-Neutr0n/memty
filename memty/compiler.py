@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from typing import TYPE_CHECKING, Any
 from xml.sax.saxutils import escape
@@ -100,7 +101,12 @@ class ContextCompiler:
                 score += 0.05 * float(fact["confidence"])
                 fact["_semantic_score"] = semantic
                 ranked.append((score, fact, row))
-            ranked.sort(key=lambda item: (-item[0], item[1]["namespace"], item[1]["slot"], item[1]["id"]))
+            # Without a question there is nothing to be relevant to: newest facts first,
+            # so a fact saved a minute ago is never crowded out by older A-Z slots.
+            # With a question, ties still go to the most recently saved fact.
+            browsing = not query_terms and not query_embedding
+            ranked.sort(key=lambda item: (0.0 if browsing else -item[0], -int(item[1]["updated_at"] or 0),
+                                          item[1]["namespace"], item[1]["slot"], item[1]["id"]))
 
             # Hard privacy gate: a SECRET fact that matches this query forces
             # local routing regardless of the provider's allow-list.
@@ -332,3 +338,50 @@ class ContextCompiler:
                 "eligible_count": eligible_count, "injected_count": 0,
                 "sections": {"slots": 0, "summary": 0, "semantic": 0},
                 "requires_local": False}
+
+
+# ---------------------------------------------------------------------------
+# Plain-text capsule for chat assistants pasted into by hand (web bridge, clip).
+# Chat UIs read plain "Title: value" lines far better than namespaced XML slots.
+_REDACTED = re.compile(r"<MEMTY_REDACTED_SLOT_\d+>")
+_HASH_SLOT = re.compile(r"^(?:note|fact)_[0-9a-f]{6,}$")
+_COUNTER = re.compile(r"_\d+$")
+
+
+def slot_label(slot: str) -> str:
+    """``deploy_target_2`` -> ``Deploy target``; hashed note slots become ``Note``."""
+    if _HASH_SLOT.match(slot):
+        return "Note"
+    label = _COUNTER.sub("", slot).replace("_", " ").replace(".", " ").strip()
+    return label[:1].upper() + label[1:]
+
+
+def render_plain(result: dict[str, Any], namespace: str | None = None,
+                 token_budget: int | None = None) -> str:
+    """Render a compiled capsule as ``Title: value`` lines, trimmed to ``token_budget``.
+
+    Citations arrive best-first, so trimming drops the least relevant facts.
+    """
+    citations = list(result.get("citations") or [])
+    text = _render_plain(citations)
+    while token_budget and citations and estimate_tokens(text) > token_budget:
+        citations.pop()
+        text = _render_plain(citations)
+    return text
+
+
+def _render_plain(citations: list[dict[str, Any]]) -> str:
+    lines: list[str] = []
+    grouped: dict[str, list[str]] = {}
+    for item in citations:
+        if item.get("type") == "summary":
+            lines.append("Summary: " + " ".join(str(item["value"]).split()))
+            continue
+        value = _REDACTED.sub("[private]", " ".join(str(item.get("value", "")).split()))
+        grouped.setdefault(slot_label(str(item.get("slot", ""))), []).append(value)
+    for label, values in grouped.items():
+        if label == "Note":
+            lines.extend(f"Note: {value}" for value in values)
+        else:
+            lines.append(f"{label}: {'; '.join(values)}")
+    return "\n".join(lines)

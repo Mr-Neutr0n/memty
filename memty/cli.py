@@ -7,7 +7,8 @@ import json
 from importlib import metadata
 import sys
 
-from .compiler import LocalRoutingRequired
+from .compiler import LocalRoutingRequired, render_plain
+from .tokens import estimate_tokens
 from .factory import default_user_id, default_vault_path
 from .ledger import MemtyLedger
 
@@ -31,6 +32,7 @@ def _welcome() -> None:
 """.strip("\n")
     print(wordmark)
     print(f"""
+    \n
   Local memory for AI assistants  |  v{_version()}
   ------------------------------------------------------------
 
@@ -44,7 +46,7 @@ def _welcome() -> None:
   memty remember     Save a fact to your vault
   memty recall       Retrieve relevant context
   memty clip NS      Copy a namespace capsule for any AI
-  memty serve        Bridge browser assistants (127.0.0.1)
+  memty serve        Bridge browser assistants (--autostart once)
   memty stats        View vault statistics
   memty --help       See all commands
 
@@ -70,6 +72,10 @@ def _ledger(args) -> MemtyLedger:
 
 def _serve(args) -> None:
     from . import web_bridge
+    if args.no_autostart:
+        from .autostart import uninstall
+        _print({**uninstall(), **web_bridge.stop_background(args.db)})
+        return
     if args.stop:
         _print(web_bridge.stop_background(args.db))
         return
@@ -77,14 +83,18 @@ def _serve(args) -> None:
     if args.show_token or args.new_token:
         print(token)
         return
-    if args.background:
+    if args.background or args.autostart:
+        extra = {}
+        if args.autostart:
+            from .autostart import install
+            extra = install(args.db, args.user, args.port)
         _print({**web_bridge.start_background(args.db, args.user, port=args.port,
-                                              allowed_origins=args.allow_origin),
+                                              allowed_origins=args.allow_origin), **extra,
                 "url": f"http://127.0.0.1:{args.port}",
-                "pair": "Paste the token from `memty serve --show-token` into the extension options."})
+                "next": "Load the Memty Bridge extension; it pairs itself automatically."})
         return
     print(f"Memty bridge on http://127.0.0.1:{args.port} (Ctrl+C to stop)", file=sys.stderr)
-    print("Pairing token (paste into the extension options): " + token, file=sys.stderr)
+    print("The browser extension pairs itself on first use.", file=sys.stderr)
     try:
         web_bridge.serve(args.db, args.user, port=args.port, allowed_origins=args.allow_origin,
                          quiet=not args.verbose)
@@ -94,14 +104,18 @@ def _serve(args) -> None:
 
 def _clip(args, ledger) -> None:
     try:
+        # Plain text is trimmed to --tokens after rendering; compile with headroom for it.
+        budget = 1500 if args.format == "text" else args.tokens
         result = ledger.context(args.query, provider=args.provider, namespace=args.namespace,
-                                token_budget=args.tokens, strict_namespace=True)
+                                token_budget=budget, strict_namespace=True)
     except LocalRoutingRequired as error:
         _print(error.as_dict())
         raise SystemExit(2)
     text = result["text"]
     if not text:
         raise SystemExit(f"No facts to share in namespace '{args.namespace}'.")
+    if args.format == "text":  # chat assistants read labelled bullets better than XML slots
+        text = render_plain(result, args.namespace, args.tokens)
     if args.print_only:
         print(text)
         return
@@ -113,7 +127,7 @@ def _clip(args, ledger) -> None:
         raise SystemExit(f"Could not copy to the clipboard ({error}); the capsule is printed above.")
     redacted = len(result.get("redactions") or {})
     note = f", {redacted} confidential value(s) redacted" if redacted else ""
-    print(f"Copied {args.namespace} capsule (~{result['approx_tokens']} tokens{note}). Paste it into any AI.",
+    print(f"Copied {args.namespace} capsule (~{estimate_tokens(text)} tokens{note}). Paste it into any AI.",
           file=sys.stderr)
 
 
@@ -231,9 +245,12 @@ def main() -> None:
                        help="only accept this origin, e.g. chrome-extension://<id> (repeatable)")
     serve.add_argument("--background", action="store_true", help="start quietly in the background")
     serve.add_argument("--stop", action="store_true", help="stop a background bridge")
+    serve.add_argument("--autostart", action="store_true",
+                       help="start now and every time you log in (recommended, one-time setup)")
+    serve.add_argument("--no-autostart", action="store_true", help="stop and remove the login autostart")
     serve.add_argument("--show-token", action="store_true", help="print the pairing token and exit")
     serve.add_argument("--new-token", action="store_true",
-                       help="replace the pairing token (re-pair the extension afterwards)")
+                       help="replace the pairing token and forget the paired extension (restart the bridge after)")
     serve.add_argument("--verbose", action="store_true", help="log request paths (never bodies)")
 
     clip = commands.add_parser("clip", help="copy a namespace capsule to the clipboard for any AI")
@@ -242,6 +259,8 @@ def main() -> None:
     clip.add_argument("--provider", default="clipboard",
                       help="who will read it; non-local providers get CONFIDENTIAL values redacted")
     clip.add_argument("--tokens", type=int, default=200)
+    clip.add_argument("--format", choices=("text", "xml"), default="text",
+                      help="text: plain Title: value lines for chat apps (default); xml: <memty_state> block")
     clip.add_argument("--print", dest="print_only", action="store_true",
                       help="print the capsule instead of copying it")
 

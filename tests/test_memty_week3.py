@@ -7,13 +7,14 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 
 from memty.extract import extract_facts, extract_heuristic
 from memty.ledger import MemtyLedger
 from memty.tokens import estimate_tokens
-from memty.web_bridge import BridgeServer, load_or_create_token, token_path
+from memty.web_bridge import BridgeServer, load_or_create_token, paired_origins, token_path
 
 EXT = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 
@@ -67,10 +68,59 @@ x: int
         self.assertEqual(facts.pop("database"), "PostgreSQL 16 (Neon)")
         self.assertEqual(list(facts.values()), ["Use connect() with a timeout"])
 
+    def test_headings_paths_and_pasted_capsules_are_not_facts(self):
+        # Regression: Gemini answers produced file_1="memty-extension/manifest.json" and
+        # note_x="The 2-File Chrome Extension Bridge (Perplexity, ChatGPT, Claude, Gemini)".
+        answer = """[Memty context for work.project: facts I saved earlier.]
+- Editor: Old value from the capsule
+[/Memty]
+<memty_state v="1" provider="google"><slots>
+work.project.x="also old"
+</slots></memty_state>
+- The 2-File Chrome Extension Bridge (Perplexity, ChatGPT, Claude, Gemini)
+- File 1: memty-extension/manifest.json
+- File 2: memty-extension/content.js
+- Deploy target: Fly.io
+- Done
+- The bridge only listens on 127.0.0.1 for safety.
+"""
+        facts = {f["slot"]: f["value"] for f in extract_heuristic(answer)}
+        self.assertEqual(facts, {
+            "deploy_target": "Fly.io",
+            "bridge_listens_safety": "The bridge only listens on 127.0.0.1 for safety.",
+            "files": "memty-extension/manifest.json, memty-extension/content.js",
+        })
+
+    def test_code_blocks_are_summarized_not_copied(self):
+        answer = """Use this schema:
+```python
+# memty/db.py
+class Ledger:
+    def connect(self):
+        return sqlite3.connect(self.path)
+    def record(self, slot, value):
+        pass
+```
+```sql
+CREATE TABLE IF NOT EXISTS atomic_facts (id TEXT);
+```
+- Storage: SQLite in WAL mode
+"""
+        facts = {f["slot"]: f["value"] for f in extract_heuristic(answer)}
+        self.assertEqual(facts.pop("storage"), "SQLite in WAL mode")
+        self.assertEqual(sorted(facts.values()), [
+            "Python code in memty/db.py defines connect, record, Ledger",
+            "SQL code defines atomic_facts",
+        ])
+        selected = "function findEditor() {\n  return null;\n}\nconst place = () => {\n  editor = findEditor();\n};"
+        self.assertEqual([f["value"] for f in extract_heuristic(selected)],
+                         ["JavaScript code defines findEditor, place"])
+        self.assertEqual(extract_heuristic("x = 1\ny = 2\nz = x + y"), [])
+
     def test_prose_fallback_and_caps(self):
         facts = extract_heuristic("Paris is the capital of France. It has about two million residents. Ok.")
         self.assertEqual(len(facts), 2)
-        self.assertTrue(all(f["slot"].startswith("note_") for f in facts))
+        self.assertEqual([f["slot"] for f in facts], ["paris_capital_france", "two_million_residents"])
         long = "- " + " ".join(["word"] * 200)
         self.assertLessEqual(estimate_tokens(extract_heuristic(long)[0]["value"]), 40)
         many = "\n".join(f"- fact number {i}" for i in range(40))
@@ -161,7 +211,14 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("redactions", body)           # real values never reach the browser
         self.assertNotIn("Acme Corp", json.dumps(body))
         self.assertLessEqual(estimate_tokens(body["text"]), 200)
+        self.assertCountEqual(body["text"].splitlines(), ["Client: [private]", "Editor: VS Code"])
+        self.assertNotIn("MEMTY_REDACTED", body["text"])
+        self.assertEqual(body["facts"], 2)
         self.assertEqual(headers["Access-Control-Allow-Origin"], EXT)
+        status, body, _ = self.request("GET", "/capsule?namespace=work.project&provider=openai&format=xml")
+        self.assertTrue(body["text"].startswith("<memty_state"))
+        status, _, _ = self.request("GET", "/capsule?namespace=work.project&format=html")
+        self.assertEqual(status, 400)
         self.assertEqual(headers["Cache-Control"], "no-store")
 
     def test_secret_facts_are_refused(self):
@@ -193,6 +250,27 @@ class BridgeTests(unittest.TestCase):
         status, body, _ = self.request("GET", "/health", token=False)
         self.assertEqual((status, body), (200, {"ok": True, "service": "memty"}))
 
+    def test_extension_pairs_itself_once(self):
+        status, body, _ = self.request("POST", "/pair", {}, token=False)
+        self.assertEqual((status, body["token"]), (200, self.token))
+        self.assertEqual(paired_origins(self.ledger.path), [EXT])
+        status, body, _ = self.request("POST", "/pair", {}, token=False)  # same extension again
+        self.assertEqual(status, 200)
+        other = "chrome-extension://zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+        status, body, _ = self.request("POST", "/pair", {}, token=False, origin=other)
+        self.assertEqual((status, body["error"]), (403, "already_paired"))
+        self.assertNotIn(self.token, json.dumps(body))
+        for origin in ("https://evil.example", None):  # web pages and non-browser callers
+            status, body, _ = self.request("POST", "/pair", {}, token=False, origin=origin)
+            self.assertEqual(status, 403)
+            self.assertNotIn("token", body)
+        load_or_create_token(self.ledger.path, rotate=True)  # --new-token forgets the pairing
+        self.assertEqual(paired_origins(self.ledger.path), [])
+
+    def test_namespaces_include_counts_for_auto_selection(self):
+        status, body, _ = self.request("GET", "/namespaces")
+        self.assertEqual(body["counts"], {"personal": 1, "work.project": 2})
+
     def test_extension_preflight(self):
         status, _, headers = self.request("OPTIONS", "/facts", token=False, headers={
             "Access-Control-Request-Method": "POST",
@@ -201,6 +279,57 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(headers["Access-Control-Allow-Origin"], EXT)
         self.assertIn("Authorization", headers["Access-Control-Allow-Headers"])
         self.assertEqual(headers["Access-Control-Allow-Private-Network"], "true")
+
+    def test_newest_facts_fit_even_with_many_older_ones(self):
+        # Regression: without a query, ties went A-Z, so a fact saved just now
+        # (slot "zz_latest") never fit in the capsule.
+        for i in range(40):
+            self.ledger.record("work.project", f"older_{i:02d}_fact", f"older fact number {i}")
+        time.sleep(0.02)  # timestamps are in milliseconds
+        self.ledger.record("work.project", "zz_latest", "saved a minute ago")
+        status, body, _ = self.request("GET", "/capsule?namespace=work.project&provider=openai")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["text"].splitlines()[0], "Zz latest: saved a minute ago")
+        self.assertLessEqual(estimate_tokens(body["text"]), 350)
+        self.assertGreater(body["facts"], 10)
+
+    def test_user_can_view_edit_and_delete_facts(self):
+        status, body, _ = self.request("GET", "/facts?namespace=work.project")
+        self.assertEqual(status, 200)
+        by_slot = {f["slot"]: f for f in body["facts"]}
+        self.assertEqual(by_slot["editor"]["value"], "VS Code")
+        self.assertEqual((by_slot["client"]["value"], by_slot["client"]["private"]), (None, True))
+        self.assertNotIn("Acme Corp", json.dumps(body))           # private values never reach the browser
+        # Rename + edit
+        status, body, _ = self.request("POST", "/facts/update", {
+            "namespace": "work.project", "slot": "editor", "new_slot": "main_editor", "value": "Neovim"})
+        self.assertEqual((status, body["slot"]), (200, "main_editor"))
+        self.assertIsNone(self.ledger.find("work.project", "editor") and
+                          not self.ledger.find("work.project", "editor")["tombstone"] or None)
+        self.assertEqual(self.ledger.find("work.project", "main_editor")["verification_state"], "USER_CONFIRMED")
+        # Make public without ever sending the private value from the browser
+        status, body, _ = self.request("POST", "/facts/update", {
+            "namespace": "work.project", "slot": "client", "value": None, "private": False})
+        self.assertEqual((status, body["private"]), (200, False))
+        self.assertEqual(self.ledger.find("work.project", "client")["value"], "Acme Corp")
+        # Delete, and extraction cannot bring it back
+        status, body, _ = self.request("POST", "/facts/delete", {"namespace": "work.project", "slot": "client"})
+        self.assertEqual((status, body["deleted"]), (200, True))
+        status, body, _ = self.request("POST", "/facts", {"namespace": "work.project",
+                                                          "facts": [{"slot": "client", "value": "Other"}]})
+        self.assertEqual(body["skipped"][0]["reason"], "TombstonedSlot")
+        status, body, _ = self.request("GET", "/facts?namespace=work.project")
+        self.assertEqual(sorted(f["slot"] for f in body["facts"]), ["main_editor"])
+
+    def test_reviewed_saves_replace_older_values_and_keep_privacy(self):
+        self.ledger.record("work.project", "client", "Acme Corp", sensitivity="CONFIDENTIAL",
+                           verification_state="USER_CONFIRMED")
+        status, body, _ = self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True,
+                                                          "facts": [{"slot": "editor", "value": "Zed"},
+                                                                    {"slot": "client", "value": "Globex"}]})
+        self.assertEqual((status, len(body["saved"]), body["skipped"]), (200, 2, []))
+        self.assertEqual(self.ledger.find("work.project", "editor")["value"], "Zed")
+        self.assertEqual(self.ledger.find("work.project", "client")["sensitivity"], "CONFIDENTIAL")
 
     def test_extract_then_save_never_overwrites_confirmed_facts(self):
         status, body, _ = self.request("POST", "/extract", {"text": "- Editor: Vim\n- Framework: Next.js"})
@@ -247,8 +376,10 @@ class ClipTests(unittest.TestCase):
                 self.run_cli(db, "remember", "work.project", "client", "Acme", "--sensitivity", "CONFIDENTIAL")
                 out = self.run_cli(db, "clip", "work.project", "--print")
                 self.assertEqual(out.returncode, 0, out.stderr)
-                self.assertIn("<memty_state", out.stdout)
-                self.assertIn("VS Code", out.stdout)
+                self.assertIn("Editor: VS Code", out.stdout.splitlines())
+                self.assertNotIn("[Memty", out.stdout)
+                xml = self.run_cli(db, "clip", "work.project", "--print", "--format", "xml")
+                self.assertIn("<memty_state", xml.stdout)
                 self.assertNotIn("Acme", out.stdout)  # clipboard is treated as a cloud destination
                 empty = self.run_cli(db, "clip", "nothing.here", "--print")
                 self.assertNotEqual(empty.returncode, 0)
@@ -258,6 +389,13 @@ class ClipTests(unittest.TestCase):
                 self.assertNotIn("hunter2", secret.stdout)
             finally:
                 stop(db)
+
+    def test_autostart_command_runs_the_bridge(self):
+        from memty import autostart
+        args = autostart.command("~/vault.sqlite3", "local", 8765)
+        self.assertEqual(args[1:3], ["-m", "memty"])
+        self.assertEqual(args[-4:], ["local", "serve", "--port", "8765"])
+        self.assertTrue(Path(args[4]).is_absolute())
 
     def test_copy_text_uses_platform_tool(self):
         from memty import clipboard
