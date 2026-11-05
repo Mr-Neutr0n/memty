@@ -1,10 +1,23 @@
-// Memty Bridge content script: a floating [⚡ Memty] pill on the prompt box.
-// ⚡ Memty / Alt+M  -> prepend your local capsule to the prompt (visible, editable).
-// + Save Facts      -> extract facts from the latest answer locally, review, then save.
-// Network calls go through background.js; this script never sees the pairing token.
+// Memty Bridge content script.
+// ⚡ Memty / Alt+M   -> add your saved facts to the prompt as readable bullets (visible, editable).
+// Select text        -> a "+ Save to Memty" bubble appears; facts are proposed, you edit, then save.
+// + Save             -> same, for the latest answer when nothing is selected.
+// The pill can be dragged anywhere (double-click the grip to reset). Network calls go
+// through background.js; this script never sees the pairing token.
 (() => {
-  if (window.__memtyBridge) return;
-  window.__memtyBridge = true;
+  // Reloading or updating the extension orphans the copy already running in open
+  // tabs ("Extension context invalidated"). background.js injects a fresh copy;
+  // the fresh copy tells older ones to remove themselves, then takes over.
+  document.dispatchEvent(new CustomEvent("memty:teardown"));
+  for (const old of document.querySelectorAll(":root > div[data-memty-bridge]")) old.remove();
+  // Copies from before v0.3 had no teardown hook: drop their orphaned pill too.
+  for (const old of document.documentElement.children) {
+    if (old.tagName === "DIV" && !old.dataset.memtyBridge && old.style.zIndex === "2147483647"
+        && old.style.position === "fixed" && !old.shadowRoot && !old.childElementCount) old.remove();
+  }
+  const lifetime = new AbortController();
+  const signal = lifetime.signal;
+  const alive = () => { try { return !!chrome.runtime?.id; } catch { return false; } };
 
   const EDITORS = [
     "#prompt-textarea",                       // ChatGPT
@@ -19,51 +32,101 @@
     "chatgpt.com": '[data-message-author-role="assistant"]',
     "chat.openai.com": '[data-message-author-role="assistant"]',
     "claude.ai": '[data-testid="assistant-message"], .font-claude-response, .font-claude-message',
-    "gemini.google.com": "model-response, message-content",
+    "gemini.google.com": "model-response message-content, model-response",
     "www.perplexity.ai": ".prose",
     "perplexity.ai": ".prose",
   };
-  const MARKER = "<memty_state";
+  const MARKERS = ["[Memty context", "<memty_state"]; // capsule formats before v0.4
+  const POS_KEY = `memtyPos:${location.hostname}`;
+  const MIN_SELECTION = 12;
 
   const host = document.createElement("div");
-  host.style.cssText = "position:fixed;z-index:2147483647;display:none;";
+  host.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;z-index:2147483647;";
+  host.dataset.memtyBridge = "1";
   const root = host.attachShadow({ mode: "closed" });
   root.innerHTML = `
     <style>
       :host { all: initial; }
-      .bar { display:flex; gap:6px; font:600 12px/1 system-ui,sans-serif; }
-      button { all:unset; cursor:pointer; padding:6px 10px; border-radius:999px;
-               background:#111827; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.25); }
-      button:hover { background:#374151; }
-      .panel { position:absolute; bottom:34px; right:0; width:340px; max-height:320px; overflow:auto;
-               background:#fff; color:#111; border:1px solid #d1d5db; border-radius:10px; padding:10px;
-               font:13px/1.4 system-ui,sans-serif; box-shadow:0 6px 24px rgba(0,0,0,.2); }
-      .panel label { display:flex; gap:6px; margin:4px 0; align-items:flex-start; }
-      .panel .row { display:flex; gap:6px; justify-content:flex-end; margin-top:8px; }
-      .panel .row button { padding:5px 10px; }
-      .toast { position:absolute; bottom:34px; right:0; white-space:nowrap; background:#111827; color:#fff;
-               padding:6px 10px; border-radius:8px; font:12px system-ui,sans-serif; }
+      * { box-sizing: border-box; }
+      .bar { position:fixed; display:flex; align-items:center; gap:2px; padding:3px;
+             border-radius:999px; background:linear-gradient(135deg,#7c3aed,#4f46e5);
+             border:1px solid rgba(255,255,255,.55); box-shadow:0 4px 14px rgba(79,70,229,.45);
+             font:600 13px/1 system-ui,-apple-system,sans-serif; color:#fff; user-select:none; }
+      .grip { cursor:grab; padding:6px 4px 6px 7px; opacity:.75; letter-spacing:-2px; }
+      .grip:active { cursor:grabbing; }
+      button { all:unset; cursor:pointer; padding:7px 11px; border-radius:999px; color:#fff;
+               white-space:nowrap; }
+      button:hover, button:focus-visible { background:rgba(255,255,255,.2); }
+      button[disabled] { opacity:.6; cursor:progress; }
+      .sep { width:1px; height:16px; background:rgba(255,255,255,.4); }
+      .bubble { position:fixed; padding:7px 12px; border-radius:999px; background:#4f46e5; color:#fff;
+                font:600 12px/1 system-ui,sans-serif; box-shadow:0 4px 14px rgba(0,0,0,.3);
+                border:1px solid rgba(255,255,255,.55); }
+      .card { position:fixed; right:16px; bottom:16px; width:380px; max-width:calc(100vw - 32px);
+              max-height:min(460px, calc(100vh - 32px)); display:flex; flex-direction:column;
+              background:#fff; color:#111827; border:1px solid #c7d2fe; border-radius:14px;
+              box-shadow:0 12px 40px rgba(0,0,0,.28); font:13px/1.4 system-ui,sans-serif; }
+      .card header { padding:12px 14px 8px; font-weight:700; display:flex; justify-content:space-between; }
+      .card header small { font-weight:400; color:#6b7280; }
+      .list { overflow:auto; padding:0 14px; }
+      .fact { display:grid; grid-template-columns:18px 1fr; gap:4px 8px; padding:8px 0;
+              border-top:1px solid #eef2ff; align-items:start; }
+      .fact input[type=checkbox] { margin:3px 0 0; accent-color:#4f46e5; }
+      .fact .label { all:unset; font:600 12px/1.3 system-ui,sans-serif; color:#4338ca; padding:2px 4px;
+                     margin-left:-4px; border-radius:6px; }
+      .fact .label:hover { background:#eef2ff; }
+      .fact .label:focus { background:#eef2ff; outline:2px solid #a5b4fc; }
+      .fact textarea { grid-column:2; width:100%; resize:vertical; min-height:34px; padding:6px 8px;
+                       border:1px solid #e5e7eb; border-radius:8px; font:13px/1.35 system-ui,sans-serif;
+                       color:#111827; background:#f9fafb; }
+      .fact textarea:focus { outline:2px solid #a5b4fc; background:#fff; }
+      .fact.off textarea { opacity:.45; }
+      .row { display:flex; gap:8px; justify-content:flex-end; padding:10px 14px 12px; }
+      .row button { padding:8px 14px; border-radius:8px; color:#374151; background:#f3f4f6; }
+      .row button.primary { color:#fff; background:#4f46e5; }
+      .row button.primary:hover { background:#4338ca; }
+      .toast { position:fixed; right:16px; bottom:16px; max-width:360px; background:#111827; color:#fff;
+               padding:10px 14px; border-radius:10px; font:13px/1.35 system-ui,sans-serif;
+               box-shadow:0 8px 24px rgba(0,0,0,.3); border-left:4px solid #7c3aed; }
       [hidden] { display:none !important; }
     </style>
-    <div class="panel" hidden></div>
-    <div class="toast" hidden></div>
-    <div class="bar">
-      <button class="inject" title="Add your Memty capsule (Alt+M)">⚡ Memty</button>
-      <button class="save" title="Extract facts from the latest answer">+ Save Facts</button>
-    </div>`;
-  const panel = root.querySelector(".panel");
-  const toastEl = root.querySelector(".toast");
+    <div class="bar" hidden>
+      <span class="grip" title="Drag to move · double-click to reset">⋮⋮</span>
+      <button class="inject" title="Add your saved facts to this prompt (Alt+M)">⚡ Memty</button>
+      <span class="sep"></span>
+      <button class="save" title="Save facts from your selection or the latest answer">＋ Save</button>
+      <span class="sep"></span>
+      <button class="facts" title="View, edit, or delete your saved facts">☰</button>
+    </div>
+    <button class="bubble" hidden title="Turn the selected text into facts">＋ Save to Memty</button>
+    <div class="card" hidden></div>
+    <div class="toast" hidden></div>`;
+  const $ = (selector) => root.querySelector(selector);
+  const bar = $(".bar");
+  const bubble = $(".bubble");
+  const card = $(".card");
+  const toastEl = $(".toast");
+  const injectBtn = $(".inject");
+  const saveBtn = $(".save");
   document.documentElement.appendChild(host);
 
   let editor = null;
+  let offset = { x: 0, y: 0 };
+  let lastPos = "";
   let toastTimer = 0;
 
+  chrome.storage.local.get(POS_KEY, (stored) => {
+    if (stored?.[POS_KEY]) offset = stored[POS_KEY];
+    schedule();
+  });
+
+  // ---------------------------------------------------------------- placement
   const visible = (el) => !!el && el.isConnected && el.getClientRects().length > 0;
   const isEditor = (el) => !!el && (el.tagName === "TEXTAREA" || el.isContentEditable);
 
   function findEditor() {
     const active = document.activeElement;
-    if (isEditor(active) && !host.contains(active)) return active.closest('[contenteditable="true"]') || active;
+    if (isEditor(active) && active !== host) return active.closest('[contenteditable="true"]') || active;
     if (visible(editor)) return editor;
     for (const selector of EDITORS) {
       const found = [...document.querySelectorAll(selector)].find(visible);
@@ -72,23 +135,73 @@
     return null;
   }
 
+  const resizeObserver = new ResizeObserver(() => schedule());
+
   function place() {
-    editor = findEditor();
-    if (!editor) { host.style.display = "none"; return; }
+    const found = findEditor();
+    if (found !== editor) {
+      if (editor) resizeObserver.unobserve(editor);
+      editor = found;
+      if (editor) resizeObserver.observe(editor);
+    }
+    if (bar.hidden !== !editor) bar.hidden = !editor;
+    if (!editor) return;
     const rect = editor.getBoundingClientRect();
-    host.style.display = "block";
-    host.style.top = `${Math.max(4, rect.top - 34)}px`;
-    host.style.left = `${Math.max(4, rect.right - 200)}px`;
+    const width = bar.offsetWidth || 190;
+    const height = bar.offsetHeight || 32;
+    // Default: just above the prompt box's top-right corner, then the user's drag offset.
+    const left = Math.min(Math.max(4, rect.right - width + offset.x), innerWidth - width - 4);
+    const top = Math.min(Math.max(4, rect.top - height - 8 + offset.y), innerHeight - height - 4);
+    const pos = `${Math.round(left)},${Math.round(top)}`;
+    if (pos !== lastPos) { // only touch styles when something moved
+      lastPos = pos;
+      bar.style.left = `${Math.round(left)}px`;
+      bar.style.top = `${Math.round(top)}px`;
+    }
   }
 
-  function toast(text) {
+  let frame = 0;
+  function schedule() {
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; place(); });
+  }
+
+  // Drag the pill by its grip; the offset is remembered per site.
+  const grip = $(".grip");
+  grip.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    grip.setPointerCapture(event.pointerId);
+    const start = { x: event.clientX, y: event.clientY, ox: offset.x, oy: offset.y };
+    const move = (e) => {
+      offset = { x: start.ox + e.clientX - start.x, y: start.oy + e.clientY - start.y };
+      schedule();
+    };
+    const up = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      chrome.storage.local.set({ [POS_KEY]: offset });
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+  });
+  grip.addEventListener("dblclick", () => {
+    offset = { x: 0, y: 0 };
+    chrome.storage.local.remove(POS_KEY);
+    schedule();
+  });
+
+  // ---------------------------------------------------------------- helpers
+  function toast(text, ms = 4000) {
     toastEl.textContent = text;
     toastEl.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 4000);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, ms);
   }
 
   function ask(message) {
+    if (!alive()) { // let the message show before the stale pill disappears
+      setTimeout(teardown, 5000);
+      return Promise.reject(new Error("Memty was updated. Refresh this page to use it here."));
+    }
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(message, (reply) => {
         if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
@@ -97,9 +210,20 @@
     });
   }
 
-  function textOf(el) {
-    return el.tagName === "TEXTAREA" ? el.value : el.innerText;
+  async function busy(button, label, work) {
+    if (button.disabled) return;
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = label;
+    try {
+      await work();
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
   }
+
+  const textOf = (el) => (el.tagName === "TEXTAREA" ? el.value : el.innerText);
 
   function prepend(el, text) {
     el.focus();
@@ -117,107 +241,225 @@
     const selection = window.getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
-    // insertText goes through the editor's own input pipeline (ProseMirror, Quill, Lexical).
+    // One insertText call goes through the editor's own pipeline (ProseMirror, Quill, Lexical).
     if (!document.execCommand("insertText", false, `${text}\n\n`)) {
       el.prepend(document.createTextNode(`${text}\n\n`));
       el.dispatchEvent(new InputEvent("input", { bubbles: true }));
     }
+    // Leave the caret at the end so the user keeps typing their question.
+    range.selectNodeContents(el);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
-  async function inject() {
-    const el = findEditor();
-    if (!el) return toast("Click into the prompt box first.");
-    if (textOf(el).includes(MARKER)) return toast("Memty capsule is already in this prompt.");
-    try {
-      const capsule = await ask({ type: "capsule" });
-      if (!capsule.text) return toast(`No facts in ${capsule.namespace} yet.`);
-      prepend(el, capsule.text);
-      const note = capsule.redacted ? `, ${capsule.redacted} redacted` : "";
-      toast(`Added ${capsule.namespace} (~${capsule.approx_tokens} tokens${note}).`);
-    } catch (error) {
-      toast(error.message);
+  // Readable text of an answer or selection, with code blocks fenced so the
+  // vault can summarize them (it never stores code itself).
+  function readable(content) {
+    const sandbox = document.createElement("div");
+    sandbox.style.cssText = "position:fixed;left:-99999px;top:0;width:800px;white-space:normal;";
+    sandbox.append(content);
+    for (const pre of sandbox.querySelectorAll("pre")) {
+      const code = pre.querySelector("code") || pre;
+      const lang = (code.className.match(/language-([\w+#-]+)/) || [])[1] || "";
+      const fenced = document.createElement("pre");
+      fenced.textContent = `\n\`\`\`${lang}\n${code.textContent.trim()}\n\`\`\`\n`;
+      pre.replaceWith(fenced);
     }
-  }
-
-  function latestAnswer() {
-    const selected = String(window.getSelection() || "").trim();
-    if (selected) return selected;
-    const selector = ANSWERS[location.hostname];
-    const nodes = selector ? [...document.querySelectorAll(selector)].filter(visible) : [];
-    if (!nodes.length) return "";
-    const answer = nodes[nodes.length - 1];
-    // Code samples are not facts: drop rendered code blocks before extracting.
-    let text = answer.innerText;
-    for (const block of answer.querySelectorAll("pre, code-block")) {
-      if (block.innerText.trim()) text = text.replace(block.innerText, "\n");
-    }
+    document.body.append(sandbox);
+    const text = sandbox.innerText;
+    sandbox.remove();
     return text.trim();
   }
 
-  function review(facts) {
-    panel.replaceChildren();
-    const title = document.createElement("strong");
-    title.textContent = "Save these facts to Memty?";
-    panel.append(title);
-    const boxes = facts.map((fact) => {
-      const label = document.createElement("label");
-      const box = document.createElement("input");
-      box.type = "checkbox";
-      box.checked = true;
-      const text = document.createElement("span");
-      text.textContent = `${fact.slot}: ${fact.value}`; // textContent: never render page HTML
-      label.append(box, text);
-      panel.append(label);
-      return { box, fact };
+  function selectionText() {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return "";
+    const anchor = selection.anchorNode?.parentElement;
+    if (anchor && (anchor.closest('[contenteditable="true"], textarea') || anchor === host)) return "";
+    if (String(selection).trim().length < MIN_SELECTION) return "";
+    return readable(selection.getRangeAt(0).cloneContents());
+  }
+
+  function latestAnswer() {
+    const selector = ANSWERS[location.hostname];
+    const nodes = selector ? [...document.querySelectorAll(selector)].filter(visible) : [];
+    return nodes.length ? readable(nodes[nodes.length - 1].cloneNode(true)) : "";
+  }
+
+  // ---------------------------------------------------------------- actions
+  async function inject() {
+    const el = findEditor();
+    if (!el) return toast("Click into the prompt box first.");
+    await busy(injectBtn, "⚡ …", async () => {
+      try {
+        const capsule = await ask({ type: "capsule" });
+        if (!capsule.text) return toast(`No saved facts in ${capsule.namespace} yet.`);
+        const current = textOf(el);
+        const firstLine = capsule.text.split("\n")[0];
+        if (current.includes(firstLine) || MARKERS.some((marker) => current.includes(marker))) {
+          return toast("Your Memty facts are already in this prompt.");
+        }
+        prepend(el, capsule.text);
+        const note = capsule.redacted ? `, ${capsule.redacted} kept private` : "";
+        toast(`Added ${capsule.facts || "your"} fact(s) from ${capsule.namespace}${note}.`);
+      } catch (error) {
+        toast(error.message, 6000);
+      }
     });
-    const row = document.createElement("div");
-    row.className = "row";
+  }
+
+  function label(slot) {
+    if (/^(?:note|fact)_[0-9a-f]{6,}$/.test(slot)) return "Note";
+    const text = slot.replace(/_\d+$/, "").replace(/[_.]+/g, " ");
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+  const toSlot = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 48);
+
+  function review(facts, source) {
+    card.replaceChildren();
+    const header = document.createElement("header");
+    header.textContent = "Save to Memty";
+    const hint = document.createElement("small");
+    hint.textContent = `${facts.length} from ${source} · edit before saving`;
+    header.append(hint);
+    const list = document.createElement("div");
+    list.className = "list";
+    const rows = facts.map((fact) => {
+      const row = document.createElement("div");
+      row.className = "fact";
+      const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: true });
+      const name = Object.assign(document.createElement("input"), {
+        className: "label", value: label(fact.slot), title: "Title (editable)", spellcheck: false });
+      const value = Object.assign(document.createElement("textarea"), { value: fact.value, rows: 1 });
+      box.onchange = () => row.classList.toggle("off", !box.checked);
+      row.append(box, name, value);
+      list.append(row);
+      return { box, name, value, fact };
+    });
+    const actions = document.createElement("div");
+    actions.className = "row";
     const cancel = Object.assign(document.createElement("button"), { textContent: "Cancel" });
-    const save = Object.assign(document.createElement("button"), { textContent: "Save" });
-    row.append(cancel, save);
-    panel.append(row);
-    panel.hidden = false;
-    cancel.onclick = () => { panel.hidden = true; };
-    save.onclick = async () => {
-      const chosen = boxes.filter((b) => b.box.checked).map((b) => b.fact);
-      panel.hidden = true;
+    const save = Object.assign(document.createElement("button"), { textContent: `Save ${rows.length}`, className: "primary" });
+    function recount() { save.textContent = `Save ${rows.filter((r) => r.box.checked).length}`; }
+    rows.forEach((r) => r.box.addEventListener("change", recount));
+    actions.append(cancel, save);
+    card.append(header, list, actions);
+    toastEl.hidden = true;
+    card.hidden = false;
+    rows[0]?.value.focus();
+    cancel.onclick = () => { card.hidden = true; };
+    save.onclick = () => busy(save, "Saving…", async () => {
+      const chosen = rows.filter((r) => r.box.checked && r.value.value.trim())
+        .map((r) => {
+          // An unchanged title keeps its original slot, so several "Note"s never collide.
+          const title = r.name.value.trim();
+          const slot = title === label(r.fact.slot) ? r.fact.slot : toSlot(title) || r.fact.slot;
+          return { slot, value: r.value.value.trim().replace(/\s+/g, " ") };
+        });
+      const used = new Set();
+      for (const fact of chosen) { // two facts renamed to the same title: keep both
+        let unique = fact.slot;
+        for (let n = 2; used.has(unique); n += 1) unique = `${fact.slot.slice(0, 45)}_${n}`;
+        used.add(unique);
+        fact.slot = unique;
+      }
       if (!chosen.length) return toast("Nothing selected.");
       try {
         const result = await ask({ type: "save", facts: chosen });
-        const skipped = result.skipped.length ? `, ${result.skipped.length} kept as-is` : "";
+        card.hidden = true;
+        const skipped = result.skipped.length ? ` (${result.skipped.length} skipped: ${result.skipped[0].message})` : "";
         toast(`Saved ${result.saved.length} fact(s) to ${result.namespace}${skipped}.`);
       } catch (error) {
-        toast(error.message);
+        toast(error.message, 6000);
       }
-    };
+    });
   }
 
-  async function saveFacts() {
-    const text = latestAnswer();
-    if (!text) return toast("Select the answer text, then click Save Facts.");
-    try {
-      const { facts } = await ask({ type: "extract", text: text.slice(0, 50000) });
-      facts.length ? review(facts) : toast("No facts found in that answer.");
-    } catch (error) {
-      toast(error.message);
-    }
+  async function extractFrom(text, source, button) {
+    await busy(button, "…", async () => {
+      try {
+        const { facts } = await ask({ type: "extract", text: text.slice(0, 50000) });
+        facts.length ? review(facts, source) : toast("No clear facts found. Try selecting a shorter, specific passage.");
+      } catch (error) {
+        toast(error.message, 6000);
+      }
+    });
   }
 
-  // Keep focus in the prompt box when the pill is clicked.
-  root.querySelector(".bar").addEventListener("mousedown", (event) => event.preventDefault());
-  root.querySelector(".inject").addEventListener("click", inject);
-  root.querySelector(".save").addEventListener("click", saveFacts);
+  function saveFacts() {
+    const selected = selectionText();
+    if (selected) return extractFrom(selected, "your selection", saveBtn);
+    const answer = latestAnswer();
+    if (!answer) return toast("Select the text you want to remember, then click ＋ Save.");
+    return extractFrom(answer, "the latest answer", saveBtn);
+  }
+
+  // Selection bubble: appears just above the selected text.
+  let selectionTimer = 0;
+  function updateBubble() {
+    clearTimeout(selectionTimer);
+    selectionTimer = setTimeout(() => {
+      const selection = window.getSelection();
+      const text = selection && !selection.isCollapsed ? String(selection).trim() : "";
+      const anchor = selection?.anchorNode?.parentElement;
+      if (text.length < MIN_SELECTION || !selection.rangeCount ||
+          anchor?.closest('[contenteditable="true"], textarea')) {
+        bubble.hidden = true;
+        return;
+      }
+      const rect = selection.getRangeAt(0).getBoundingClientRect();
+      if (!rect.width && !rect.height) { bubble.hidden = true; return; }
+      bubble.hidden = false;
+      const top = rect.top > 44 ? rect.top - 38 : rect.bottom + 8;
+      bubble.style.top = `${Math.round(Math.min(top, innerHeight - 36))}px`;
+      bubble.style.left = `${Math.round(Math.min(Math.max(4, rect.left + rect.width / 2 - 60), innerWidth - 140))}px`;
+    }, 120);
+  }
+
+  // ---------------------------------------------------------------- wiring
+  // Keep focus and the text selection when our buttons are pressed.
+  root.addEventListener("mousedown", (event) => {
+    if (!event.composedPath().some((node) => node === card)) event.preventDefault();
+  });
+  injectBtn.addEventListener("click", inject);
+  saveBtn.addEventListener("click", saveFacts);
+  $(".facts").addEventListener("click", () => ask({ type: "open-facts" }).catch((error) => toast(error.message)));
+  bubble.addEventListener("click", () => {
+    const selected = selectionText();
+    bubble.hidden = true;
+    if (selected) extractFrom(selected, "your selection", saveBtn);
+  });
+  document.addEventListener("mouseup", updateBubble, { capture: true, signal });
+  document.addEventListener("keyup", (event) => { if (event.shiftKey) updateBubble(); }, { capture: true, signal });
+  document.addEventListener("selectionchange", () => {
+    if (!bubble.hidden && window.getSelection()?.isCollapsed) bubble.hidden = true;
+  }, { signal });
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !card.hidden) { card.hidden = true; return; }
     if (event.altKey && !event.ctrlKey && !event.metaKey && event.code === "KeyM") {
       event.preventDefault();
       event.stopPropagation();
       inject();
     }
-  }, true);
+  }, { capture: true, signal });
 
-  let frame = 0;
-  const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; place(); }); };
-  ["focusin", "resize", "scroll"].forEach((name) => window.addEventListener(name, schedule, true));
-  setInterval(schedule, 1500); // single-page apps swap the prompt box without events
-  place();
+  // No scroll listener: prompt boxes are pinned, and measuring on every scroll
+  // frame of a streaming answer is what made chats stutter.
+  window.addEventListener("resize", schedule, { signal });
+  document.addEventListener("focusin", schedule, { capture: true, signal });
+  const interval = setInterval(() => {
+    if (!alive()) { if (toastEl.hidden) teardown(); return; } // extension removed or reloaded
+    if (document.visibilityState === "visible") schedule();
+  }, 1200);
+
+  function teardown() {
+    lifetime.abort();
+    clearInterval(interval);
+    clearTimeout(toastTimer);
+    resizeObserver.disconnect();
+    host.remove();
+  }
+  document.addEventListener("memty:teardown", teardown, { once: true, signal });
+  schedule();
 })();
