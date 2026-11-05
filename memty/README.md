@@ -177,6 +177,55 @@ memtyd stop
 
 The daemon persists until stopped or the computer exits. It restarts automatically when a client next needs it. Run `memtyd serve` in the foreground to diagnose startup failures.
 
+## Web assistants: Perplexity, ChatGPT, Claude.ai, Gemini
+
+Browser tabs can't launch a stdio process, so Memty offers two other ways in. Both use the same vault.
+
+### Way A: localhost bridge and browser extension
+
+```shell
+memty serve --background          # 127.0.0.1:8765, quiet; uses the shared memtyd
+memty serve --show-token          # pairing token for the extension
+memty serve --stop
+memty serve --port 8765           # foreground, Ctrl+C to stop
+```
+
+Load the extension in [`browser-extension/`](../browser-extension/README.md). It adds a **⚡ Memty** pill (or Alt+M) that puts the namespace capsule, at most 200 tokens, at the top of the prompt. A **+ Save Facts** button extracts facts from the latest answer on your machine and saves the ones you approve.
+
+The bridge is built so that other websites cannot read or change your vault:
+
+- It binds only to `127.0.0.1`. The address can't be configured.
+- Every data route needs `Authorization: Bearer <token>`. The token is stored in `<db>.web-token`, owner-only.
+- Requests from web-page origins are refused. Only browser-extension origins are accepted, or only the origins you pass with `--allow-origin`.
+- The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>`, which blocks DNS rebinding.
+- Writes must be `application/json`.
+- Capsules are compiled for the site as a cloud provider. CONFIDENTIAL values are redacted, SECRET matches return `409 local_routing_required`, and redaction maps never leave the bridge.
+- Saved facts are `EXTRACTED`, so they can't overwrite user-confirmed slots or bring back deleted ones.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /health` | Liveness check. No token, no data. |
+| `GET /capsule?namespace=&provider=&query=&tokens=200` | Compiled capsule text and its token count |
+| `GET /namespaces` | Namespace names in the vault |
+| `POST /extract` `{"text"}` | Proposed facts. Writes nothing. Uses heuristics, or a local Ollama model when `MEMTY_OLLAMA_MODEL` is set. |
+| `POST /facts` `{"namespace", "facts": [{"slot", "value"}]}` | Saves the reviewed facts |
+
+### Way B: clipboard (`memty clip`)
+
+```shell
+memty clip work.project                    # copy the capsule; paste into any AI
+memty clip work.project --query "deploy"   # rank facts for a question
+memty clip work.project --print            # print to stdout instead
+```
+
+The clipboard counts as a cloud destination. CONFIDENTIAL values are redacted, and the command exits with status 2 if a SECRET fact matches. Use `--provider local` only when the paste goes to a local model. Memty uses the operating system's own clipboard tool: `clip` on Windows, `pbcopy` on macOS, and `wl-copy`, `xclip` or `xsel` on Linux.
+
+To bind it to a hotkey:
+
+- **Windows**: create a desktop shortcut whose target is `pythonw -m memty clip work.project`. Then open its Properties and set a **Shortcut key**.
+- **macOS**: in Shortcuts, add a *Run Shell Script* action that runs `memty clip work.project`, then assign a keyboard shortcut.
+- **Linux**: bind the command in your desktop's keyboard settings.
+
 ## Verification
 
 The Week 1 acceptance suite covers the schema, logical constraints, 40-token enforcement, versioning/audit, tombstones, raw isolation, budgets, semantic snippets, summaries, allow/block lists, SECRET routing, and CONFIDENTIAL rehydration:

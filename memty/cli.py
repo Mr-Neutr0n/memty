@@ -43,6 +43,8 @@ def _welcome() -> None:
   memty connect      Connect your AI assistants
   memty remember     Save a fact to your vault
   memty recall       Retrieve relevant context
+  memty clip NS      Copy a namespace capsule for any AI
+  memty serve        Bridge browser assistants (127.0.0.1)
   memty stats        View vault statistics
   memty --help       See all commands
 
@@ -64,6 +66,55 @@ def _ledger(args) -> MemtyLedger:
     trusted = [item.strip() for item in (args.trusted_provider or []) if item.strip()]
     from .daemon import DaemonLedger
     return DaemonLedger(args.db, args.user, trusted_providers=trusted)
+
+
+def _serve(args) -> None:
+    from . import web_bridge
+    if args.stop:
+        _print(web_bridge.stop_background(args.db))
+        return
+    token = web_bridge.load_or_create_token(args.db, rotate=args.new_token)
+    if args.show_token or args.new_token:
+        print(token)
+        return
+    if args.background:
+        _print({**web_bridge.start_background(args.db, args.user, port=args.port,
+                                              allowed_origins=args.allow_origin),
+                "url": f"http://127.0.0.1:{args.port}",
+                "pair": "Paste the token from `memty serve --show-token` into the extension options."})
+        return
+    print(f"Memty bridge on http://127.0.0.1:{args.port} (Ctrl+C to stop)", file=sys.stderr)
+    print("Pairing token (paste into the extension options): " + token, file=sys.stderr)
+    try:
+        web_bridge.serve(args.db, args.user, port=args.port, allowed_origins=args.allow_origin,
+                         quiet=not args.verbose)
+    except OSError as error:
+        raise SystemExit(f"Could not listen on 127.0.0.1:{args.port}: {error}")
+
+
+def _clip(args, ledger) -> None:
+    try:
+        result = ledger.context(args.query, provider=args.provider, namespace=args.namespace,
+                                token_budget=args.tokens, strict_namespace=True)
+    except LocalRoutingRequired as error:
+        _print(error.as_dict())
+        raise SystemExit(2)
+    text = result["text"]
+    if not text:
+        raise SystemExit(f"No facts to share in namespace '{args.namespace}'.")
+    if args.print_only:
+        print(text)
+        return
+    from .clipboard import copy_text
+    try:
+        copy_text(text)
+    except Exception as error:  # clipboard tool missing or failed: never lose the capsule
+        print(text)
+        raise SystemExit(f"Could not copy to the clipboard ({error}); the capsule is printed above.")
+    redacted = len(result.get("redactions") or {})
+    note = f", {redacted} confidential value(s) redacted" if redacted else ""
+    print(f"Copied {args.namespace} capsule (~{result['approx_tokens']} tokens{note}). Paste it into any AI.",
+          file=sys.stderr)
 
 
 def main() -> None:
@@ -171,6 +222,29 @@ def main() -> None:
     connect.add_argument("--client", action="append", choices=["Claude Desktop", "Claude Code", "Cursor", "Windsurf"],
                          help="only connect this client (repeatable)")
 
+    serve = commands.add_parser(
+        "serve", help="run the localhost bridge for browser assistants (127.0.0.1 only)",
+        description="Serve capsules to the Memty browser extension on 127.0.0.1. "
+                    "Requests need the pairing token and an extension origin.")
+    serve.add_argument("--port", type=int, default=8765)
+    serve.add_argument("--allow-origin", action="append", default=[],
+                       help="only accept this origin, e.g. chrome-extension://<id> (repeatable)")
+    serve.add_argument("--background", action="store_true", help="start quietly in the background")
+    serve.add_argument("--stop", action="store_true", help="stop a background bridge")
+    serve.add_argument("--show-token", action="store_true", help="print the pairing token and exit")
+    serve.add_argument("--new-token", action="store_true",
+                       help="replace the pairing token (re-pair the extension afterwards)")
+    serve.add_argument("--verbose", action="store_true", help="log request paths (never bodies)")
+
+    clip = commands.add_parser("clip", help="copy a namespace capsule to the clipboard for any AI")
+    clip.add_argument("namespace")
+    clip.add_argument("--query", default="", help="rank facts for this question")
+    clip.add_argument("--provider", default="clipboard",
+                      help="who will read it; non-local providers get CONFIDENTIAL values redacted")
+    clip.add_argument("--tokens", type=int, default=200)
+    clip.add_argument("--print", dest="print_only", action="store_true",
+                      help="print the capsule instead of copying it")
+
     raw_add = commands.add_parser("raw-add", help="archive raw text without changing facts")
     raw_add.add_argument("namespace")
     raw_add.add_argument("content")
@@ -194,7 +268,13 @@ def main() -> None:
         if any(item["status"] == "error" for item in results["clients"].values()):
             raise SystemExit(1)
         return
+    if args.command == "serve":
+        _serve(args)
+        return
     ledger = _ledger(args)
+    if args.command == "clip":
+        _clip(args, ledger)
+        return
 
     if args.command == "remember":
         result = ledger.record(
