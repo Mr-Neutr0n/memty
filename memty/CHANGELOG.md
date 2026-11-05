@@ -14,7 +14,7 @@ Brings Memty to web assistants (ChatGPT, Claude.ai, Gemini, Perplexity) and puts
   - New logo icons for light and dark toolbars.
 - **Your Memty facts page:** view, search, edit, add, delete, and mark facts private, from the ☰ button or the extension icon.
 - **Localhost web bridge (`memty serve`)**, bound to 127.0.0.1 only. Routes: `/capsule`, `/extract`, `/facts`, `/facts/update`, `/facts/delete`, `/namespaces` (with counts), `/pair`, `/health`.
-- **Zero-setup pairing.** The extension pairs itself with trust on first use: only one extension origin is accepted, and `--new-token` resets it. It also picks a default namespace on its own.
+- **Zero-setup pairing.** The extension pairs itself with trust on first use: only one extension origin is accepted, and `--new-token` resets it. It also picks a default namespace on its own. `memty pair` connects another browser or a reinstalled extension.
 - **Login autostart.** `memty serve --autostart` and `--no-autostart`: a per-user item on Windows, macOS, and Linux, with no admin rights needed.
 - **`memty clip`** copies a capsule to the clipboard for any AI app.
 - **Welcome screen.** Running `memty` with no command shows a short introduction and the main commands.

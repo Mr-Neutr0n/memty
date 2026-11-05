@@ -24,7 +24,9 @@ const ago = (ms) => {
 async function pair() {
   const response = await fetch(`${base()}/pair`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok || !body.token) throw new Error(body.message || `HTTP ${response.status}`);
+  if (!response.ok || !body.token) {
+    throw Object.assign(new Error(body.message || `HTTP ${response.status}`), { code: body.error });
+  }
   settings.token = body.token;
   await chrome.storage.local.set({ token: body.token });
 }
@@ -39,7 +41,9 @@ async function api(path, body) {
   let response = await send();
   if (response.status === 401) { await pair(); response = await send(); } // token was rotated
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
+  if (!response.ok) {
+    throw Object.assign(new Error(data.message || data.error || `HTTP ${response.status}`), { code: data.error });
+  }
   return data;
 }
 
@@ -142,6 +146,27 @@ function render() {
   }
 }
 
+function showConnect(error) {
+  const offline = error instanceof TypeError; // fetch could not reach 127.0.0.1
+  const states = {
+    offline: ["Start Memty on this computer",
+      "Memty isn't running. Run this once in a terminal. It also starts Memty every time you log in:",
+      "memty serve --autostart", "Not installed yet? Run: pip install memty"],
+    pairing_required: ["Connect this browser to Memty",
+      "For your safety, Memty only talks to browsers you approve. Run this in a terminal, then click Try again:",
+      "memty pair", "You need this after reinstalling the extension, or to add another browser."],
+  };
+  const [title, text, cmd, why] = states[offline ? "offline" : error.code] ||
+    ["Couldn't reach your facts", error.message, "memty pair", ""];
+  $("connectTitle").textContent = title;
+  $("connectText").textContent = text;
+  $("connectCmd").textContent = cmd;
+  $("connectWhy").textContent = why;
+  $("connect").hidden = false;
+  $("app").hidden = true;
+  status(offline ? "Not running" : "Not connected", "warn");
+}
+
 async function start() {
   settings = await chrome.storage.local.get({ port: 8765, token: "", namespace: "" });
   $("port").value = settings.port;
@@ -151,10 +176,11 @@ async function start() {
     await loadNamespaces();
     await loadFacts();
     $("token").value = settings.token;
+    $("connect").hidden = true;
+    $("app").hidden = false;
     status("Connected to Memty on this computer", "ok");
   } catch (error) {
-    const offline = error instanceof TypeError; // fetch could not reach 127.0.0.1
-    status(offline ? "Memty is not running. Run once in a terminal: memty serve --autostart" : error.message, "bad");
+    showConnect(error);
   }
 }
 
@@ -170,6 +196,12 @@ $("namespace").addEventListener("change", async (event) => {
   await loadFacts().catch((error) => status(error.message, "bad"));
 });
 $("search").addEventListener("input", render);
+$("retry").addEventListener("click", start);
+$("copyCmd").addEventListener("click", async () => {
+  await navigator.clipboard.writeText($("connectCmd").textContent);
+  $("copyCmd").textContent = "Copied";
+  setTimeout(() => { $("copyCmd").textContent = "Copy"; }, 1500);
+});
 $("add").addEventListener("click", () => {
   if ($("list").querySelector(".fact.new")) return $("list").querySelector(".fact.new .title").focus();
   const fresh = row(null);

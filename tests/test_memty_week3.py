@@ -14,7 +14,8 @@ from unittest.mock import patch
 from memty.extract import extract_facts, extract_heuristic
 from memty.ledger import MemtyLedger
 from memty.tokens import estimate_tokens
-from memty.web_bridge import BridgeServer, load_or_create_token, paired_origins, token_path
+from memty.web_bridge import (BridgeServer, load_or_create_token, open_pairing, paired_origins,
+                               token_path)
 
 EXT = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 
@@ -258,8 +259,16 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(status, 200)
         other = "chrome-extension://zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
         status, body, _ = self.request("POST", "/pair", {}, token=False, origin=other)
-        self.assertEqual((status, body["error"]), (403, "already_paired"))
+        self.assertEqual((status, body["error"]), (403, "pairing_required"))
+        self.assertIn("memty pair", body["message"])
         self.assertNotIn(self.token, json.dumps(body))
+        open_pairing(self.ledger.path, 60)  # `memty pair`: the next browser may join
+        status, body, _ = self.request("POST", "/pair", {}, token=False, origin=other)
+        self.assertEqual((status, body["token"]), (200, self.token))
+        self.assertEqual(paired_origins(self.ledger.path), [EXT, other])
+        third = "chrome-extension://yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+        status, _, _ = self.request("POST", "/pair", {}, token=False, origin=third)
+        self.assertEqual(status, 403)  # the window closes after one browser joins
         for origin in ("https://evil.example", None):  # web pages and non-browser callers
             status, body, _ = self.request("POST", "/pair", {}, token=False, origin=origin)
             self.assertEqual(status, 403)

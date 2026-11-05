@@ -110,6 +110,7 @@ memty serve --autostart        # start now and at every login (Windows, macOS, L
 memty serve --no-autostart     # stop it and remove the login item
 memty serve --background       # start quietly once
 memty serve --stop
+memty pair                     # connect another browser or a reinstalled extension (2-minute window)
 memty serve --new-token        # revoke access: new token, forget the paired extension (restart the bridge)
 memty serve --show-token       # for manual pairing (extension options > Advanced)
 ```
@@ -120,7 +121,7 @@ The bridge runs on your computer, so it's built so that websites can't read or c
 
 - It binds only to `127.0.0.1`, and the address can't be configured.
 - Every data route needs `Authorization: Bearer <token>`. The token is stored owner-only in `<db>.web-token`.
-- **Pairing is trust on first use.** `POST /pair` only answers browser-extension origins, and the first extension to ask is remembered. Web pages and other extensions are refused (`403`).
+- **Pairing is trust on first use.** `POST /pair` only answers browser-extension origins, and the first extension to ask is remembered. Web pages and other extensions are refused (`403`). To add another browser, or an extension you reinstalled, run `memty pair`: it lets exactly one more extension connect within two minutes.
 - Requests from web-page origins are refused, and the `Host` header must be `127.0.0.1` or `localhost`, which blocks DNS rebinding. Writes must be `application/json`.
 - Capsules are compiled for each site as a cloud provider. Private values are never sent to the browser, not even to the facts page, and redaction maps never leave the bridge.
 - The extension's background worker is the only part that holds the token. Scripts running inside chat sites never see it.

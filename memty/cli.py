@@ -103,6 +103,17 @@ def _serve(args) -> None:
         raise SystemExit(f"Could not listen on 127.0.0.1:{args.port}: {error}")
 
 
+def _pair(args) -> None:
+    from . import web_bridge
+    web_bridge.load_or_create_token(args.db)
+    if not web_bridge.health(args.port):
+        web_bridge.start_background(args.db, args.user, port=args.port)
+    web_bridge.open_pairing(args.db, args.seconds)
+    print(f"Pairing is open for {args.seconds // 60 or 1} minute(s).")
+    print("In your browser, click Try again on the Memty page, or use Memty in any chat.")
+    print("Only the next browser extension that connects is added.")
+
+
 def _extension(args) -> None:
     from . import extension
     try:
@@ -274,6 +285,10 @@ def main() -> None:
                        help="replace the pairing token and forget the paired extension (restart the bridge after)")
     serve.add_argument("--verbose", action="store_true", help="log request paths (never bodies)")
 
+    pair = commands.add_parser("pair", help="connect another browser (or a reinstalled extension) to Memty")
+    pair.add_argument("--port", type=int, default=8765)
+    pair.add_argument("--seconds", type=int, default=120, help="how long pairing stays open")
+
     ext = commands.add_parser("extension", help="install the Memty Bridge browser extension folder")
     ext.add_argument("--dir", help="where to put it (default: ~/.memty/browser-extension)")
     ext.add_argument("--open", action="store_true", help="open the folder afterwards")
@@ -317,6 +332,9 @@ def main() -> None:
         return
     if args.command == "extension":
         _extension(args)
+        return
+    if args.command == "pair":
+        _pair(args)
         return
     ledger = _ledger(args)
     if args.command == "clip":
