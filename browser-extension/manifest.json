@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Memty Bridge",
+  "version": "0.1.0",
+  "description": "Add your local Memty capsule to Perplexity, ChatGPT, Claude.ai, and Gemini, and save facts back to your own vault.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": { "service_worker": "background.js" },
+  "options_page": "options.html",
+  "action": { "default_title": "Memty Bridge options" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.perplexity.ai/*",
+        "https://perplexity.ai/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

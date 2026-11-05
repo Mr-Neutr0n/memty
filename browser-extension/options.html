@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Memty Bridge options</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; max-width: 520px; margin: 32px auto; padding: 0 16px; color: #111827; }
+    label { display: block; margin-top: 14px; font-weight: 600; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; font: inherit; }
+    button { margin-top: 18px; padding: 8px 14px; font: inherit; cursor: pointer; }
+    code { background: #f3f4f6; padding: 1px 4px; border-radius: 4px; }
+    #status { margin-top: 14px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Memty Bridge</h1>
+  <p>1. Run <code>memty serve --background</code>.<br>
+     2. Run <code>memty serve --show-token</code> and paste the token below.<br>
+     3. Pick the namespace to share, e.g. <code>work.project</code>.</p>
+  <label>Pairing token <input id="token" type="password" autocomplete="off"></label>
+  <label>Namespace <input id="namespace" list="namespaces" placeholder="work.project"></label>
+  <datalist id="namespaces"></datalist>
+  <label>Port <input id="port" type="number" min="1" max="65535" value="8765"></label>
+  <button id="save">Save and test connection</button>
+  <div id="status"></div>
+  <script src="options.js"></script>
+</body>
+</html>
