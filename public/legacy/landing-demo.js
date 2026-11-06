@@ -19,7 +19,7 @@
     {
       title: '1. Install Memty and the SDK',
       copy: 'Install the Memty Python package from the repository. It includes the model router and the local portable-memory vault.',
-      code: 'python -m pip install "memty @ git+https://github.com/RohanNK86/memty.git@main"',
+      code: 'python -m pip install "memty @ git+https://github.com/memtylabs/memty.git@main"',
       output: ['Collecting memty from GitHub', 'Router, SDK, and Memty vault installed']
     },
     {

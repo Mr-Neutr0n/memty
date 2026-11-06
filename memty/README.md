@@ -4,7 +4,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/memty.svg)](https://pypi.org/project/memty/)
 [![Python](https://img.shields.io/pypi/pyversions/memty.svg)](https://pypi.org/project/memty/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/RohanNK86/memty/blob/main/LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/memtylabs/memty/blob/main/LICENSE)
 
 - **Local-first.** The vault is a single SQLite file in `~/.memty/`. There are no accounts, no cloud sync, and no telemetry.
 - **Works everywhere.** It connects to MCP clients (Claude Desktop, Claude Code, Cursor, Windsurf), to chat websites through a browser extension, and to anything else through the clipboard.
@@ -12,7 +12,7 @@
 - **Private by design.** Private values are hidden from cloud AIs and appear only as `[private]`. Secrets never leave your machine.
 - **Small and fast.** Capsules stay under a fixed token budget, and the core uses only the Python standard library.
 
-> Memty is in alpha (0.x). The storage format is stable and covered by tests, but commands and options may still change between minor versions. See the [changelog](https://github.com/RohanNK86/memty/blob/main/memty/CHANGELOG.md).
+> Memty is in alpha (0.x). The storage format is stable and covered by tests, but commands and options may still change between minor versions. See the [changelog](https://github.com/memtylabs/memty/blob/main/memty/CHANGELOG.md).
 
 ---
 
@@ -286,4 +286,4 @@ Remove the extension from `chrome://extensions`. Your vault stays in `~/.memty/`
 
 ## License
 
-MIT. See [LICENSE](https://github.com/RohanNK86/memty/blob/main/LICENSE).
+MIT. See [LICENSE](https://github.com/memtylabs/memty/blob/main/LICENSE).

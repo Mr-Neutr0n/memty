@@ -54,7 +54,7 @@ $package = "memty"
 if ($extraList.Count -gt 0) {
     $package += "[$($extraList -join ',')]"
 }
-$packageSpec = "$package @ git+https://github.com/RohanNK86/memty.git@main"
+$packageSpec = "$package @ git+https://github.com/memtylabs/memty.git@main"
 & $venvPython -m pip install --upgrade $packageSpec
 if ($LASTEXITCODE -ne 0) { throw "Could not install Memty from GitHub." }
 
