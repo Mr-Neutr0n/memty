@@ -13,7 +13,7 @@ One private, local memory vault for every AI assistant you use: ChatGPT, Claude,
 [![Python](https://img.shields.io/pypi/pyversions/memty.svg)](https://pypi.org/project/memty/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[Website](https://rohannk86.github.io/memty/) · [Quick start](#quick-start) · [How it works](#how-it-works) · [Package docs](memty/README.md) · [Changelog](memty/CHANGELOG.md)
+[Website](https://memtylabs.github.io/memty/) · [Quick start](#quick-start) · [How it works](#how-it-works) · [Package docs](memty/README.md) · [Changelog](memty/CHANGELOG.md)
 
 </div>
 
@@ -232,7 +232,7 @@ The router doesn't use the vault to choose models yet; memory-aware routing is o
 | [`memty/browser_extension/`](memty/browser_extension/README.md) | The Memty Bridge browser extension (shipped inside the package) |
 | [`memoryport/`](memoryport/README.md) | Model-routing SDK and compatibility code for older vaults |
 | [`tests/`](tests/) | Package tests (`python -m pytest tests`) |
-| [`GitPage/`](GitPage/index.html) | The product website, deployed to [GitHub Pages](https://rohannk86.github.io/memty/) on every change to `main` |
+| [`GitPage/`](GitPage/index.html) | The product website, deployed to [GitHub Pages](https://memtylabs.github.io/memty/) on every change to `main` |
 | [`app/`](app/README.md) | Web workspace: Next.js pages, API routes, and chat orchestration |
 | [`backend/`](backend/README.md) | Web workspace: Express routes, authentication, and MongoDB models |
 | [`providers/`](providers/README.md) | Web workspace: model registry, provider adapters, and fallbacks |
@@ -275,7 +275,7 @@ Review the [Privacy Notice](app/privacy/page.tsx) and [Terms](app/terms/page.tsx
 - [Browser extension](memty/browser_extension/README.md)
 - [Changelog](memty/CHANGELOG.md)
 - [Web frontend](app/README.md) · [Backend](backend/README.md) · [Memory layers](app/memory/README.md) · [Providers](providers/README.md)
-- [Website](https://rohannk86.github.io/memty/)
+- [Website](https://memtylabs.github.io/memty/)
 
 ## 🤝 Contributing
 

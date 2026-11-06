@@ -54,7 +54,7 @@ if ((${#extras[@]})); then
   extras_csv="$(IFS=,; printf '%s' "${extras[*]}")"
   package+="[$extras_csv]"
 fi
-"$venv/bin/python" -m pip install --upgrade "$package @ git+https://github.com/RohanNK86/memty.git@main"
+"$venv/bin/python" -m pip install --upgrade "$package @ git+https://github.com/memtylabs/memty.git@main"
 
 echo "Memty installed in: $venv"
 echo "Vault database default: $HOME/.memty/ledger.sqlite3"

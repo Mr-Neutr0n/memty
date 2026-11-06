@@ -14,7 +14,7 @@ Thanks for helping improve Memty. The project has a Next.js app, an Express/Mong
 
 ## Before you start
 
-1. Search existing [issues](https://github.com/RohanNK86/memty/issues) and pull requests to avoid duplicating work.
+1. Search existing [issues](https://github.com/memtylabs/memty/issues) and pull requests to avoid duplicating work.
 2. For a bug, include the route or command, steps to reproduce, expected result, actual result, and relevant sanitized logs.
 3. For a feature, describe the user problem and a concrete acceptance outcome before expanding its scope.
 4. For changes that affect account data or provider requests, explain which service owns the data and how user/account boundaries are preserved.

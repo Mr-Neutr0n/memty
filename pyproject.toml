@@ -30,11 +30,11 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/RohanNK86/memty"
-Repository = "https://github.com/RohanNK86/memty"
-Documentation = "https://github.com/RohanNK86/memty/tree/main/memty#readme"
-Issues = "https://github.com/RohanNK86/memty/issues"
-Changelog = "https://github.com/RohanNK86/memty/blob/main/memty/CHANGELOG.md"
+Homepage = "https://github.com/memtylabs/memty"
+Repository = "https://github.com/memtylabs/memty"
+Documentation = "https://github.com/memtylabs/memty/tree/main/memty#readme"
+Issues = "https://github.com/memtylabs/memty/issues"
+Changelog = "https://github.com/memtylabs/memty/blob/main/memty/CHANGELOG.md"
 
 [project.optional-dependencies]
 mongodb = ["pymongo>=4.6"]
