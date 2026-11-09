@@ -2,6 +2,7 @@ const { OAuth2Client } = require('google-auth-library');
 const User = require('../model/userModel');
 const catchAsync = require('./catchAsync');
 const { setSessionCookie, clearSessionCookie } = require('../utils/session');
+const { validateDateOfBirth } = require('../utils/dateOfBirth');
 
 const googleClient = process.env.GOOGLE_CLIENT_ID
     ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
@@ -36,15 +37,8 @@ exports.updateMe = catchAsync(async (req, res) => {
         updates.name = body.name.trim();
     }
     if (Object.prototype.hasOwnProperty.call(body, 'DOB')) {
-        if (typeof body.DOB !== 'string' || (body.DOB && !/^\d{4}-\d{2}-\d{2}$/.test(body.DOB))) {
-            return res.status(400).json({ status: 'fail', message: 'Date of birth must use YYYY-MM-DD.' });
-        }
-        if (body.DOB) {
-            const date = new Date(`${body.DOB}T00:00:00.000Z`);
-            if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== body.DOB || date > new Date()) {
-                return res.status(400).json({ status: 'fail', message: 'Enter a valid date of birth that is not in the future.' });
-            }
-        }
+        const dobError = validateDateOfBirth(body.DOB);
+        if (dobError) return res.status(400).json({ status: 'fail', message: dobError });
         updates.DOB = body.DOB;
     }
     if (Object.prototype.hasOwnProperty.call(body, 'avatarData')) {
@@ -75,6 +69,10 @@ exports.signup = catchAsync(async (req, res) => {
     const { name, email, password, DOB } = req.body;
     if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string' || password.length < 8) {
         return res.status(400).json({ status: 'fail', message: 'Name, email, and a password of at least 8 characters are required' });
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'DOB')) {
+        const dobError = validateDateOfBirth(DOB);
+        if (dobError) return res.status(400).json({ status: 'fail', message: dobError });
     }
     const user = await User.create({ name, email, password, DOB });
     sendAuthResponse(res, user, 201);
