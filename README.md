@@ -78,7 +78,7 @@ memty clip work.project        # copy your facts for any AI app
 ```mermaid
 flowchart TB
     W["ChatGPT · Claude.ai · Gemini · Perplexity"] -->|browser extension| B["memty serve<br/>local bridge, 127.0.0.1 only"]
-    D["Claude Desktop · Claude Code · Cursor · Windsurf"] -->|MCP over stdio| M["memty mcp"]
+    D["Claude Desktop · Claude Code · Codex CLI · VS Code · Cursor · Windsurf"] -->|MCP over stdio| M["memty mcp"]
     C["memty CLI · Python API"] --> Q
     B --> Q["memtyd<br/>one local daemon per vault"]
     M --> Q
@@ -122,7 +122,7 @@ The vault file itself is **not encrypted**, so it relies on your computer accoun
 | `memty serve --autostart` | Start the browser bridge now and at every login (`--no-autostart` to undo) |
 | `memty extension` | Install or update the browser extension folder |
 | `memty pair` | Connect another browser or a reinstalled extension (two-minute window) |
-| `memty connect` | Connect Claude Desktop, Claude Code, Cursor, and Windsurf through their official installers |
+| `memty connect` | Connect Claude Desktop, Claude Code, Codex CLI, VS Code, Cursor, and Windsurf through supported installers or guided steps |
 | `memty remember` · `recall` · `forget` | Save, compile, or permanently delete facts |
 | `memty list` · `history` · `stats` | Inspect facts, versions, and the vault |
 | `memty clip NS` | Copy a namespace's facts to the clipboard |

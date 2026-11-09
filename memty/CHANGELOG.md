@@ -2,6 +2,13 @@
 
 All notable changes to the `memty` package. This project follows [Semantic Versioning](https://semver.org/); while it is in 0.x, minor versions may change commands and options.
 
+## Unreleased
+
+- `memty connect` now supports Codex CLI and VS Code through their official MCP installer commands, alongside Claude, Cursor, and Windsurf.
+- The stdio MCP server now exposes `memty_drill` for bounded archived-source reads with a local-model-only gate.
+- `memty_sync` can save up to 25 explicitly requested slot/value pairs and return the updated capsule in one call.
+- Documented that MCP resource registration does not force clients to load memory automatically; clients must call `memty_sync` or read the resource.
+
 ## 0.2.0 (2026-11-05)
 
 Brings Memty to web assistants (ChatGPT, Claude.ai, Gemini, Perplexity) and puts you in control of every fact.

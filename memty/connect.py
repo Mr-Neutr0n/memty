@@ -7,6 +7,8 @@ client file. It only hands the change to each client's own supported installer:
 
 * **Claude Code**: runs Claude Code's official ``claude mcp add`` command,
   so Claude Code validates and saves its own settings.
+* **Codex CLI**: runs its official ``codex mcp add`` command.
+* **VS Code**: runs its official ``code --add-mcp`` command.
 * **Cursor**: opens Cursor's official MCP install link. Cursor asks the user
   to confirm before it adds the server.
 * **Claude Desktop / Windsurf**: these have no supported installer Memty can
@@ -27,7 +29,7 @@ import sys
 from urllib.parse import quote
 
 SERVER_NAME = "memty"
-CLIENTS = ("Claude Desktop", "Claude Code", "Cursor", "Windsurf")
+CLIENTS = ("Claude Desktop", "Claude Code", "Codex CLI", "VS Code", "Cursor", "Windsurf")
 
 
 def server_entry(executable: str | None = None) -> dict:
@@ -54,20 +56,33 @@ def _claude_desktop_path(home: Path) -> Path:
 
 def client_paths(home: Path | None = None) -> dict[str, Path]:
     home = Path(home) if home is not None else Path.home()
+    if sys.platform == "win32":
+        vscode = Path(os.environ.get("APPDATA", str(home / "AppData" / "Roaming"))) / "Code" / "User" / "mcp.json"
+    elif sys.platform == "darwin":
+        vscode = home / "Library" / "Application Support" / "Code" / "User" / "mcp.json"
+    else:
+        vscode = Path(os.environ.get("XDG_CONFIG_HOME", str(home / ".config"))) / "Code" / "User" / "mcp.json"
     return {
         "Claude Desktop": _claude_desktop_path(home),
         "Claude Code": home / ".claude.json",
+        "Codex CLI": home / ".codex" / "config.toml",
+        "VS Code": vscode,
         "Cursor": home / ".cursor" / "mcp.json",
         "Windsurf": home / ".codeium" / "windsurf" / "mcp_config.json",
     }
 
 
-def _detected(name: str, path: Path, claude_cli: str | None) -> bool:
+def _detected(name: str, path: Path, claude_cli: str | None,
+              codex_cli: str | None = None, code_cli: str | None = None) -> bool:
     if path.exists():
         return True
     if name == "Claude Code":
         # The home directory always exists, so only the file or the CLI counts.
         return claude_cli is not None
+    if name == "Codex CLI":
+        return codex_cli is not None
+    if name == "VS Code":
+        return code_cli is not None
     # The app creates its settings folder on first launch.
     return path.parent.is_dir()
 
@@ -85,6 +100,92 @@ def _current_entry(path: Path):
         return servers.get(SERVER_NAME) if isinstance(servers, dict) else None
     except (OSError, ValueError):
         return None
+
+
+def _vscode_entry(path: Path):
+    try:
+        config = json.loads(path.read_text(encoding="utf-8-sig"))
+        servers = config.get("servers") if isinstance(config, dict) else None
+        return servers.get(SERVER_NAME) if isinstance(servers, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _codex_entry(codex_cli: str | None):
+    if not codex_cli:
+        return None
+    try:
+        proc = subprocess.run([codex_cli, "mcp", "get", SERVER_NAME, "--json"],
+                              capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL)
+        if proc.returncode == 0:
+            config = json.loads(proc.stdout)
+            return config if isinstance(config, dict) else None
+        message = (proc.stderr or proc.stdout).strip()
+        missing = ("not found", "no mcp server", "does not exist", "unknown server")
+        if not any(phrase in message.casefold() for phrase in missing):
+            raise RuntimeError(message or "Codex MCP lookup failed")
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        raise RuntimeError(f"Codex MCP lookup failed: {error}") from error
+    return None
+
+
+def _connect_codex(path: Path, entry: dict, codex_cli: str | None, dry_run: bool) -> dict:
+    command = [codex_cli or "codex", "mcp", "add", SERVER_NAME, "--", entry["command"], *entry["args"]]
+    if not codex_cli:
+        return {"status": "manual_step", "path": str(path), "command": command,
+                "steps": "Run this command after installing Codex CLI."}
+    try:
+        current = _codex_entry(codex_cli)
+    except RuntimeError as error:
+        return {"status": "error", "path": str(path), "error": str(error),
+                "steps": "Check Codex CLI setup, then retry."}
+    if current:
+        config = current.get("transport") if isinstance(current.get("transport"), dict) else current
+        if _matches(config, entry):
+            return {"status": "already_connected", "path": str(path)}
+        return {"status": "manual_step", "path": str(path),
+                "steps": "A Memty server already exists in Codex. Review it with 'codex mcp get memty' before changing it.",
+                "command": command}
+    if dry_run:
+        return {"status": "would_add", "path": str(path), "command": command}
+    try:
+        proc = subprocess.run(command, capture_output=True, text=True, timeout=60,
+                              stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError) as error:
+        return {"status": "error", "path": str(path), "error": str(error), "command": command}
+    if proc.returncode != 0:
+        return {"status": "error", "path": str(path),
+                "error": (proc.stderr or proc.stdout).strip() or f"codex exited with {proc.returncode}",
+                "command": command}
+    return {"status": "connected", "path": str(path), "method": "codex mcp add"}
+
+
+def _connect_vscode(path: Path, entry: dict, code_cli: str | None, dry_run: bool) -> dict:
+    config = {"name": SERVER_NAME, "type": "stdio", **entry}
+    command = [code_cli or "code", "--add-mcp", json.dumps(config, separators=(",", ":"))]
+    current = _vscode_entry(path)
+    if _matches(current, {"type": "stdio", **entry}):
+        return {"status": "already_connected", "path": str(path)}
+    if current is not None:
+        return {"status": "manual_step", "path": str(path),
+                "steps": "A Memty server already exists in VS Code. Review it in MCP: Open User Configuration.",
+                "command": command}
+    if not code_cli:
+        return {"status": "manual_step", "path": str(path), "command": command,
+                "steps": "Run this command after installing the VS Code CLI."}
+    if dry_run:
+        return {"status": "would_add", "path": str(path), "command": command}
+    try:
+        proc = subprocess.run(command, capture_output=True, text=True, timeout=60,
+                              stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError) as error:
+        return {"status": "error", "path": str(path), "error": str(error), "command": command}
+    if proc.returncode != 0:
+        return {"status": "error", "path": str(path),
+                "error": (proc.stderr or proc.stdout).strip() or f"code exited with {proc.returncode}",
+                "command": command}
+    return {"status": "install_prompt_opened", "path": str(path),
+            "method": "code --add-mcp", "steps": "Confirm the MCP server in VS Code."}
 
 
 def cursor_install_link(entry: dict) -> str:
@@ -175,6 +276,7 @@ def _connect_cursor(path: Path, entry: dict, dry_run: bool, open_links: bool) ->
 
 def connect_clients(paths: dict[str, Path] | None = None, *, dry_run: bool = False,
                     clients: list[str] | None = None, claude_cli: str | None | bool = True,
+                    codex_cli: str | None | bool = True, code_cli: str | None | bool = True,
                     executable: str | None = None, open_links: bool = True) -> dict:
     """Connect detected clients through their own installers; never write their files.
 
@@ -183,7 +285,13 @@ def connect_clients(paths: dict[str, Path] | None = None, *, dry_run: bool = Fal
     """
     if claude_cli is True:
         claude_cli = shutil.which("claude")
+    if codex_cli is True:
+        codex_cli = shutil.which("codex")
+    if code_cli is True:
+        code_cli = shutil.which("code")
     claude_cli = claude_cli or None
+    codex_cli = codex_cli or None
+    code_cli = code_cli or None
     entry = server_entry(executable)
     wanted = {name.casefold() for name in clients} if clients else None
     results = {}
@@ -191,10 +299,14 @@ def connect_clients(paths: dict[str, Path] | None = None, *, dry_run: bool = Fal
         if wanted is not None and name.casefold() not in wanted:
             continue
         path = Path(path)
-        if not _detected(name, path, claude_cli):
+        if not _detected(name, path, claude_cli, codex_cli, code_cli):
             results[name] = {"status": "not_detected", "path": str(path)}
         elif name == "Claude Code":
             results[name] = _connect_claude_code(path, entry, claude_cli, dry_run)
+        elif name == "Codex CLI":
+            results[name] = _connect_codex(path, entry, codex_cli, dry_run)
+        elif name == "VS Code":
+            results[name] = _connect_vscode(path, entry, code_cli, dry_run)
         elif name == "Cursor":
             results[name] = _connect_cursor(path, entry, dry_run, open_links)
         elif _matches(_current_entry(path), entry):
