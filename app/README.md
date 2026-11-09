@@ -41,7 +41,7 @@ Landing, login, and chat pages render legacy HTML strings from `lib/legacy-marku
 - `GET /api/config`: lists configured models and public metadata. It does not return provider secrets.
 - `/api/users/*` and `/users/*`: Next proxy routes to the backend user service.
 - `/backend/*`: generic backend proxy used by the app.
-- `GET /health`: frontend health response.
+- `GET /health`: process liveness and backend readiness. See [Operations](#operations).
 - `POST /api/clear-history`: clears browser history through the app's local-history flow.
 
 The chat handler limits request bodies to 100 KiB and messages to 30,000 characters. Its current 30 requests per minute limit is in-memory per frontend process. It requires the HTTP-only session cookie from the backend. Chat generation currently returns a complete response rather than a token stream.
@@ -57,4 +57,18 @@ The root layout declares a device-width viewport with `viewportFit: cover`. Inte
 See the root `.env.example` for provider keys, model names, output limits, proxy target, frontend port, Google client ID, and memory defaults. Provider keys stay server-side in Next.js routes and must not be exposed through client JavaScript.
 
 The workspace's short recent-history list and theme/display preferences use browser storage. Full neutral conversation context and portable memory are stored in MongoDB through the backend. Deleting browser storage removes local UI state; use the Memory page to delete saved server conversations and memories.
+
+## Operations
+
+`GET /health` separates process liveness from application readiness. `liveness` is `ok` when this Next.js process handled the request. `readiness` is taken from the backend [`GET /health`](../backend/README.md) payload, which remains the source for backend and MongoDB readiness. This route does not open its own database connection. A live frontend can still be unready.
+
+The readiness request times out after one second. The JSON body contains only `liveness`, `readiness`, and `timestamp`. It does not include environment values, credentials, error text, or internal hostnames.
+
+| Backend `GET /health` | Frontend HTTP | `readiness` |
+| --- | --- | --- |
+| `status` is `ok` | 200 | `ok` |
+| `status` is `degraded` (backend reachable, dependency not ready) | 503 | `degraded` |
+| No response before the timeout, or the payload is not a recognized health status | 503 | `unavailable` |
+
+Use the HTTP status and `readiness` to decide whether signed-in features can be served. `liveness` stays `ok` on those 503 responses, so a process check can tell the frontend is up while readiness is `degraded` or `unavailable`.
 
