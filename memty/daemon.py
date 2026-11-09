@@ -18,7 +18,7 @@ from .compiler import LocalRoutingRequired
 from .factory import default_user_id, default_vault_path
 from .ledger import LockedSlot, MemtyLedger, TombstonedSlot
 
-METHODS = frozenset({"record", "find", "forget", "context", "stats", "list", "set_summary", "summary",
+METHODS = frozenset({"record", "record_context", "find", "forget", "context", "context_selected", "stats", "list", "set_summary", "summary",
                      "summarize_namespace", "set_constraint", "list_constraints", "delete_constraint",
                      "archive_raw", "drill_down", "history"})
 MAX_MESSAGE = 16 * 1024 * 1024
@@ -245,10 +245,20 @@ def stop(db):
 
 def main():
     parser = argparse.ArgumentParser(prog="memtyd")
-    parser.add_argument("action", choices=["start", "serve", "status", "stop"])
+    parser.add_argument("action", nargs="?", default="bridge", choices=["bridge", "start", "serve", "status", "stop"])
     parser.add_argument("--db", default=str(default_vault_path()))
+    parser.add_argument("--user", default=default_user_id())
+    parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
-    if args.action == "serve":
+    if not 1 <= args.port <= 65535:
+        parser.error("--port must be between 1 and 65535")
+    if args.action == "bridge":
+        from .web_bridge import start_background
+        ensure_daemon(args.db)
+        bridge = start_background(args.db, args.user, port=args.port)
+        print(json.dumps({"daemon": status(args.db), "bridge": bridge,
+                          "url": f"http://127.0.0.1:{args.port}"}, indent=2))
+    elif args.action == "serve":
         if not serve(args.db):
             raise SystemExit("memtyd is already running for this database")
     elif args.action == "start":

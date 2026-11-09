@@ -1,0 +1,192 @@
+{
+  "mode": "live_provider_calls",
+  "fixture": "Synthetic five-turn architecture handoff",
+  "fixture_sha256": "c610195d95ac130ba568b14c8effaa692bc011d6b8688a020bfb57df00ae1256",
+  "providers": [
+    "claude",
+    "gemini",
+    "claude",
+    "gemini",
+    "claude"
+  ],
+  "scope": "Five alternating provider API calls per mode; prior synthetic Q&A is replayed across providers. Provider substitutions are listed separately from the original fixture digest.",
+  "retrieval_baseline": "Curated snippets and illustrative schemas in prompt text; no actual RAG or MCP server was invoked.",
+  "token_accounting": "Provider-reported complete request input and output usage; includes question and prior answers.",
+  "roundtrips": "Five model requests per mode; no actual model tool calls were made.",
+  "results": {
+    "full_document_replay": {
+      "turns": [
+        {
+          "provider": "claude",
+          "model": "claude-haiku-5-5",
+          "input_tokens": 958,
+          "output_tokens": 47,
+          "latency_ms": 1536,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"primary_database\": \"PostgreSQL 16\",\n  \"cache_engine\": \"DragonflyDB\"\n}\n```"
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-2.5-flash",
+          "input_tokens": 647,
+          "output_tokens": 30,
+          "latency_ms": 1203,
+          "exact_values_returned": 1,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"rate_limiter\": \"Token bucket\",\n  \"authentication\": \"JWT access tokens\"\n}\n```"
+        },
+        {
+          "provider": "claude",
+          "model": "claude-haiku-5-5",
+          "input_tokens": 1095,
+          "output_tokens": 123,
+          "latency_ms": 1536,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"framework\": \"FastAPI\",\n  \"deployment\": \"Kubernetes\"\n}\n```"
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-2.5-flash",
+          "input_tokens": 735,
+          "output_tokens": 34,
+          "latency_ms": 1433,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"event_queue\": \"NATS JetStream\",\n  \"audit_retention\": \"90 days\"\n}\n```"
+        },
+        {
+          "provider": "claude",
+          "model": "claude-haiku-5-5",
+          "input_tokens": 1228,
+          "output_tokens": 47,
+          "latency_ms": 1536,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"schema_migrations\": \"Alembic\",\n  \"secrets_manager\": \"HashiCorp Vault\"\n}\n```"
+        }
+      ],
+      "input_tokens": 4663,
+      "output_tokens": 281,
+      "exact_values_returned": 9,
+      "expected_values_total": 10
+    },
+    "simulated_retrieval": {
+      "turns": [
+        {
+          "provider": "claude",
+          "model": "claude-haiku-5-5",
+          "input_tokens": 605,
+          "output_tokens": 47,
+          "latency_ms": 1434,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"primary_database\": \"PostgreSQL 16\",\n  \"cache_engine\": \"DragonflyDB\"\n}\n```"
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-2.5-flash",
+          "input_tokens": 419,
+          "output_tokens": 30,
+          "latency_ms": 1434,
+          "exact_values_returned": 1,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"rate_limiter\": \"Token bucket\",\n  \"authentication\": \"JWT access tokens\"\n}\n```"
+        },
+        {
+          "provider": "claude",
+          "model": "claude-haiku-5-5",
+          "input_tokens": 742,
+          "output_tokens": 155,
+          "latency_ms": 2117,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"framework\": \"FastAPI\",\n  \"deployment\": \"Kubernetes\"\n}\n```"
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-2.5-flash",
+          "input_tokens": 507,
+          "output_tokens": 34,
+          "latency_ms": 1199,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"event_queue\": \"NATS JetStream\",\n  \"audit_retention\": \"90 days\"\n}\n```"
+        },
+        {
+          "provider": "claude",
+          "model": "claude-haiku-5-5",
+          "input_tokens": 875,
+          "output_tokens": 97,
+          "latency_ms": 2212,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"schema_migrations\": \"Alembic\",\n  \"secrets_manager\": \"HashiCorp Vault\"\n}\n```"
+        }
+      ],
+      "input_tokens": 3148,
+      "output_tokens": 363,
+      "exact_values_returned": 9,
+      "expected_values_total": 10
+    },
+    "memty_selected_context": {
+      "turns": [
+        {
+          "provider": "claude",
+          "model": "claude-haiku-5-5",
+          "input_tokens": 285,
+          "output_tokens": 47,
+          "latency_ms": 1331,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"primary_database\": \"PostgreSQL 16\",\n  \"cache_engine\": \"DragonflyDB\"\n}\n```"
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-2.5-flash",
+          "input_tokens": 220,
+          "output_tokens": 38,
+          "latency_ms": 1230,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"rate_limiter\": \"Token bucket, 500 requests per minute\",\n  \"authentication\": \"JWT access tokens\"\n}\n```"
+        },
+        {
+          "provider": "claude",
+          "model": "claude-haiku-5-5",
+          "input_tokens": 431,
+          "output_tokens": 38,
+          "latency_ms": 1382,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"framework\": \"FastAPI\",\n  \"deployment\": \"Kubernetes\"\n}\n```"
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-2.5-flash",
+          "input_tokens": 316,
+          "output_tokens": 34,
+          "latency_ms": 1281,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"event_queue\": \"NATS JetStream\",\n  \"audit_retention\": \"90 days\"\n}\n```"
+        },
+        {
+          "provider": "claude",
+          "model": "claude-haiku-5-5",
+          "input_tokens": 564,
+          "output_tokens": 47,
+          "latency_ms": 1348,
+          "exact_values_returned": 2,
+          "expected_values_total": 2,
+          "answer": "```json\n{\n  \"schema_migrations\": \"Alembic\",\n  \"secrets_manager\": \"HashiCorp Vault\"\n}\n```"
+        }
+      ],
+      "input_tokens": 1816,
+      "output_tokens": 204,
+      "exact_values_returned": 10,
+      "expected_values_total": 10
+    }
+  }
+}

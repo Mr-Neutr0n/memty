@@ -4,6 +4,12 @@ All notable changes to the `memty` package. This project follows [Semantic Versi
 
 ## Unreleased
 
+- `memty daemon` starts the shared vault daemon and local browser bridge together, checking that an existing bridge uses the same vault and user.
+- Browser reviews suggest namespaces found in the selection and allow choosing or creating a project before saving; fact titles prefer acronyms and identifiers.
+- Added a reproducible synthetic token payload benchmark and an optional live provider measurement runner.
+- Save each reviewed browser selection as an independent context, and choose a context from a newest-first list before pasting its numbered facts.
+- Preserve prose alongside lists, split long proposed facts without cutting words, show the original selection and known limits during review, and report when a capsule omits saved facts.
+- Fixed dragging the browser extension pill when the ChatGPT prompt changes position or size, with touch support and saved positions that remain in view after resizing.
 - `memty connect` now supports Codex CLI and VS Code through their official MCP installer commands, alongside Claude, Cursor, and Windsurf.
 - The stdio MCP server now exposes `memty_drill` for bounded archived-source reads with a local-model-only gate.
 - `memty_sync` can save up to 25 explicitly requested slot/value pairs and return the updated capsule in one call.

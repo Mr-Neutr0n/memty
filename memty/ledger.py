@@ -41,6 +41,7 @@ _VERIFICATION_STATES = {"USER_CONFIRMED", "SPEC_LOCKED", "EXTRACTED"}
 _SENSITIVITY_LEVELS = {"PUBLIC", "INTERNAL", "CONFIDENTIAL", "SECRET"}
 _PROVIDER = re.compile(r"^[a-zA-Z0-9_.-]{1,80}$")
 _KEY_PART = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+_CONTEXT_SLOT_SUFFIX = re.compile(r"__c([0-9a-f]{10})([0-9a-f]{2})$")
 _RULE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _TOKEN_TERM = re.compile(r"[\w'-]{2,}", re.UNICODE)
 
@@ -345,7 +346,7 @@ class MemtyLedger:
                allowed_providers: list[str] | None = None, blocked_providers: list[str] | None = None,
                ephemeral_redaction: bool = False, source_id: str | None = None,
                source_raw: str | None = None,
-               embedding: list[float] | None = None) -> dict[str, Any]:
+               embedding: list[float] | None = None, create_only: bool = False) -> dict[str, Any]:
         """Create or supersede one atomic slot.
 
         Values are capped at :data:`FACT_TOKEN_LIMIT` tokens.  Replacing a slot
@@ -391,6 +392,9 @@ class MemtyLedger:
                 "SELECT * FROM atomic_facts WHERE user_id=? AND namespace=? AND slot=?",
                 (self.user_id, namespace, slot)).fetchone()
             if existing:
+                if create_only:
+                    db.execute("ROLLBACK")
+                    raise LockedSlot("this slot already exists")
                 if existing["tombstone"] and state not in {"USER_CONFIRMED", "SPEC_LOCKED"}:
                     db.execute("ROLLBACK")
                     raise TombstonedSlot("this slot was deleted by the user; automatic extraction cannot restore it")
@@ -439,6 +443,68 @@ class MemtyLedger:
                       int(ephemeral_redaction), encoded_embedding, now, now))
             db.execute("COMMIT")
         return self.get(memory_id)  # type: ignore[return-value]
+
+    def record_context(self, namespace: str, facts: list[dict]) -> dict[str, Any]:
+        """Atomically save one reviewed selection without replacing another context."""
+        namespace = _normalize_namespace(namespace)
+        if not isinstance(facts, list) or not 1 <= len(facts) <= 25:
+            raise ValueError("a context must contain 1-25 facts")
+        prepared = []
+        for item in facts:
+            if not isinstance(item, dict):
+                raise ValueError("each fact must have a title and value")
+            slot = _normalize_slot(item.get("slot", ""))
+            value = str(item.get("value", "")).strip()
+            if len(slot) > 49:
+                raise ValueError("fact title must be at most 49 characters")
+            if not value or estimate_tokens(value) > FACT_TOKEN_LIMIT:
+                raise ValueError(f"each fact must contain 1-{FACT_TOKEN_LIMIT} tokens")
+            prepared.append((slot, value))
+
+        ranks = {"PUBLIC": 0, "INTERNAL": 1, "CONFIDENTIAL": 2, "SECRET": 3}
+        policies: dict[str, dict[str, Any]] = {}
+        saved = []
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute("SELECT * FROM atomic_facts WHERE user_id=? AND namespace=?",
+                              (self.user_id, namespace)).fetchall()
+            for row in rows:
+                base = _CONTEXT_SLOT_SUFFIX.sub("", row["slot"])
+                policy = policies.setdefault(base, {"sensitivity": "PUBLIC", "allowed": None,
+                                                    "blocked": set(), "ephemeral": False})
+                if ranks[row["sensitivity"]] > ranks[policy["sensitivity"]]:
+                    policy["sensitivity"] = row["sensitivity"]
+                allowed = set(_json_list(row["allowed_providers"]))
+                if allowed:
+                    policy["allowed"] = allowed if policy["allowed"] is None else policy["allowed"] & allowed
+                policy["blocked"].update(_json_list(row["blocked_providers"]))
+                policy["ephemeral"] |= bool(row["ephemeral_redaction"])
+            now_ns = time.time_ns()
+            batch = "save_" + f"{now_ns:016x}" + uuid.uuid4().hex[:8]
+            now = now_ns // 1_000_000
+            for index, (slot, value) in enumerate(prepared):
+                actual_slot = slot + "__c" + batch[-10:] + f"{index:02x}"
+                policy = policies.get(slot, {})
+                allowed = policy.get("allowed")
+                if allowed is not None and not allowed:
+                    allowed = {"__memty_no_provider__"}
+                try:
+                    db.execute("""
+                        INSERT INTO atomic_facts(
+                            id,user_id,namespace,slot,value,confidence,verification_state,
+                            sensitivity,source_id,version,tombstone,allowed_providers,
+                            blocked_providers,ephemeral_redaction,created_at,updated_at
+                        ) VALUES(?,?,?,?,?,1.0,'USER_CONFIRMED',?,?,1,0,?,?,?,?,?)
+                    """, ("mem_" + uuid.uuid4().hex, self.user_id, namespace, actual_slot, value,
+                          policy.get("sensitivity", "PUBLIC"), batch,
+                          json.dumps(sorted(allowed)) if allowed is not None else "[]",
+                          json.dumps(sorted(policy.get("blocked", ()))),
+                          int(policy.get("ephemeral", False)), now, now))
+                except sqlite3.IntegrityError as error:
+                    raise ValueError("could not create a distinct context; please retry") from error
+                saved.append({"slot": actual_slot, "version": 1})
+            db.execute("COMMIT")
+        return {"namespace": namespace, "context_id": batch, "saved": saved, "skipped": []}
 
     def get(self, memory_id: str, *, include_embedding: bool = False) -> dict[str, Any] | None:
         with self._connect() as db:
@@ -805,6 +871,13 @@ class MemtyLedger:
             query, provider=provider, token_budget=token_budget, namespace=namespace,
             semantic_scores=semantic_scores, query_embedding=query_embedding,
             strict_namespace=strict_namespace)
+
+    def context_selected(self, namespace: str, fact_ids: list[str], *, provider: str,
+                         token_budget: int = 2000) -> dict[str, Any]:
+        """Compile only the specified facts in order, applying the normal privacy gate."""
+        from .compiler import ContextCompiler
+        return ContextCompiler(self).compile_selected(namespace, fact_ids, provider=provider,
+                                                       token_budget=token_budget)
 
     def rehydrate(self, text: str, redactions: dict[str, str]) -> str:
         """Put redacted values back into provider output before showing the user."""

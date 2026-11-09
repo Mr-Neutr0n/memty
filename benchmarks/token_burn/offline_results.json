@@ -1,0 +1,156 @@
+{
+  "mode": "offline_payload_simulation",
+  "fixture": "Synthetic five-turn architecture handoff",
+  "fixture_sha256": "c610195d95ac130ba568b14c8effaa692bc011d6b8688a020bfb57df00ae1256",
+  "token_counter": "memty.tokens.estimate_tokens (heuristic, not a provider tokenizer)",
+  "scope": "Memory payload only; no provider, model answer, actual MCP roundtrip, billing or latency measured.",
+  "retrieval_baseline": "Curated oracle chunks plus illustrative tool definitions; not a real RAG or MCP product.",
+  "continuity_metric": "Exact expected value appears in supplied context; not assistant recall accuracy.",
+  "estimated_memory_payload_reduction_percent": {
+    "full_document_replay": 88.0,
+    "simulated_retrieval": 72.5
+  },
+  "results": {
+    "full_document_replay": {
+      "turns": [
+        {
+          "provider": "claude",
+          "question": "Which database and cache engine should the API use?",
+          "estimated_memory_tokens": 742,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "perplexity",
+          "question": "What rate limiter and authentication mechanism were chosen?",
+          "estimated_memory_tokens": 742,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "claude",
+          "question": "Which HTTP framework and production platform are planned?",
+          "estimated_memory_tokens": 742,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "perplexity",
+          "question": "What event system and audit retention period apply?",
+          "estimated_memory_tokens": 742,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "claude",
+          "question": "Which tools handle schema migrations and runtime secrets?",
+          "estimated_memory_tokens": 742,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        }
+      ],
+      "estimated_memory_tokens_total": 3710,
+      "expected_values_present": 10,
+      "expected_values_total": 10
+    },
+    "simulated_retrieval": {
+      "turns": [
+        {
+          "provider": "claude",
+          "question": "Which database and cache engine should the API use?",
+          "estimated_memory_tokens": 324,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "perplexity",
+          "question": "What rate limiter and authentication mechanism were chosen?",
+          "estimated_memory_tokens": 324,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "claude",
+          "question": "Which HTTP framework and production platform are planned?",
+          "estimated_memory_tokens": 324,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "perplexity",
+          "question": "What event system and audit retention period apply?",
+          "estimated_memory_tokens": 324,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "claude",
+          "question": "Which tools handle schema migrations and runtime secrets?",
+          "estimated_memory_tokens": 324,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        }
+      ],
+      "estimated_memory_tokens_total": 1620,
+      "expected_values_present": 10,
+      "expected_values_total": 10
+    },
+    "memty_selected_context": {
+      "turns": [
+        {
+          "provider": "claude",
+          "question": "Which database and cache engine should the API use?",
+          "estimated_memory_tokens": 89,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "perplexity",
+          "question": "What rate limiter and authentication mechanism were chosen?",
+          "estimated_memory_tokens": 89,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "claude",
+          "question": "Which HTTP framework and production platform are planned?",
+          "estimated_memory_tokens": 89,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "perplexity",
+          "question": "What event system and audit retention period apply?",
+          "estimated_memory_tokens": 89,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        },
+        {
+          "provider": "claude",
+          "question": "Which tools handle schema migrations and runtime secrets?",
+          "estimated_memory_tokens": 89,
+          "expected_values_present": 2,
+          "expected_values_total": 2,
+          "missing_slots": []
+        }
+      ],
+      "estimated_memory_tokens_total": 445,
+      "expected_values_present": 10,
+      "expected_values_total": 10
+    }
+  }
+}

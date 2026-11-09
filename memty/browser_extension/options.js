@@ -8,6 +8,7 @@ let facts = [];
 const status = (text, kind = "") => { $("status").textContent = text; $("status").className = `status ${kind}`; };
 const base = () => `http://127.0.0.1:${Number(settings.port) || 8765}`;
 const label = (slot) => {
+  slot = slot.replace(/__c[0-9a-f]{12}$/, "");
   if (/^(?:note|fact)_[0-9a-f]{6,}$/.test(slot)) return "Note";
   const text = slot.replace(/_\d+$/, "").replace(/[_.]+/g, " ");
   return text.charAt(0).toUpperCase() + text.slice(1);

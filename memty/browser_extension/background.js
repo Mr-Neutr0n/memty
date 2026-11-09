@@ -73,11 +73,54 @@ async function namespace() {
   return chosen;
 }
 
+function validNamespace(value) {
+  const name = String(value || "").trim().toLowerCase();
+  if (name.length > 255 || !/^[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9_-]{0,63})*$/.test(name)) {
+    throw new Error("Use a namespace such as repo.memty or project.api.");
+  }
+  return name;
+}
+
+function suggestNamespace(text, names, current) {
+  const hint = String(text || "").toLowerCase().slice(0, 50_512);
+  const boundaryBefore = (character) => !character || !/[a-z0-9_.-]/.test(character);
+  const boundaryAfter = (at) => !hint[at] || (!/[a-z0-9_-]/.test(hint[at]) &&
+    (hint[at] !== "." || !/[a-z0-9]/.test(hint[at + 1] || "")));
+  const mentioned = names.filter((name) => {
+    let at = hint.indexOf(name);
+    while (at !== -1) {
+      if (boundaryBefore(hint[at - 1]) && boundaryAfter(at + name.length)) return true;
+      at = hint.indexOf(name, at + 1);
+    }
+    return false;
+  });
+  if (mentioned.length === 1) return mentioned[0];
+  if (mentioned.length > 1) return current;
+  const explicit = [...new Set(hint.match(/\b(?:repo|project)\.[a-z0-9][a-z0-9_-]*(?:\.[a-z0-9][a-z0-9_-]*)*/g) || [])];
+  return explicit.length === 1 ? validNamespace(explicit[0]) : current;
+}
+
 async function handle(message, sender) {
   const provider = PROVIDERS[new URL(sender.url || sender.tab?.url || "about:blank").hostname] || "web";
+  if (message.type === "namespace-options") {
+    const current = await namespace();
+    const { namespaces = [] } = await call("/namespaces");
+    const names = [...new Set([...namespaces, current].map(validNamespace))].sort();
+    const suggested = suggestNamespace(`${message.hint || ""}\n${message.title || ""}`, names, current);
+    return { namespace: suggested, namespaces: [...new Set([...names, suggested])].sort(),
+      detected: suggested !== current };
+  }
+  if (message.type === "contexts") {
+    return call(`/contexts?${new URLSearchParams({ provider })}`);
+  }
   if (message.type === "capsule") {
-    const query = new URLSearchParams({ namespace: await namespace(), provider, tokens: "200", format: "text" });
-    return call(`/capsule?${query}`);
+    const selected = validNamespace(message.namespace || await namespace());
+    const query = new URLSearchParams({ namespace: selected, provider,
+      tokens: message.context ? "2000" : "200", format: "text" });
+    if (message.context) query.set("context", message.context);
+    const result = await call(`/capsule?${query}`);
+    if (message.context && result.text) await chrome.storage.local.set({ namespace: selected });
+    return result;
   }
   if (message.type === "extract") {
     // A local Ollama model may need a while; heuristics answer instantly.
@@ -85,10 +128,14 @@ async function handle(message, sender) {
   }
   if (message.type === "save") {
     // The user reviewed and approved these in the card, so they count as confirmed.
-    return call("/facts", {
+    const selected = validNamespace(message.namespace || await namespace());
+    const result = await call("/facts", {
       method: "POST",
-      body: JSON.stringify({ namespace: await namespace(), facts: message.facts, source: provider, confirmed: true }),
+      body: JSON.stringify({ namespace: selected, facts: message.facts, source: provider,
+        confirmed: true, separate_context: true }),
     });
+    if (result.saved?.length) await chrome.storage.local.set({ namespace: selected });
+    return result;
   }
   if (message.type === "open-facts") {
     await chrome.runtime.openOptionsPage();

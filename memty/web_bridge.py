@@ -21,6 +21,7 @@ are refused, and redaction maps are never sent to the browser.
 """
 from __future__ import annotations
 
+import hashlib
 import hmac
 import threading
 from http import HTTPStatus
@@ -28,6 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import signal
 import subprocess
@@ -36,9 +38,9 @@ import time
 from urllib import request as urlrequest
 from urllib.parse import parse_qs, urlsplit
 
-from .compiler import LocalRoutingRequired, render_plain
+from .compiler import LocalRoutingRequired, render_plain_with_count, slot_label
 from .extract import MAX_INPUT_CHARS, extract_facts
-from .ledger import LockedSlot, TombstonedSlot
+from .ledger import LockedSlot, TombstonedSlot, _CONTEXT_SLOT_SUFFIX, _normalize_slot
 from .tokens import estimate_tokens
 
 DEFAULT_PORT = 8765
@@ -46,11 +48,12 @@ WEB_CAPSULE_TOKENS = 350
 # Compile with headroom, then trim the readable text to the real budget, so the
 # compiler's XML section caps never hide facts that would fit as plain lines.
 TEXT_COMPILE_BUDGET = 1500
-PRIVATE = {"CONFIDENTIAL", "SECRET"}
+PRIVATE = {"INTERNAL", "CONFIDENTIAL", "SECRET"}
 MAX_BODY = 256 * 1024
 MAX_SAVE = 25
 EXTENSION_SCHEMES = ("chrome-extension://", "moz-extension://", "safari-web-extension://")
 SAVE_BATCH_PREFIX = "save_"
+CONTEXT_BATCH = re.compile(r"save_(?:[0-9a-f]{16}|[0-9a-f]{24})$")
 # Saves made before batch ids existed: facts written this close to the newest one
 # count as the same save.
 LEGACY_BATCH_WINDOW_MS = 5_000
@@ -75,9 +78,55 @@ def latest_batch(facts: list[dict]) -> list[dict]:
                   key=when, reverse=True)
 
 
+def context_groups(facts: list[dict]) -> list[dict]:
+    """Group browser saves; older ungrouped facts stay separate."""
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for fact in facts:
+        source = str(fact.get("source_id") or "")
+        context_id = source if CONTEXT_BATCH.fullmatch(source) else "legacy_" + fact["id"]
+        groups.setdefault((fact["namespace"], context_id), []).append(fact)
+    result = []
+    for (namespace, context_id), items in groups.items():
+        def order(fact):
+            match = _CONTEXT_SLOT_SUFFIX.search(fact["slot"])
+            return (int(match.group(2), 16) if match else 256,
+                    int(fact["updated_at"] or 0), fact["slot"])
+        items.sort(key=order)
+        new_format = any(_CONTEXT_SLOT_SUFFIX.search(fact["slot"]) for fact in items)
+        timestamp = max(int(fact["created_at" if new_format else "updated_at"] or 0) for fact in items)
+        sort_time = (int(context_id[5:21], 16) if new_format and len(context_id) == 29
+                     else timestamp * 1_000_000)
+        if new_format and len(context_id) == 29:
+            timestamp = sort_time // 1_000_000
+        result.append({"id": context_id, "namespace": namespace, "updated_at": timestamp,
+                       "sort_time": sort_time, "facts": items})
+    return sorted(result, key=lambda group: (-group["sort_time"], group["namespace"], group["id"]))
+
+
+def context_preview(facts: list[dict], provider: str) -> str:
+    """Describe a context without exposing restricted or private values."""
+    provider = provider.casefold()
+    for fact in facts:
+        allowed = {item.casefold() for item in fact["allowed_providers"]}
+        blocked = {item.casefold() for item in fact["blocked_providers"]}
+        if (fact["sensitivity"] != "PUBLIC" or fact["ephemeral_redaction"] or provider in blocked
+                or (allowed and provider not in allowed)):
+            continue
+        value = " ".join(fact["value"].split())
+        if len(value) > 100:
+            value = value[:100].rsplit(" ", 1)[0] + "…"
+        return f"{slot_label(fact['slot'])}: {value}"
+    return "Private context"
+
+
 def token_path(db: str | Path) -> Path:
     db = Path(db).expanduser()
     return db.with_name(db.name + ".web-token")
+
+
+def vault_identity(db: str | Path) -> str:
+    """Identify a local vault without exposing its path on the health endpoint."""
+    return hashlib.sha256(os.path.normcase(str(Path(db).expanduser().resolve())).encode("utf-8")).hexdigest()
 
 
 def state_path(db: str | Path) -> Path:
@@ -288,6 +337,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
         try:
             if url.path == "/capsule":
                 self._capsule(query)
+            elif url.path == "/contexts":
+                self._contexts(query)
+            elif url.path == "/identity":
+                if self.server.db is None:
+                    raise ValueError("bridge vault is unavailable")
+                user = getattr(self.server.ledger, "user_id", "local")
+                self._send(HTTPStatus.OK, {"vault": vault_identity(self.server.db),
+                                           "user": user if isinstance(user, str) else "local",
+                                           "pid": os.getpid()})
             elif url.path == "/facts":
                 self._list_facts(query)
             elif url.path == "/namespaces":
@@ -358,12 +416,32 @@ class BridgeHandler(BaseHTTPRequestHandler):
         if not namespace:
             raise ValueError("namespace is required")
         tokens = int(query.get("tokens", WEB_CAPSULE_TOKENS))
-        if not 1 <= tokens <= 600:
-            raise ValueError("tokens must be between 1 and 600")
+        context_id = query.get("context", "").strip()
+        limit = 2000 if context_id else 600
+        if not 1 <= tokens <= limit:
+            raise ValueError(f"tokens must be between 1 and {limit}")
         provider = query.get("provider", "web").strip() or "web"
         style = query.get("format", "text")
         if style not in {"text", "xml"}:
             raise ValueError("format must be text or xml")
+        if context_id:
+            if style != "text":
+                raise ValueError("a selected context needs format=text")
+            group = next((item for item in context_groups(self.server.ledger.list(namespace=namespace))
+                          if item["id"] == context_id), None)
+            if group is None:
+                self._error(HTTPStatus.NOT_FOUND, "context_not_found", "This context changed or was deleted. Choose it again.")
+                return
+            try:
+                result = self.server.ledger.context_selected(
+                    namespace, [fact["id"] for fact in group["facts"]], provider=provider, token_budget=tokens)
+            except LocalRoutingRequired:
+                self._error(HTTPStatus.CONFLICT, "local_routing_required",
+                            "A SECRET fact in this context cannot be sent to a web assistant.")
+                return
+            self._send(HTTPStatus.OK, {**result, "namespace": namespace, "provider": provider,
+                                       "context": context_id})
+            return
         question = query.get("query", "").strip()
         # With no question to rank by, hand over only the most recent save: mixing
         # every earlier save into one paste confuses the chat assistant.
@@ -381,24 +459,39 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         "A SECRET fact matched; it cannot be sent to a web assistant.",
                         namespace=error.namespace, slot=error.slot)
             return
-        if scope == "latest" and result["text"]:
+        eligible = result.get("eligible_count", 0)
+        if scope == "latest":
             # Keep the compiler's privacy decisions (redacted values, refused facts),
             # just narrowed to the latest save and shown in the order it was saved.
             order = {f["id"]: i for i, f in enumerate(latest_batch(
                 self.server.ledger.list(namespace=namespace)))}
+            eligible = len(order)
             kept = sorted((c for c in result["citations"] if c.get("id") in order),
                           key=lambda c: order[c["id"]])
             result = {**result, "citations": kept, "text": result["text"] if kept else ""}
         # Chat assistants read plain "Title: value" lines far better than XML slots.
-        text = (render_plain(result, namespace, tokens) if style == "text" and result["text"]
-                else result["text"])
-        lines = [line for line in text.splitlines() if not line.startswith("Summary:")]
+        if style == "text" and result["text"]:
+            text, included = render_plain_with_count(result, tokens)
+        else:
+            text = result["text"]
+            included = result.get("injected_count", 0) if style == "xml" else 0
         # Redaction maps hold the real CONFIDENTIAL values: never send them to a browser.
         self._send(HTTPStatus.OK, {"text": text, "approx_tokens": estimate_tokens(text),
                                    "namespace": namespace, "provider": provider,
-                                   "facts": len(lines) if style == "text" else result.get("injected_count", 0),
+                                   "facts": included, "omitted": max(0, eligible - included),
                                    "redacted": (text.count("[private]") if style == "text" else
                                                 len(result.get("redactions") or {}))})
+
+    def _contexts(self, query: dict) -> None:
+        namespace = query.get("namespace", "").strip() or None
+        provider = query.get("provider", "web").strip() or "web"
+        if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", provider):
+            raise ValueError("invalid provider")
+        groups = context_groups(self.server.ledger.list(namespace=namespace))
+        self._send(HTTPStatus.OK, {"contexts": [
+            {"id": group["id"], "namespace": group["namespace"], "updated_at": group["updated_at"],
+             "count": len(group["facts"]), "preview": context_preview(group["facts"], provider)}
+            for group in groups]})
 
     # -- user-controlled fact management (view, edit, delete) -----------
     @staticmethod
@@ -431,16 +524,25 @@ class BridgeHandler(BaseHTTPRequestHandler):
         new_slot = str(body.get("new_slot") or slot).strip()
         value = body.get("value")
         current = next((f for f in self.server.ledger.list(namespace=namespace) if f["slot"] == slot), None)
+        suffix = _CONTEXT_SLOT_SUFFIX.search(slot) if current else None
+        if suffix and new_slot != slot:
+            new_slot = _normalize_slot(new_slot)[:49] + suffix.group(0)
         if value is None or not str(value).strip():
             if current is None:
                 raise ValueError("value is required")
             value = current["value"]  # rename or privacy change: keep the stored value server-side
         if "private" in body:
-            sensitivity = "CONFIDENTIAL" if body["private"] else "PUBLIC"
+            sensitivity = ((current["sensitivity"] if current and current["sensitivity"] in PRIVATE else "CONFIDENTIAL")
+                           if body["private"] else "PUBLIC")
         else:
             sensitivity = current["sensitivity"] if current else "PUBLIC"
         record = self.server.ledger.record(namespace, new_slot, str(value), confidence=1.0,
-                                           verification_state="USER_CONFIRMED", sensitivity=sensitivity)
+                                           verification_state="USER_CONFIRMED", sensitivity=sensitivity,
+                                           source_id=current.get("source_id") if current else None,
+                                           allowed_providers=current.get("allowed_providers") if current else None,
+                                           blocked_providers=current.get("blocked_providers") if current else None,
+                                           ephemeral_redaction=current.get("ephemeral_redaction", False) if current else False,
+                                           create_only=bool(suffix and new_slot != slot))
         if current is not None and record["slot"] != slot:
             self.server.ledger.forget(namespace, slot)  # renamed: remove the old title
         self._send(HTTPStatus.OK, {"namespace": namespace, "slot": record["slot"],
@@ -466,6 +568,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
         # Without it, facts stay EXTRACTED: they never overwrite user-confirmed slots
         # and never resurrect slots the user forgot.
         confirmed = body.get("confirmed") is True
+        separate = body.get("separate_context") is True
+        if separate and not confirmed:
+            raise ValueError("a separate context must be reviewed and confirmed")
+        if separate:
+            self._send(HTTPStatus.OK, self.server.ledger.record_context(namespace, facts))
+            return
         existing = ({f["slot"]: f["sensitivity"] for f in self.server.ledger.list(namespace=namespace)}
                     if confirmed else {})
         # Every fact from one Save click shares a batch id, so the capsule can hand
@@ -477,9 +585,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
             value = str(item.get("value", "")) if isinstance(item, dict) else ""
             try:
                 if confirmed:  # keep a private fact private when its value is updated
+                    normalized = _normalize_slot(slot)
                     record = self.server.ledger.record(
                         namespace, slot, value, confidence=1.0, verification_state="USER_CONFIRMED",
-                        sensitivity=existing.get(slot.strip().casefold(), "PUBLIC"), source_id=batch)
+                        sensitivity=existing.get(normalized, "PUBLIC"), source_id=batch)
                 else:
                     record = self.server.ledger.record(namespace, slot, value, confidence=0.7,
                                                        verification_state="EXTRACTED", source_id=batch)
@@ -498,6 +607,19 @@ def health(port: int, timeout: float = 1.0) -> bool:
             return json.loads(response.read()).get("service") == "memty"
     except (OSError, ValueError):
         return False
+
+
+def bridge_identity(db, port: int, timeout: float = 1.0) -> dict | None:
+    """Verify a running bridge using the existing vault's pairing token."""
+    try:
+        token = token_path(db).read_text(encoding="utf-8").strip()
+        req = urlrequest.Request(f"http://127.0.0.1:{port}/identity",
+                                 headers={"Authorization": "Bearer " + token})
+        with urlrequest.urlopen(req, timeout=timeout) as response:
+            body = json.loads(response.read())
+        return body if body.get("vault") == vault_identity(db) else None
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
 
 
 def serve(db, user_id, *, port: int = DEFAULT_PORT, allowed_origins=None, quiet=True) -> None:
@@ -520,6 +642,9 @@ def serve(db, user_id, *, port: int = DEFAULT_PORT, allowed_origins=None, quiet=
 
 def start_background(db, user_id, *, port: int = DEFAULT_PORT, allowed_origins=None) -> dict:
     if health(port):
+        identity = bridge_identity(db, port)
+        if not identity or identity.get("user") != user_id:
+            raise RuntimeError(f"Port {port} is already used by a different or older Memty bridge; stop it before starting this vault.")
         return {"running": True, "port": port, "already_running": True}
     args = [sys.executable, "-m", "memty", "--db", str(db), "--user", user_id, "serve", "--port", str(port)]
     for origin in allowed_origins or []:
@@ -530,7 +655,10 @@ def start_background(db, user_id, *, port: int = DEFAULT_PORT, allowed_origins=N
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         if health(port):
-            return {"running": True, "port": port}
+            identity = bridge_identity(db, port)
+            if identity and identity.get("user") == user_id:
+                return {"running": True, "port": port}
+            raise RuntimeError(f"Port {port} is already used by a different or older Memty bridge.")
         time.sleep(0.1)
     raise RuntimeError(f"memty serve did not start on 127.0.0.1:{port}; run it in the foreground to see why")
 
