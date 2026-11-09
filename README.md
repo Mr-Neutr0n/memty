@@ -53,13 +53,14 @@ Load the extension once: open `chrome://extensions` (or `edge://extensions`), tu
 Then, in ChatGPT, Claude.ai, Gemini, or Perplexity:
 
 - **Select text → ＋ Save to Memty.** Memty proposes short facts. You edit or untick them, then save.
-- **⚡ Memty (Alt+M).** Your facts go to the top of the message box, newest first, for you to check before sending:
+- **⚡ Memty (Alt+M).** Choose a saved context, newest first. Its numbered facts go into the message box for you to check before sending:
 
   ```
-  Database: PostgreSQL 16 on Neon
-  Deploy target: Fly.io
-  Editor: VS Code
-  Client: [private]
+  [Memty context]
+  1. Database: PostgreSQL 16 on Neon
+  2. Deploy target: Fly.io
+  3. Client: [private]
+  [/Memty]
   ```
 
 - **☰ Your facts.** View, search, edit, add, delete, or mark facts private.
@@ -85,7 +86,7 @@ flowchart TB
     Q --> V[("~/.memty/ledger.sqlite3<br/>your vault")]
 ```
 
-1. **Atomic facts:** memory is stored as small `namespace.slot = value` facts of at most 40 tokens, for example `work.project.editor = "VS Code"`. Saving a new value replaces the old one and keeps the history.
+1. **Atomic facts:** memory is stored as small `namespace.slot = value` facts of at most 40 tokens, for example `work.project.editor = "VS Code"`. CLI updates keep a slot's history; each reviewed browser save creates its own context.
 2. **Namespaces** such as `work.project` and `personal` keep contexts apart. A chat only gets the namespace you choose.
 3. **The compiler** builds a small capsule for each request: newest facts first, or the most relevant ones for a question, always under a hard token budget.
 4. **The privacy gate** checks every capsule:
@@ -95,7 +96,7 @@ flowchart TB
    - **SECRET** facts stop the request.
 5. **You decide:** automatic extraction can't overwrite facts you confirmed or bring back facts you deleted.
 
-Picking facts from a chat uses **fixed rules, not an AI model**: bullets, `Key: value` lines, and short sentences are kept, while questions, headings, and code are skipped, and code blocks become one-line summaries. That makes it instant, free, and private. Set `MEMTY_OLLAMA_MODEL` to use a local Ollama model instead.
+Picking facts from a chat uses local rules by default: prose, bullets, and `Key: value` lines are considered; long passages are split into related parts for review. Questions, headings, and raw code are skipped, and code blocks may become one-line summaries. Set `MEMTY_OLLAMA_MODEL` to use a local model for extraction and summaries. Review the proposals against the original text before saving.
 
 ## 🔒 Privacy and data
 
@@ -120,6 +121,7 @@ The vault file itself is **not encrypted**, so it relies on your computer accoun
 | Command | What it does |
 | --- | --- |
 | `memty serve --autostart` | Start the browser bridge now and at every login (`--no-autostart` to undo) |
+| `memty daemon` | Start the shared vault daemon and browser bridge for the current vault |
 | `memty extension` | Install or update the browser extension folder |
 | `memty pair` | Connect another browser or a reinstalled extension (two-minute window) |
 | `memty connect` | Connect Claude Desktop, Claude Code, Codex CLI, VS Code, Cursor, and Windsurf through supported installers or guided steps |
@@ -250,7 +252,7 @@ The router doesn't use the vault to choose models yet; memory-aware routing is o
 | **Week 3:** browser extension, fact manager, readable capsules, local extraction, pairing, autostart, PyPI v0.2.0 | ✅ Shipped |
 | Chrome Web Store listing (one-click install) | ⏭️ Next |
 | Memory-aware model routing | 🗓️ Planned |
-| Reproducible public benchmarks (recall accuracy, tokens, cost) | 🗓️ Planned |
+| [Synthetic token payload benchmark](benchmarks/token_burn/README.md) | Available; real-provider and product comparisons remain to be measured |
 
 See the [changelog](memty/CHANGELOG.md) for details.
 

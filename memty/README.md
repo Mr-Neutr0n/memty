@@ -31,13 +31,14 @@ Then load the extension once. Open `chrome://extensions` (or `edge://extensions`
 In any chat on ChatGPT, Claude.ai, Gemini, or Perplexity:
 
 - **Select text → ＋ Save to Memty.** Memty proposes short, atomic facts. You edit or untick them, then save.
-- **⚡ Memty (or Alt+M).** Your saved facts are added to the top of the prompt, newest first, where you can see and edit them before sending:
+- **⚡ Memty (or Alt+M).** Choose a saved context, newest first. Its numbered facts are added to the prompt for you to check before sending:
 
   ```
-  Company: MEMTY
-  Category: Portable AI Memory Infrastructure
-  Memory store: Memty Vault
-  Client: [private]
+  [Memty context]
+  1. Company: MEMTY
+  2. Category: Portable AI Memory Infrastructure
+  3. Client: [private]
+  [/Memty]
   ```
 
 - **☰ (or the extension icon).** Opens **Your Memty facts**, where you can view, search, edit, add, delete, or mark facts private.
@@ -66,7 +67,7 @@ memty clip work.project            # copy your facts to the clipboard for any AI
                 ~/.memty/ledger.sqlite3   (your vault: SQLite, on your disk)
 ```
 
-1. **Atomic facts.** Memory is stored as small `namespace.slot = value` facts, for example `work.project.editor = "VS Code"`. There is one value per slot and each fact is at most 40 tokens. Saving a new value replaces the old one and keeps an audit trail, so memory never contradicts itself.
+1. **Atomic facts.** Memory is stored as small `namespace.slot = value` facts, for example `work.project.editor = "VS Code"`. There is one value per slot and each fact is at most 40 tokens. CLI updates replace a slot and keep an audit trail. Each reviewed browser save creates a separate context, so a later selection with the same titles does not overwrite it.
 2. **Namespaces** keep contexts apart (`work.project`, `personal`, `client.acme`). A chat only receives the namespace you choose.
 3. **The compiler** builds a small capsule for each request. Without a question it lists the newest facts first. With a question it ranks facts by relevance. Either way the capsule stays within a hard token budget.
 4. **The privacy gate** runs on every capsule:
@@ -90,7 +91,7 @@ After `pip install -U memty`, run `memty extension` again and click reload on th
 
 | Feature | What it does |
 | --- | --- |
-| ⚡ Memty / Alt+M | Adds your facts to the prompt as plain `Title: value` lines (up to about 350 tokens, newest first) |
+| ⚡ Memty / Alt+M | Choose a context from newest to oldest and add its individually numbered facts to the prompt |
 | Select text → ＋ Save to Memty | Proposes atomic facts from the selection. You edit titles and values, then save. |
 | ＋ Save | The same, for your selection or the latest answer |
 | ☰ Your facts | View, search, edit, add, delete, and mark facts private |
@@ -99,14 +100,17 @@ After `pip install -U memty`, run `memty extension` again and click reload on th
 How facts are extracted, all on your machine:
 
 - Headings, questions, and Memty blocks you pasted earlier are skipped.
+- Prose and list items are both considered. Long facts are split into related parts instead of silently cutting off their endings. The review panel shows the original text and warns about known limits; check the proposed facts before saving.
+- A single review can propose up to 25 facts. Select another part of the text if the review reports that some proposals were left out.
 - Bare file paths are grouped into one `files` fact.
 - Code is never stored. Each code block becomes one summary, such as `JavaScript code in content.js defines saveFacts`.
-- Set `MEMTY_OLLAMA_MODEL` (for example `llama3.1`) to extract with a local Ollama model. If Ollama doesn't respond, Memty falls back to its built-in rules.
+- Set `MEMTY_OLLAMA_MODEL` (for example `llama3.1`) to extract and summarize with a local Ollama model. If Ollama doesn't respond, Memty falls back to its built-in rules. Both approaches can miss context, so review the result.
 
 ### Bridge commands
 
 ```shell
-memty serve --autostart        # start now and at every login (Windows, macOS, Linux; per-user, no admin)
+memty daemon                   # start the vault daemon and browser bridge together
+memty serve --autostart        # also start the browser bridge at every login (per-user, no admin)
 memty serve --no-autostart     # stop it and remove the login item
 memty serve --background       # start quietly once
 memty serve --stop
@@ -130,11 +134,13 @@ The bridge runs on your computer, so it's built so that websites can't read or c
 | --- | --- |
 | `GET /health` | Liveness check (no token, no data) |
 | `POST /pair` | Token for the paired extension only |
-| `GET /capsule?namespace=&provider=&query=&tokens=350&format=text\|xml` | The capsule for a chat |
+| `GET /contexts?provider=` | Saved contexts across namespaces, newest first; previews respect privacy |
+| `GET /capsule?namespace=&provider=&context=&tokens=2000&format=text` | Numbered facts for one selected context |
+| `GET /capsule?namespace=&provider=&query=&tokens=350&format=text\|xml` | Legacy query or latest-save capsule |
 | `GET /namespaces` | Namespace names and fact counts |
 | `GET /facts?namespace=` | Facts, newest first; private values are `null` |
 | `POST /extract` `{"text"}` | Proposed facts. Writes nothing. |
-| `POST /facts` `{"namespace", "facts": [{"slot", "value"}], "confirmed"}` | Saves reviewed facts |
+| `POST /facts` `{"namespace", "facts": [{"slot", "value"}], "confirmed", "separate_context"}` | Saves a reviewed selection as one context when both flags are true |
 | `POST /facts/update` `{"namespace", "slot", "new_slot", "value", "private"}` | Edits, renames, or changes privacy (saved as user-confirmed) |
 | `POST /facts/delete` `{"namespace", "slot"}` | Forgets a fact and its history |
 

@@ -10,7 +10,8 @@
     "start": "node server.js",
     "frontend:dev": "next dev -p 3001",
     "frontend:start": "node server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:extension": "node --test tests/test_memty_extension.cjs tests/test_memty_background.cjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.5.0",

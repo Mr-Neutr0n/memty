@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from memty.extract import extract_facts, extract_heuristic
@@ -21,6 +22,16 @@ EXT = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 
 
 class ExtractTests(unittest.TestCase):
+    def test_titles_prefer_acronyms_entities_and_inline_identifiers(self):
+        facts = extract_heuristic("- You pointed out a critical issue: MCP tools and JSON responses burn extra tokens.\n"
+                                  "- The `memty_sync` function carries the MCP schema.\n"
+                                  "- Use Redis for the rate limiter.")
+        self.assertEqual(facts[0]["slot"], "mcp_json_tokens")
+        self.assertIn("memty_sync", facts[1]["slot"])
+        self.assertIn("mcp", facts[1]["slot"])
+        self.assertIn("redis", facts[2]["slot"])
+        self.assertNotIn("pointed_out_critical", [f["slot"] for f in facts])
+
     def test_bullets_and_key_values_become_valid_slots(self):
         answer = """Here is the plan:
 
@@ -34,7 +45,7 @@ class ExtractTests(unittest.TestCase):
 """
         facts = extract_heuristic(answer)
         by_slot = {f["slot"]: f["value"] for f in facts}
-        self.assertEqual(by_slot["database"], "PostgreSQL 16 on Neon")
+        self.assertEqual(by_slot["database"], "PostgreSQL 16 on Neon (https://neon.tech)")
         self.assertEqual(by_slot["database_2"], "SQLite for tests")
         self.assertEqual(by_slot["deploy_target"], "Fly.io")
         self.assertEqual(by_slot["deadline"], "March 3")
@@ -120,12 +131,64 @@ CREATE TABLE IF NOT EXISTS atomic_facts (id TEXT);
 
     def test_prose_fallback_and_caps(self):
         facts = extract_heuristic("Paris is the capital of France. It has about two million residents. Ok.")
-        self.assertEqual(len(facts), 2)
-        self.assertEqual([f["slot"] for f in facts], ["paris_capital_france", "two_million_residents"])
+        self.assertEqual(len(facts), 1)
+        self.assertEqual(facts[0]["value"], "Paris is the capital of France. It has about two million residents.")
         long = "- " + " ".join(["word"] * 200)
         self.assertLessEqual(estimate_tokens(extract_heuristic(long)[0]["value"]), 40)
         many = "\n".join(f"- fact number {i}" for i in range(40))
-        self.assertEqual(len(extract_heuristic(many)), 12)
+        self.assertEqual(len(extract_heuristic(many)), 25)
+        self.assertIn("Only the first 25", extract_facts(many)["warnings"][0])
+
+    def test_mixed_prose_and_lists_keep_context_and_distinct_keys(self):
+        selection = """The service uses a shared SQLite vault. It remains on the user's computer.
+
+- **Decision**: Use C# for the agent and keep Redis as a backup.
+- Retry limit: 3 attempts
+- Timeout: 3 attempts
+- Time complexity: O(n)
+- Rule: status != archived
+- If the cache fails, reject requests unless the user approves a fallback.
+- Use Redis
+
+Requests must not be sent to the cloud unless the user explicitly approves them.
+"""
+        facts = extract_facts(selection)["facts"]
+        values = {item["slot"]: item["value"] for item in facts}
+        self.assertIn("The service uses a shared SQLite vault. It remains on the user's computer.", values.values())
+        self.assertEqual(values["decision"], "Use C# for the agent and keep Redis as a backup.")
+        self.assertEqual(values["retry_limit"], "3 attempts")
+        self.assertEqual(values["timeout"], "3 attempts")
+        self.assertEqual(values["time_complexity"], "O(n)")
+        self.assertEqual(values["rule"], "status != archived")
+        self.assertIn("If the cache fails, reject requests unless the user approves a fallback.", values.values())
+        self.assertIn("Use Redis", values.values())
+        self.assertIn("Requests must not be sent to the cloud unless the user explicitly approves them.", values.values())
+
+    def test_long_fact_keeps_its_ending_and_reports_limits(self):
+        value = ("The service uses a local SQLite database and keeps every confirmed decision in a shared vault "
+                 "so the user can continue the same project across editors and assistants while retaining "
+                 "the original details including the reason for the choice and its constraints. "
+                 "Never send private client details to a cloud provider without explicit approval.")
+        result = extract_facts("- Decision: " + value)
+        self.assertGreater(len(result["facts"]), 1)
+        self.assertEqual(" ".join(f["value"] for f in result["facts"]), value)
+        self.assertTrue(all(estimate_tokens(f["value"]) <= 40 for f in result["facts"]))
+        self.assertTrue(any("split" in warning for warning in result["warnings"]))
+        oversized = extract_facts("- Identifier: " + "x" * 200 + " remains local")
+        self.assertTrue(any("too long" in warning for warning in oversized["warnings"]))
+
+    def test_ollama_long_output_is_split_without_cutting_words(self):
+        class Reply:
+            def read(self):
+                return json.dumps({"response": json.dumps({"facts": [{"slot": "decision", "value": value}]})}).encode()
+            def __enter__(self): return self
+            def __exit__(self, *exc): return False
+        value = " ".join(["preserve"] * 55) + " and never send secrets"
+        with patch.dict(os.environ, {"MEMTY_OLLAMA_MODEL": "local"}), \
+             patch("memty.extract.urlrequest.urlopen", return_value=Reply()):
+            result = extract_facts("A long decision.")
+        self.assertEqual(" ".join(f["value"] for f in result["facts"]), value)
+        self.assertTrue(any("split" in warning for warning in result["warnings"]))
 
     def test_ollama_is_used_when_configured_and_falls_back(self):
         class Reply:
@@ -202,6 +265,17 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o077, 0)
         self.assertNotEqual(load_or_create_token(self.ledger.path, rotate=True), self.token)
 
+    def test_start_rejects_a_bridge_for_a_different_vault_or_user(self):
+        from memty.web_bridge import start_background
+        same = start_background(self.ledger.path, "local", port=self.port)
+        self.assertTrue(same["already_running"])
+        with self.assertRaisesRegex(RuntimeError, "different or older"):
+            start_background(self.ledger.path, "another-user", port=self.port)
+        other = Path(self.tmp.name) / "other.sqlite3"
+        with self.assertRaisesRegex(RuntimeError, "different or older"):
+            start_background(other, "local", port=self.port)
+        self.assertFalse(token_path(other).exists())
+
     def test_capsule_is_namespace_scoped_redacted_and_within_200_tokens(self):
         status, body, headers = self.request("GET", "/capsule?namespace=work.project&provider=openai")
         self.assertEqual(status, 200, body)
@@ -229,6 +303,18 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(body["error"], "local_routing_required")
         self.assertNotIn("sk-123", json.dumps(body))
 
+    def test_capsule_reports_when_saved_facts_do_not_fit(self):
+        facts = [{"slot": f"detail_{i}", "value": f"Detail {i} keeps the important condition and its final outcome"}
+                 for i in range(8)]
+        status, body, _ = self.request("POST", "/facts", {
+            "namespace": "work.project", "confirmed": True, "facts": facts})
+        self.assertEqual((status, len(body["saved"])), (200, 8))
+        status, body, _ = self.request("GET", "/capsule?namespace=work.project&provider=openai&tokens=60")
+        self.assertEqual(status, 200)
+        self.assertGreater(body["omitted"], 0)
+        self.assertEqual(body["facts"] + body["omitted"], 8)
+        self.assertLessEqual(estimate_tokens(body["text"]), 60)
+
     def test_web_pages_and_rebinding_are_blocked(self):
         for origin in ("https://evil.example", "null", "http://127.0.0.1:9999"):
             status, body, headers = self.request("GET", "/capsule?namespace=work.project", origin=origin)
@@ -250,6 +336,8 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(status, 401)
         status, body, _ = self.request("GET", "/health", token=False)
         self.assertEqual((status, body), (200, {"ok": True, "service": "memty"}))
+        status, body, _ = self.request("GET", "/contexts?provider=openai", token=False)
+        self.assertEqual((status, body["error"]), (401, "unauthorized"))
 
     def test_extension_pairs_itself_once(self):
         status, body, _ = self.request("POST", "/pair", {}, token=False)
@@ -327,6 +415,155 @@ class BridgeTests(unittest.TestCase):
         status, body, _ = self.request("GET", "/capsule?namespace=work.project&scope=newest")
         self.assertEqual(status, 400)
 
+    def test_saved_contexts_remain_separate_and_paste_numbered_in_save_order(self):
+        def save(decision, other):
+            return self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True,
+                "separate_context": True, "facts": [
+                    {"slot": "decision", "value": decision},
+                    {"slot": "decision_2", "value": other}]})
+        status, first, _ = save("Use SQLite", "Never use the cloud")
+        self.assertEqual((status, len(first["saved"]), first["skipped"]), (200, 2, []))
+        status, second, _ = save("Use PostgreSQL", "Store backups locally")
+        self.assertEqual((status, len(second["saved"]), second["skipped"]), (200, 2, []))
+        self.assertNotEqual(first["context_id"], second["context_id"])
+        status, result, _ = self.request("GET", "/contexts?provider=openai")
+        self.assertEqual(status, 200)
+        matching = [c for c in result["contexts"] if c["id"] in {first["context_id"], second["context_id"]}]
+        self.assertEqual([c["id"] for c in matching], [second["context_id"], first["context_id"]])
+        self.assertEqual([c["count"] for c in matching], [2, 2])
+        for context, expected, absent in ((first, ["Use SQLite", "Never use the cloud"], "PostgreSQL"),
+                                          (second, ["Use PostgreSQL", "Store backups locally"], "SQLite")):
+            status, capsule, _ = self.request("GET", "/capsule?namespace=work.project&provider=openai"
+                f"&format=text&tokens=2000&context={context['context_id']}")
+            self.assertEqual(status, 200, capsule)
+            self.assertEqual(capsule["text"].splitlines(), ["[Memty context]",
+                f"1. Decision: {expected[0]}", f"2. Decision: {expected[1]}", "[/Memty]"])
+            self.assertEqual((capsule["facts"], capsule["omitted"]), (2, 0))
+            self.assertNotIn(absent, capsule["text"])
+
+    def test_selected_context_privacy_and_other_secret_contexts(self):
+        status, public, _ = self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True,
+            "separate_context": True, "facts": [{"slot": "topic", "value": "Public architecture"}]})
+        self.assertEqual(status, 200)
+        status, private, _ = self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True,
+            "separate_context": True, "facts": [{"slot": "client", "value": "Private new client"}]})
+        self.assertEqual(status, 200)
+        self.ledger.record("work.project", "secret_key", "sensitive-secret", sensitivity="SECRET",
+                           source_id="save_0123456789abcdef")
+        status, groups, _ = self.request("GET", "/contexts?provider=openai")
+        self.assertEqual(status, 200)
+        self.assertNotIn("Private new client", json.dumps(groups))
+        self.assertNotIn("sensitive-secret", json.dumps(groups))
+        public_url = ("/capsule?namespace=work.project&provider=openai&tokens=2000&context=" + public["context_id"])
+        status, capsule, _ = self.request("GET", public_url)
+        self.assertEqual(status, 200, capsule)  # a secret in another context does not block this one
+        self.assertIn("Public architecture", capsule["text"])
+        private_url = ("/capsule?namespace=work.project&provider=openai&tokens=2000&context=" + private["context_id"])
+        status, capsule, _ = self.request("GET", private_url)
+        self.assertEqual(status, 200, capsule)
+        self.assertIn("[private]", capsule["text"])
+        self.assertNotIn("Private new client", json.dumps(capsule))
+        status, capsule, _ = self.request("GET", "/capsule?namespace=work.project&provider=openai"
+            "&tokens=2000&context=save_0123456789abcdef")
+        self.assertEqual((status, capsule["error"]), (409, "local_routing_required"))
+
+    def test_context_pastes_ten_full_numbered_facts(self):
+        items = [{"slot": f"detail_{index}", "value":
+                  f"Fact {index} describes the architecture and retains its particular condition and final result"}
+                 for index in range(10)]
+        status, saved, _ = self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True,
+            "separate_context": True, "facts": items})
+        self.assertEqual((status, len(saved["saved"]), saved["skipped"]), (200, 10, []))
+        url = "/capsule?namespace=work.project&provider=openai&tokens=2000&context=" + saved["context_id"]
+        status, capsule, _ = self.request("GET", url)
+        self.assertEqual((status, capsule["facts"], capsule["omitted"]), (200, 10, 0))
+        for index, item in enumerate(items, 1):
+            self.assertIn(f"{index}. Detail: {item['value']}", capsule["text"])
+        self.assertGreater(estimate_tokens(capsule["text"]), 200)
+
+    def test_context_save_preserves_provider_restrictions_for_reused_titles(self):
+        self.ledger.record("work.project", "restricted", "Anthropic only", allowed_providers=["anthropic"])
+        status, saved, _ = self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True,
+            "separate_context": True, "facts": [{"slot": "restricted", "value": "Also Anthropic only"}]})
+        self.assertEqual(status, 200)
+        created = self.ledger.find("work.project", saved["saved"][0]["slot"])
+        self.assertEqual(created["allowed_providers"], ["anthropic"])
+        status, groups, _ = self.request("GET", "/contexts?provider=openai")
+        context = next(item for item in groups["contexts"] if item["id"] == saved["context_id"])
+        self.assertEqual(context["preview"], "Private context")
+        url = "/capsule?namespace=work.project&provider=openai&tokens=2000&context=" + saved["context_id"]
+        status, capsule, _ = self.request("GET", url)
+        self.assertEqual((status, capsule["text"], capsule["omitted"]), (200, "", 1))
+
+    def test_context_save_is_atomic_when_a_fact_is_invalid(self):
+        before = self.ledger.stats()["active_facts"]
+        status, body, _ = self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True,
+            "separate_context": True, "facts": [{"slot": "first", "value": "Valid fact"},
+                {"slot": "second", "value": "word " * 100}]})
+        self.assertEqual(status, 400, body)
+        self.assertEqual(self.ledger.stats()["active_facts"], before)
+        self.assertIsNone(self.ledger.find("work.project", "first"))
+
+    def test_concurrent_saves_with_the_same_titles_do_not_overwrite_each_other(self):
+        def save(index):
+            return self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True,
+                "separate_context": True, "facts": [{"slot": "decision", "value": f"Choice {index}"}]})
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            responses = list(pool.map(save, range(4)))
+        self.assertTrue(all(status == 200 for status, _, _ in responses), responses)
+        ids = {body["context_id"] for _, body, _ in responses}
+        self.assertEqual(len(ids), 4)
+        status, listed, _ = self.request("GET", "/contexts?provider=openai")
+        self.assertEqual(status, 200)
+        found = [context for context in listed["contexts"] if context["id"] in ids]
+        self.assertEqual(len(found), 4)
+        self.assertEqual({context["preview"] for context in found},
+                         {f"Decision: Choice {index}" for index in range(4)})
+
+    def test_editing_or_deleting_context_facts_keeps_context_boundaries(self):
+        status, saved, _ = self.request("POST", "/facts", {"namespace": "work.project", "confirmed": True,
+            "separate_context": True, "facts": [{"slot": "editor", "value": "Zed"},
+                                                   {"slot": "language", "value": "Python"}]})
+        self.assertEqual(status, 200)
+        editor_slot, language_slot = [item["slot"] for item in saved["saved"]]
+        status, changed, _ = self.request("POST", "/facts/update", {"namespace": "work.project",
+            "slot": editor_slot, "new_slot": "main_editor", "value": "VS Code"})
+        self.assertEqual(status, 200, changed)
+        url = "/capsule?namespace=work.project&provider=openai&tokens=2000&context=" + saved["context_id"]
+        status, capsule, _ = self.request("GET", url)
+        self.assertEqual(status, 200, capsule)
+        self.assertIn("1. Main editor: VS Code", capsule["text"])
+        self.assertIn("2. Language: Python", capsule["text"])
+        status, _, _ = self.request("POST", "/facts/delete", {"namespace": "work.project", "slot": language_slot})
+        self.assertEqual(status, 200)
+        status, capsule, _ = self.request("GET", url)
+        self.assertEqual((status, capsule["facts"]), (200, 1))
+        self.assertNotIn("Python", capsule["text"])
+        status, _, _ = self.request("POST", "/facts/delete", {"namespace": "work.project", "slot": changed["slot"]})
+        self.assertEqual(status, 200)
+        status, body, _ = self.request("GET", url)
+        self.assertEqual((status, body["error"]), (404, "context_not_found"))
+
+    def test_edit_keeps_internal_sensitivity_and_provider_rules(self):
+        self.ledger.record("work.project", "restricted", "Original internal fact", sensitivity="INTERNAL",
+                           allowed_providers=["anthropic"], blocked_providers=["openai"])
+        status, listing, _ = self.request("GET", "/facts?namespace=work.project")
+        fact = next(item for item in listing["facts"] if item["slot"] == "restricted")
+        self.assertEqual((status, fact["private"], fact["value"]), (200, True, None))
+        status, _, _ = self.request("POST", "/facts/update", {"namespace": "work.project", "slot": "restricted",
+            "value": "Updated internal fact", "private": True})
+        self.assertEqual(status, 200)
+        saved = self.ledger.find("work.project", "restricted")
+        self.assertEqual((saved["sensitivity"], saved["allowed_providers"], saved["blocked_providers"]),
+                         ("INTERNAL", ["anthropic"], ["openai"]))
+
+    def test_legacy_unbatched_facts_are_not_combined_as_one_context(self):
+        status, body, _ = self.request("GET", "/contexts?namespace=work.project&provider=openai")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(body["contexts"]), 2)
+        self.assertTrue(all(context["id"].startswith("legacy_") and context["count"] == 1
+                            for context in body["contexts"]))
+
     def test_user_can_view_edit_and_delete_facts(self):
         status, body, _ = self.request("GET", "/facts?namespace=work.project")
         self.assertEqual(status, 200)
@@ -377,6 +614,23 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(self.ledger.find("work.project", "editor")["value"], "VS Code")
         saved = self.ledger.find("work.project", "framework")
         self.assertEqual((saved["value"], saved["verification_state"]), ("Next.js", "EXTRACTED"))
+
+    def test_long_selection_can_be_reviewed_and_saved_without_cutting_the_end(self):
+        value = ("The project uses a local SQLite vault shared by every editor and assistant so that the user's "
+                 "confirmed decisions remain available across sessions without requiring the user to repeat "
+                 "the full architecture every time. Never send private client details to a cloud provider "
+                 "without the user's explicit approval.")
+        status, proposed, _ = self.request("POST", "/extract", {"text": "- Decision: " + value})
+        self.assertEqual(status, 200)
+        self.assertGreater(len(proposed["facts"]), 1)
+        self.assertTrue(any("split" in warning for warning in proposed["warnings"]))
+        status, saved, _ = self.request("POST", "/facts", {
+            "namespace": "work.project", "confirmed": True, "facts": proposed["facts"]})
+        self.assertEqual((status, len(saved["saved"]), saved["skipped"]), (200, len(proposed["facts"]), []))
+        status, listed, _ = self.request("GET", "/facts?namespace=work.project")
+        self.assertEqual(status, 200)
+        stored = {fact["slot"]: fact["value"] for fact in listed["facts"]}
+        self.assertEqual(" ".join(stored[fact["slot"]] for fact in proposed["facts"]), value)
 
     def test_rejects_bad_requests(self):
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)

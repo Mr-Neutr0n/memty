@@ -8,7 +8,7 @@ import sqlite3
 from typing import TYPE_CHECKING, Any
 from xml.sax.saxutils import escape
 
-from .ledger import (LOCAL_PROVIDERS, _PROVIDER, _normalize_namespace, _terms)
+from .ledger import (LOCAL_PROVIDERS, _CONTEXT_SLOT_SUFFIX, _PROVIDER, _normalize_namespace, _terms)
 from .tokens import estimate_tokens, truncate_tokens
 from .vectors import cosine, unpack_vector
 
@@ -129,6 +129,54 @@ class ContextCompiler:
         return self._pack(ranked, summary, provider=provider, provider_key=provider_key,
                           local=local, trusted=trusted, token_budget=token_budget,
                           namespace=namespace, eligible_count=len(ranked))
+
+    def compile_selected(self, namespace: str, fact_ids: list[str], *, provider: str,
+                         token_budget: int = 2000) -> dict[str, Any]:
+        """Render one explicitly chosen context without mixing other namespace facts."""
+        namespace = _normalize_namespace(namespace)
+        provider = str(provider or "").strip()
+        if not _PROVIDER.fullmatch(provider):
+            raise ValueError("provider is required and must be a provider identifier")
+        if not isinstance(token_budget, int) or not 1 <= token_budget <= 2000:
+            raise ValueError("token_budget must be an integer between 1 and 2000")
+        if (not isinstance(fact_ids, list) or not 1 <= len(fact_ids) <= 25
+                or any(not isinstance(item, str) for item in fact_ids)
+                or len(set(fact_ids)) != len(fact_ids)):
+            raise ValueError("a context must contain 1-25 distinct fact IDs")
+        provider_key = provider.casefold()
+        local = provider_key in LOCAL_PROVIDERS
+        trusted = local or provider_key in self.ledger.trusted_providers
+        placeholders = ",".join("?" for _ in fact_ids)
+        with self.ledger._connect() as db:
+            rows = db.execute(
+                f"SELECT * FROM atomic_facts WHERE user_id=? AND namespace=? AND tombstone=0 AND id IN ({placeholders})",
+                (self.ledger.user_id, namespace, *fact_ids)).fetchall()
+        by_id = {row["id"]: self.ledger._fact(row) for row in rows}
+        if len(by_id) != len(fact_ids):
+            raise ValueError("context changed; choose it again")
+        allowed = []
+        for fact_id in fact_ids:
+            fact = by_id[fact_id]
+            if not self._provider_allowed(fact, provider_key, trusted):
+                continue
+            if fact["sensitivity"] == "SECRET" and not local:
+                raise LocalRoutingRequired(provider, namespace=namespace, slot=fact["slot"])
+            fact_trusted = trusted or provider_key in {item.casefold() for item in fact["allowed_providers"]}
+            private = fact["ephemeral_redaction"] or (fact["sensitivity"] == "CONFIDENTIAL" and not fact_trusted)
+            allowed.append((fact, "[private]" if private else fact["value"], bool(private)))
+        header, footer = "[Memty context]", "[/Memty]"
+        lines: list[str] = []
+        redacted = 0
+        for fact, value, private in allowed:
+            line = f"{len(lines) + 1}. {slot_label(fact['slot'])}: {' '.join(value.split())}"
+            candidate = "\n".join([header, *lines, line, footer])
+            if estimate_tokens(candidate) > token_budget:
+                break
+            lines.append(line)
+            redacted += int(private)
+        text = "\n".join([header, *lines, footer]) if lines else ""
+        return {"text": text, "approx_tokens": estimate_tokens(text), "facts": len(lines),
+                "omitted": len(fact_ids) - len(lines), "redacted": redacted}
 
     # ------------------------------------------------------------------
     @staticmethod
@@ -350,6 +398,7 @@ _COUNTER = re.compile(r"_\d+$")
 
 def slot_label(slot: str) -> str:
     """``deploy_target_2`` -> ``Deploy target``; hashed note slots become ``Note``."""
+    slot = _CONTEXT_SLOT_SUFFIX.sub("", slot)
     if _HASH_SLOT.match(slot):
         return "Note"
     label = _COUNTER.sub("", slot).replace("_", " ").replace(".", " ").strip()
@@ -362,12 +411,17 @@ def render_plain(result: dict[str, Any], namespace: str | None = None,
 
     Citations arrive best-first, so trimming drops the least relevant facts.
     """
+    return render_plain_with_count(result, token_budget)[0]
+
+
+def render_plain_with_count(result: dict[str, Any], token_budget: int | None = None) -> tuple[str, int]:
+    """Render a capsule and count facts that fit, including grouped fact parts."""
     citations = list(result.get("citations") or [])
     text = _render_plain(citations)
     while token_budget and citations and estimate_tokens(text) > token_budget:
         citations.pop()
         text = _render_plain(citations)
-    return text
+    return text, sum(1 for item in citations if item.get("type") != "summary")
 
 
 def _render_plain(citations: list[dict[str, Any]]) -> str:

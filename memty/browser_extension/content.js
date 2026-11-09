@@ -36,9 +36,9 @@
     "www.perplexity.ai": ".prose",
     "perplexity.ai": ".prose",
   };
-  const MARKERS = ["[Memty context", "<memty_state"]; // capsule formats before v0.4
   const POS_KEY = `memtyPos:${location.hostname}`;
   const MIN_SELECTION = 12;
+  const MAX_SELECTION_CHARS = 50_000;
 
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;z-index:2147483647;";
@@ -52,7 +52,8 @@
              border-radius:999px; background:linear-gradient(135deg,#7c3aed,#4f46e5);
              border:1px solid rgba(255,255,255,.55); box-shadow:0 4px 14px rgba(79,70,229,.45);
              font:600 13px/1 system-ui,-apple-system,sans-serif; color:#fff; user-select:none; }
-      .grip { cursor:grab; padding:6px 4px 6px 7px; opacity:.75; letter-spacing:-2px; }
+      .grip { cursor:grab; padding:6px 4px 6px 7px; opacity:.75; letter-spacing:-2px;
+              touch-action:none; -webkit-user-select:none; }
       .grip:active { cursor:grabbing; }
       button { all:unset; cursor:pointer; padding:7px 11px; border-radius:999px; color:#fff;
                white-space:nowrap; }
@@ -68,7 +69,21 @@
               box-shadow:0 12px 40px rgba(0,0,0,.28); font:13px/1.4 system-ui,sans-serif; }
       .card header { padding:12px 14px 8px; font-weight:700; display:flex; justify-content:space-between; }
       .card header small { font-weight:400; color:#6b7280; }
-      .list { overflow:auto; padding:0 14px; }
+      .review-note { margin:0 14px 8px; color:#92400e; font-size:12px; }
+      .project { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:0 14px 8px;
+                 color:#374151; font-size:12px; }
+      .project select, .project input { min-width:0; max-width:100%; padding:4px 6px;
+                 border:1px solid #c7d2fe; border-radius:6px; background:#fff; color:#111827; font:inherit; }
+      .source { margin:0 14px 8px; color:#4338ca; font-size:12px; }
+      .source summary { cursor:pointer; }
+      .source pre { max-height:100px; overflow:auto; margin:6px 0 0; padding:8px;
+                    white-space:pre-wrap; overflow-wrap:anywhere; color:#374151; background:#f9fafb; }
+      .list { overflow:auto; min-height:0; padding:0 14px; }
+      .context-choice { display:block; width:100%; padding:10px 8px; border-radius:8px;
+                        color:#111827; font:13px/1.35 system-ui,sans-serif; white-space:normal; }
+      .context-choice:hover, .context-choice:focus-visible { background:#eef2ff; }
+      .context-choice strong, .context-choice small { display:block; }
+      .context-choice small { margin-top:3px; color:#6b7280; }
       .fact { display:grid; grid-template-columns:18px 1fr; gap:4px 8px; padding:8px 0;
               border-top:1px solid #eef2ff; align-items:start; }
       .fact input[type=checkbox] { margin:3px 0 0; accent-color:#4f46e5; }
@@ -111,12 +126,24 @@
   document.documentElement.appendChild(host);
 
   let editor = null;
+  // Older releases stored a prompt-relative offset. Keep it until the user
+  // moves or resets the pill, then store a stable viewport position instead.
   let offset = { x: 0, y: 0 };
+  let position = null;
+  let positionLoaded = false;
+  let positionTouched = false;
+  let drag = null;
+  let pickerRevision = 0;
   let lastPos = "";
   let toastTimer = 0;
 
   chrome.storage.local.get(POS_KEY, (stored) => {
-    if (stored?.[POS_KEY]) offset = stored[POS_KEY];
+    const saved = stored?.[POS_KEY];
+    if (!positionTouched && Number.isFinite(saved?.x) && Number.isFinite(saved?.y)) {
+      if (saved.anchor === "viewport") position = { x: saved.x, y: saved.y };
+      else offset = { x: saved.x, y: saved.y };
+    }
+    positionLoaded = true;
     schedule();
   });
 
@@ -137,26 +164,37 @@
 
   const resizeObserver = new ResizeObserver(() => schedule());
 
+  function clampPosition(x, y, width, height) {
+    return {
+      x: Math.min(Math.max(4, x), Math.max(4, innerWidth - width - 4)),
+      y: Math.min(Math.max(4, y), Math.max(4, innerHeight - height - 4)),
+    };
+  }
+
   function place() {
+    if (!positionLoaded) return;
     const found = findEditor();
     if (found !== editor) {
       if (editor) resizeObserver.unobserve(editor);
       editor = found;
       if (editor) resizeObserver.observe(editor);
     }
-    if (bar.hidden !== !editor) bar.hidden = !editor;
-    if (!editor) return;
-    const rect = editor.getBoundingClientRect();
+    const hidden = !editor && !drag;
+    if (bar.hidden !== hidden) bar.hidden = hidden;
+    if (hidden) return;
     const width = bar.offsetWidth || 190;
     const height = bar.offsetHeight || 32;
-    // Default: just above the prompt box's top-right corner, then the user's drag offset.
-    const left = Math.min(Math.max(4, rect.right - width + offset.x), innerWidth - width - 4);
-    const top = Math.min(Math.max(4, rect.top - height - 8 + offset.y), innerHeight - height - 4);
-    const pos = `${Math.round(left)},${Math.round(top)}`;
+    const rect = editor?.getBoundingClientRect();
+    // Once moved, the pill no longer follows a changing ChatGPT composer.
+    const target = position || (rect
+      ? { x: rect.right - width + offset.x, y: rect.top - height - 8 + offset.y }
+      : { x: drag.left, y: drag.top });
+    const placed = clampPosition(target.x, target.y, width, height);
+    const pos = `${Math.round(placed.x)},${Math.round(placed.y)}`;
     if (pos !== lastPos) { // only touch styles when something moved
       lastPos = pos;
-      bar.style.left = `${Math.round(left)}px`;
-      bar.style.top = `${Math.round(top)}px`;
+      bar.style.left = `${Math.round(placed.x)}px`;
+      bar.style.top = `${Math.round(placed.y)}px`;
     }
   }
 
@@ -165,25 +203,43 @@
     if (!frame) frame = requestAnimationFrame(() => { frame = 0; place(); });
   }
 
-  // Drag the pill by its grip; the offset is remembered per site.
+  // Drag the pill by its grip; the position is remembered per site.
   const grip = $(".grip");
   grip.addEventListener("pointerdown", (event) => {
+    if (!event.isPrimary || event.button !== 0 || drag) return;
     event.preventDefault();
+    event.stopPropagation();
+    const rect = bar.getBoundingClientRect();
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY,
+             left: rect.left, top: rect.top, moved: false };
     grip.setPointerCapture(event.pointerId);
-    const start = { x: event.clientX, y: event.clientY, ox: offset.x, oy: offset.y };
-    const move = (e) => {
-      offset = { x: start.ox + e.clientX - start.x, y: start.oy + e.clientY - start.y };
-      schedule();
-    };
-    const up = () => {
-      grip.removeEventListener("pointermove", move);
-      grip.removeEventListener("pointerup", up);
-      chrome.storage.local.set({ [POS_KEY]: offset });
-    };
-    grip.addEventListener("pointermove", move);
-    grip.addEventListener("pointerup", up);
   });
+  grip.addEventListener("pointermove", (event) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    if (!dx && !dy) return;
+    position = clampPosition(drag.left + dx, drag.top + dy, bar.offsetWidth, bar.offsetHeight);
+    Object.assign(drag, { x: event.clientX, y: event.clientY, left: position.x, top: position.y, moved: true });
+    positionTouched = true;
+    schedule();
+  });
+  const finishDrag = (event) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    event.stopPropagation();
+    const moved = drag.moved;
+    drag = null;
+    if (moved && alive()) chrome.storage.local.set({ [POS_KEY]: { ...position, anchor: "viewport" } });
+    schedule();
+  };
+  grip.addEventListener("pointerup", finishDrag);
+  grip.addEventListener("pointercancel", finishDrag);
+  grip.addEventListener("lostpointercapture", finishDrag);
   grip.addEventListener("dblclick", () => {
+    positionTouched = true;
+    position = null;
     offset = { x: 0, y: 0 };
     chrome.storage.local.remove(POS_KEY);
     schedule();
@@ -266,6 +322,15 @@
       fenced.textContent = `\n\`\`\`${lang}\n${code.textContent.trim()}\n\`\`\`\n`;
       pre.replaceWith(fenced);
     }
+    for (const link of sandbox.querySelectorAll("a[href]")) {
+      const href = link.getAttribute("href") || "";
+      const label = link.textContent.trim();
+      if (/^https?:\/\//i.test(href) && label && label !== href && !/^\d+$/.test(label)) {
+        link.append(document.createTextNode(` (${href})`));
+      }
+    }
+    // innerText drops the browser's list markers; retain the boundaries for extraction.
+    for (const item of sandbox.querySelectorAll("li")) item.prepend(document.createTextNode("- "));
     document.body.append(sandbox);
     const text = sandbox.innerText;
     sandbox.remove();
@@ -289,24 +354,77 @@
 
   // ---------------------------------------------------------------- actions
   async function inject() {
+    if (!card.hidden) return toast("Finish or close the open panel first.");
     const el = findEditor();
     if (!el) return toast("Click into the prompt box first.");
     await busy(injectBtn, "⚡ …", async () => {
       try {
-        const capsule = await ask({ type: "capsule" });
-        if (!capsule.text) return toast(`No saved facts in ${capsule.namespace} yet.`);
-        const current = textOf(el);
-        const firstLine = capsule.text.split("\n")[0];
-        if (current.includes(firstLine) || MARKERS.some((marker) => current.includes(marker))) {
-          return toast("Your Memty facts are already in this prompt.");
-        }
-        prepend(el, capsule.text);
-        const note = capsule.redacted ? `, ${capsule.redacted} kept private` : "";
-        toast(`Added ${capsule.facts || "your"} fact(s) from ${capsule.namespace}${note}.`);
+        const { contexts } = await ask({ type: "contexts" });
+        if (signal.aborted || !card.hidden) return;
+        if (!contexts?.length) return toast("No saved contexts yet. Select text and save it first.");
+        chooseContext(contexts, el);
       } catch (error) {
         toast(error.message, 6000);
       }
     });
+  }
+
+  function chooseContext(contexts, originalEditor) {
+    const revision = ++pickerRevision;
+    let choosing = false;
+    card.replaceChildren();
+    const header = document.createElement("header");
+    header.textContent = "Choose a saved context";
+    const hint = document.createElement("small");
+    hint.textContent = "Newest first";
+    header.append(hint);
+    const list = document.createElement("div");
+    list.className = "list";
+    contexts.forEach((context, index) => {
+      const choice = document.createElement("button");
+      choice.className = "context-choice";
+      const title = document.createElement("strong");
+      title.textContent = `${index + 1}. ${context.preview}`;
+      const detail = document.createElement("small");
+      const time = context.updated_at ? new Date(context.updated_at).toLocaleString() : "";
+      detail.textContent = [context.namespace, `${context.count} fact(s)`, time].filter(Boolean).join(" · ");
+      choice.append(title, detail);
+      choice.addEventListener("click", async () => {
+        if (choosing) return;
+        choosing = true;
+        list.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+        try {
+          const capsule = await ask({ type: "capsule", namespace: context.namespace, context: context.id });
+          if (signal.aborted || revision !== pickerRevision || card.hidden) return;
+          if (!capsule.text) return toast(capsule.omitted
+            ? "No facts could be added because of privacy settings or the context size."
+            : "This context has no available facts.");
+          const el = visible(originalEditor) ? originalEditor : findEditor();
+          if (!el) return toast("Click into the prompt box and choose the context again.");
+          if (textOf(el).includes(capsule.text)) return toast("This context is already in the prompt.");
+          prepend(el, capsule.text);
+          closeCard();
+          const note = capsule.redacted ? `, ${capsule.redacted} kept private` : "";
+          const omitted = capsule.omitted ? ` ${capsule.omitted} not included due to privacy or space.` : "";
+          toast(`Added ${capsule.facts} fact(s) from ${capsule.namespace}${note}.${omitted}`);
+        } catch (error) {
+          if (!signal.aborted && revision === pickerRevision && !card.hidden) toast(error.message, 6000);
+        } finally {
+          choosing = false;
+          list.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+        }
+      });
+      list.append(choice);
+    });
+    const actions = document.createElement("div");
+    actions.className = "row";
+    const cancel = document.createElement("button");
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", closeCard);
+    actions.append(cancel);
+    card.append(header, list, actions);
+    card.hidden = false;
+    list.querySelector("button")?.focus();
   }
 
   function label(slot) {
@@ -316,13 +434,47 @@
   }
   const toSlot = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 48);
 
-  function review(facts, source) {
+  function review(facts, source, original, warnings = [], namespaceInfo = {}) {
     card.replaceChildren();
     const header = document.createElement("header");
     header.textContent = "Save to Memty";
     const hint = document.createElement("small");
     hint.textContent = `${facts.length} from ${source} · edit before saving`;
     header.append(hint);
+    const project = document.createElement("label");
+    project.className = "project";
+    project.append("Save to project: ");
+    const projectSelect = document.createElement("select");
+    const names = [...new Set([...(namespaceInfo.namespaces || []), namespaceInfo.namespace || "personal"])];
+    for (const name of names) {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name + (name === namespaceInfo.namespace && namespaceInfo.detected ? " (suggested)" : "");
+      option.selected = name === (namespaceInfo.namespace || "personal");
+      projectSelect.append(option);
+    }
+    const newProject = document.createElement("option");
+    newProject.value = "__new__";
+    newProject.textContent = "＋ New project…";
+    projectSelect.append(newProject);
+    const customProject = document.createElement("input");
+    customProject.placeholder = "e.g. repo.memty";
+    customProject.hidden = true;
+    projectSelect.addEventListener("change", () => {
+      customProject.hidden = projectSelect.value !== "__new__";
+      if (!customProject.hidden) customProject.focus();
+    });
+    project.append(projectSelect, customProject);
+    const sourceDetails = document.createElement("details");
+    sourceDetails.className = "source";
+    const sourceSummary = document.createElement("summary");
+    sourceSummary.textContent = "Review original text (not saved)";
+    const sourceText = document.createElement("pre");
+    sourceText.textContent = original;
+    sourceDetails.append(sourceSummary, sourceText);
+    const note = document.createElement("div");
+    note.className = "review-note";
+    note.textContent = warnings.join(" ");
     const list = document.createElement("div");
     list.className = "list";
     const rows = facts.map((fact) => {
@@ -344,12 +496,18 @@
     function recount() { save.textContent = `Save ${rows.filter((r) => r.box.checked).length}`; }
     rows.forEach((r) => r.box.addEventListener("change", recount));
     actions.append(cancel, save);
-    card.append(header, list, actions);
+    card.append(header, project);
+    if (warnings.length) card.append(note);
+    card.append(sourceDetails, list, actions);
     toastEl.hidden = true;
     card.hidden = false;
     rows[0]?.value.focus();
     cancel.onclick = () => { card.hidden = true; };
     save.onclick = () => busy(save, "Saving…", async () => {
+      const projectName = (projectSelect.value === "__new__" ? customProject.value : projectSelect.value).trim().toLowerCase();
+      if (projectName.length > 255 || !/^[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9_-]{0,63})*$/.test(projectName)) {
+        return toast("Choose a project name such as repo.memty or project.api.");
+      }
       const chosen = rows.filter((r) => r.box.checked && r.value.value.trim())
         .map((r) => {
           // An unchanged title keeps its original slot, so several "Note"s never collide.
@@ -366,7 +524,7 @@
       }
       if (!chosen.length) return toast("Nothing selected.");
       try {
-        const result = await ask({ type: "save", facts: chosen });
+        const result = await ask({ type: "save", namespace: projectName, facts: chosen });
         card.hidden = true;
         const skipped = result.skipped.length ? ` (${result.skipped.length} skipped: ${result.skipped[0].message})` : "";
         toast(`Saved ${result.saved.length} fact(s) to ${result.namespace}${skipped}.`);
@@ -377,10 +535,20 @@
   }
 
   async function extractFrom(text, source, button) {
+    if (!card.hidden) return toast("Finish or close the open panel first.");
+    if (text.length > MAX_SELECTION_CHARS) {
+      return toast("That text is too long to review at once. Select a shorter passage and save it in parts.", 6000);
+    }
     await busy(button, "…", async () => {
       try {
-        const { facts } = await ask({ type: "extract", text: text.slice(0, 50000) });
-        facts.length ? review(facts, source) : toast("No clear facts found. Try selecting a shorter, specific passage.");
+        const { facts, warnings = [] } = await ask({ type: "extract", text });
+        if (signal.aborted) return;
+        if (!card.hidden) return toast("Finish or close the open panel first.");
+        if (!facts.length) return toast(warnings.join(" ") || "No clear facts found. Try selecting a shorter, specific passage.", 6000);
+        const namespaceInfo = await ask({ type: "namespace-options", hint: text, title: document.title });
+        if (signal.aborted) return;
+        if (!card.hidden) return toast("Finish or close the open panel first.");
+        review(facts, source, text, warnings, namespaceInfo);
       } catch (error) {
         toast(error.message, 6000);
       }
@@ -435,8 +603,12 @@
   document.addEventListener("selectionchange", () => {
     if (!bubble.hidden && window.getSelection()?.isCollapsed) bubble.hidden = true;
   }, { signal });
+  function closeCard() {
+    pickerRevision += 1;
+    card.hidden = true;
+  }
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !card.hidden) { card.hidden = true; return; }
+    if (event.key === "Escape" && !card.hidden) { closeCard(); return; }
     if (event.altKey && !event.ctrlKey && !event.metaKey && event.code === "KeyM") {
       event.preventDefault();
       event.stopPropagation();

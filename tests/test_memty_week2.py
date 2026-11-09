@@ -97,6 +97,23 @@ with MemtyLedger(sys.argv[1]) as ledger:
             finally:
                 stop(path)
 
+    def test_daemon_saves_and_recalls_one_numbered_context(self):
+        from memty.daemon import DaemonLedger, stop
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "daemon.sqlite3")
+            ledger = DaemonLedger(path)
+            try:
+                saved = ledger.record_context("work.project", [
+                    {"slot": "editor", "value": "VS Code"},
+                    {"slot": "language", "value": "Python"},
+                ])
+                ids = [ledger.find("work.project", fact["slot"])["id"] for fact in saved["saved"]]
+                capsule = ledger.context_selected("work.project", ids, provider="openai", token_budget=2000)
+                self.assertEqual(capsule["text"].splitlines(), ["[Memty context]", "1. Editor: VS Code",
+                                                                  "2. Language: Python", "[/Memty]"])
+            finally:
+                stop(path)
+
     def _client_home(self, tmp):
         home = Path(tmp)
         paths = {
