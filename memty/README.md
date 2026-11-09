@@ -14,6 +14,18 @@
 
 > Memty is in alpha (0.x). The storage format is stable and covered by tests, but commands and options may still change between minor versions. See the [changelog](https://github.com/memtylabs/memty/blob/main/memty/CHANGELOG.md).
 
+## Token Burn Benchmark
+
+Three live runs of one synthetic five-turn handoff between Claude Haiku 5.5 and Gemini 2.5 Flash produced the following provider-reported input usage:
+
+| Context supplied | Average input tokens per run | Reduction with Memty | Exact answers across three runs |
+| --- | ---: | ---: | ---: |
+| Full document replay | 4,663 | 61.1% | 27/30 |
+| Simulated retrieval with curated snippets and illustrative schemas | 3,128.7 | 42.0% | 27/30 |
+| Selected Memty context | 1,816 | — | 30/30 |
+
+This is one synthetic fixture with preselected Memty facts; the retrieval baseline did not call a real retrieval product. It is not a guarantee of universal recall or savings. See the [benchmark, individual runs, and reproduction instructions](../benchmarks/token_burn/README.md).
+
 ---
 
 ## Quick start (about 3 minutes)

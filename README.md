@@ -35,6 +35,18 @@ This repository contains two things:
 
 > **Status:** Memty is in alpha (0.x). The vault's storage format is stable and covered by tests; commands and options may still change between minor versions.
 
+## Token Burn Benchmark
+
+In three live runs of the same synthetic five-turn architecture handoff between Claude Haiku 5.5 and Gemini 2.5 Flash, the selected Memty context used fewer provider-reported input tokens:
+
+| Context supplied | Average input tokens per run | Reduction with Memty | Exact answers across three runs |
+| --- | ---: | ---: | ---: |
+| Full document replay | 4,663 | 61.1% | 27/30 |
+| Simulated retrieval: curated snippets and illustrative tool definitions | 3,128.7 | 42.0% | 27/30 |
+| Selected Memty context | 1,816 | — | 30/30 |
+
+These are encouraging results for **one synthetic fixture**, not proof of universal recall or savings against a real RAG/MCP product. The retrieval baseline did not call a retrieval service, and Memty's facts were prepared in advance. [See every run, methodology, and reproducibility instructions](benchmarks/token_burn/README.md).
+
 <a id="quick-start"></a>
 ## 🚀 Quick start
 

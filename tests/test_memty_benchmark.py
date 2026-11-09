@@ -59,6 +59,32 @@ class BenchmarkTests(unittest.TestCase):
         self.assertNotIn("secret-a", json.dumps(report))
         self.assertNotIn("secret-b", json.dumps(report))
 
+    def test_gemini_api_response_and_usage(self):
+        response = {"modelVersion": "gemini-2.5-flash", "candidates": [{"content": {"parts": [{"text": "answer"}]}}],
+                    "usageMetadata": {"promptTokenCount": 123, "candidatesTokenCount": 14,
+                                      "thoughtsTokenCount": 3, "totalTokenCount": 140}}
+        with patch.object(run, "_post", return_value=response) as post:
+            answer, usage, model = run._provider_response("gemini", "gemini-2.5-flash", "secret", "prompt")
+        self.assertEqual((answer, usage, model), ("answer", {"input_tokens": 123, "output_tokens": 17}, "gemini-2.5-flash"))
+        self.assertEqual(post.call_args.args[1]["x-goog-api-key"], "secret")
+        self.assertNotIn("secret", post.call_args.args[0])
+
+    def test_live_gemini_handoff_uses_google_context_provider(self):
+        fixture = json.loads(json.dumps(self.fixture))
+        for turn in fixture["turns"]:
+            if turn["provider"] == "perplexity":
+                turn["provider"] = "gemini"
+        payloads = run.build_payloads(fixture)
+        calls = []
+        def response(provider, model, key, prompt):
+            calls.append(provider)
+            return "{}", {"input_tokens": 1, "output_tokens": 1}, model
+        with patch.object(run, "_provider_response", side_effect=response):
+            report = run.live_report(fixture, self.digest, payloads,
+                {"claude": "haiku", "gemini": "flash"}, {"claude": "a", "gemini": "b"})
+        self.assertEqual(calls[:5], ["claude", "gemini", "claude", "gemini", "claude"])
+        self.assertEqual(report["providers"], calls[:5])
+
 
 if __name__ == "__main__":
     unittest.main()
