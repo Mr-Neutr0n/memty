@@ -18,7 +18,7 @@ from .compiler import LocalRoutingRequired
 from .factory import default_user_id, default_vault_path
 from .ledger import LockedSlot, MemtyLedger, TombstonedSlot
 
-METHODS = frozenset({"record", "forget", "context", "stats", "list", "set_summary", "summary",
+METHODS = frozenset({"record", "find", "forget", "context", "stats", "list", "set_summary", "summary",
                      "summarize_namespace", "set_constraint", "list_constraints", "delete_constraint",
                      "archive_raw", "drill_down", "history"})
 MAX_MESSAGE = 16 * 1024 * 1024

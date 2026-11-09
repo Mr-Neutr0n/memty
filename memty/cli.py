@@ -258,14 +258,14 @@ def main() -> None:
 
     commands.add_parser("stats", help="show vault counters and paths")
     connect = commands.add_parser(
-        "connect", help="connect Memty to Claude Desktop, Claude Code, Cursor, and Windsurf",
+        "connect", help="connect Memty to Claude, Codex, VS Code, Cursor, and Windsurf",
         description="Connect Memty through each client's own installer. Memty never writes client "
-                    "settings files: Claude Code uses 'claude mcp add', Cursor shows its install prompt, "
-                    "and Claude Desktop and Windsurf get exact manual steps.")
+                    "settings files: supported CLIs install the server, Cursor shows its install "
+                    "prompt, and Claude Desktop and Windsurf get exact manual steps.")
     connect.add_argument("--dry-run", action="store_true", help="show the plan without running anything")
     connect.add_argument("--no-open", action="store_true",
                          help="print the Cursor install link instead of opening it")
-    connect.add_argument("--client", action="append", choices=["Claude Desktop", "Claude Code", "Cursor", "Windsurf"],
+    connect.add_argument("--client", action="append", choices=["Claude Desktop", "Claude Code", "Codex CLI", "VS Code", "Cursor", "Windsurf"],
                          help="only connect this client (repeatable)")
 
     serve = commands.add_parser(

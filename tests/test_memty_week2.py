@@ -245,18 +245,24 @@ with MemtyLedger(sys.argv[1]) as ledger:
                     async with ClientSession(reader, writer) as session:
                         await session.initialize()
                         tools = await session.list_tools()
-                        self.assertEqual([tool.name for tool in tools.tools], ["memty_sync"])
+                        self.assertEqual([tool.name for tool in tools.tools], ["memty_sync", "memty_drill"])
                         templates = await session.list_resource_templates()
                         self.assertEqual(str(templates.resourceTemplates[0].uriTemplate), "memty://capsule/{namespace}")
                         result = await session.call_tool("memty_sync", {"namespace": "one", "action": "remember", "slot": "color", "value": "blue"})
                         self.assertFalse(result.isError)
+                        updated = await session.call_tool("memty_sync", {"namespace": "one", "set_slots": {
+                            "editor": "VS Code", "language": "Python"}})
+                        self.assertFalse(updated.isError)
+                        self.assertIn("VS Code", str(updated.content))
+                        denied = await session.call_tool("memty_drill", {"namespace": "one", "slot": "editor"})
+                        self.assertIn("local_only", str(denied.content))
                         import subprocess
                         from memty.daemon import status
                         first_pid = status(env["MEMTY_DB"])["pid"]
                         cli = subprocess.run([sys.executable, "-m", "memty", "stats"],
                                              env=env, capture_output=True, text=True, timeout=15)
                         self.assertEqual(cli.returncode, 0, cli.stderr)
-                        self.assertEqual(json.loads(cli.stdout)["active_facts"], 1)
+                        self.assertEqual(json.loads(cli.stdout)["active_facts"], 3)
                         self.assertEqual(status(env["MEMTY_DB"])["pid"], first_pid)
                         await session.call_tool("memty_sync", {"namespace": "two", "action": "remember", "slot": "color", "value": "red"})
                         resource = await session.read_resource("memty://capsule/one")

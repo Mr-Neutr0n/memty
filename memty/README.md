@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/memtylabs/memty/blob/main/LICENSE)
 
 - **Local-first.** The vault is a single SQLite file in `~/.memty/`. There are no accounts, no cloud sync, and no telemetry.
-- **Works everywhere.** It connects to MCP clients (Claude Desktop, Claude Code, Cursor, Windsurf), to chat websites through a browser extension, and to anything else through the clipboard.
+- **Works everywhere.** It connects to MCP clients (Claude Desktop, Claude Code, Codex CLI, VS Code, Cursor, Windsurf), to chat websites through a browser extension, and to anything else through the clipboard.
 - **Under your control.** You can view, edit, delete, and mark any fact private. Deleted facts stay deleted, and AI extraction can never bring them back.
 - **Private by design.** Private values are hidden from cloud AIs and appear only as `[private]`. Secrets never leave your machine.
 - **Small and fast.** Capsules stay under a fixed token budget, and the core uses only the Python standard library.
@@ -159,7 +159,7 @@ To bind it to a hotkey:
 
 ---
 
-## MCP clients: Claude Desktop, Claude Code, Cursor, Windsurf
+## MCP clients: Claude Desktop, Claude Code, Codex CLI, VS Code, Cursor, Windsurf
 
 ```shell
 memty connect --dry-run            # show the plan; run and open nothing
@@ -174,10 +174,19 @@ memty connect --client Cursor      # only one client (repeatable)
 | --- | --- |
 | Claude Code | Runs Claude Code's official `claude mcp add --scope user memty -- <python> -m memty mcp` |
 | Cursor | Opens Cursor's official MCP install link, and Cursor asks you to confirm |
+| Codex CLI | Runs `codex mcp add memty -- <python> -m memty mcp` through Codex's installer |
+| VS Code | Runs `code --add-mcp` with a stdio server definition; confirm in VS Code |
 | Claude Desktop | Prints the exact entry and steps (Settings > Developer > Edit Config) |
 | Windsurf | Prints the exact entry and steps for Windsurf's MCP settings |
 
-Restart each client after connecting it. The server exposes the `memty_sync` tool (`recall`, `remember`, or `forget`) and the resource template `memty://capsule/{namespace}`. MCP capsules are limited to 120 tokens, and MCP clients are treated as cloud providers, so the privacy gate applies. Set `MEMTY_PROVIDER` to choose another identity; choose a local one only when the model really runs locally.
+Restart each client after connecting it. Every MCP process talks to the same `memtyd` for the configured vault. For example, saving `project.api.editor = VS Code` in Codex makes it available to Cursor's next `memty_sync(namespace="project.api")` call. The server exposes two tools:
+
+- `memty_sync(namespace, query, set_slots)` recalls a 120-token capsule. On an explicit user request, `set_slots` saves up to 25 confirmed slot/value pairs and returns the updated capsule in the same call. The older `action=remember|forget` form remains available for single-slot changes.
+- `memty_drill(namespace, slot)` returns at most 4,000 characters of archived source, only when `MEMTY_PROVIDER` names a genuinely local model. It never runs for the default cloud-provider identity.
+
+The resource template `memty://capsule/{namespace}` is also available. **MCP clients do not automatically read a resource merely because it is registered**; ask the assistant to call `memty_sync` for the relevant namespace. If you want this every chat, put a concise instruction in the client's own agent settings. The client and model still decide when to call tools.
+
+MCP capsules are limited to 120 tokens, and MCP clients are treated as cloud providers by default, so the privacy gate applies. Set `MEMTY_PROVIDER` to a local identity only when the model really runs locally. Tool schemas and returned capsules still use tokens; no fixed percentage saving is guaranteed.
 
 Note: Memty 0.1.0 and 0.1.1 could write client settings files directly. If a client broke after one of those versions ran, use that client's recovery steps. Don't delete its whole configuration file.
 
